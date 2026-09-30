@@ -1,0 +1,19 @@
+{
+  "schema": "ocrun-publication-checks-v1",
+  "source_commit": "5e5aac03225891bf9bf25d94c08dbaea52a7e01b",
+  "workflow": "https://github.com/SkyWalkerAMD/ocrun-next-private-archive/actions/runs/36675315378",
+  "result": "passed",
+  "publication_regressions": 5,
+  "source_export_regressions": 3,
+  "relative_document_links": 129,
+  "unchanged_compatibility_inputs": 15,
+  "package_inventory": {
+    "archives": 24,
+    "members": 5988,
+    "native_packages": 12,
+    "installers": 6
+  },
+  "original_builds_reused": true,
+  "windows_builds_or_tests": false,
+  "real_hardware_retested": false
+}
