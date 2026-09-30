@@ -1,0 +1,112 @@
+name: Offline node task finalization
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'finish_addon/**'
+      - '.github/workflows/finish-offline.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  rocky8-finalization:
+    name: Rocky 8 / Python 3.6 / task finalization and real rsync
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Build offline packages in cloud
+        run: |
+          /usr/bin/python3 build.py
+          /usr/bin/python3 report_addon/build_offline.py
+          /usr/bin/python3 finish_addon/build.py
+          mkdir .baseline
+          git archive 2b1e0fe31aab59a389fc9d4d9f3cdb508b2a3c6b | tar -x -C .baseline
+          (cd .baseline && /usr/bin/python3 report_addon/build_offline.py && /usr/bin/python3 finish_addon/build.py)
+          mkdir .previous020
+          git archive 094ff47e537aec9bfe0a2223408010530e5dc3d5 | tar -x -C .previous020
+          (cd .previous020 && /usr/bin/python3 finish_addon/build.py)
+          mkdir .previous021
+          git archive 30b56fb723091223a9308049f39b51221c24c127 | tar -x -C .previous021
+          (cd .previous021 && /usr/bin/python3 finish_addon/build.py)
+          (cd .previous021 && /usr/bin/python3 build.py)
+          mkdir .previous022
+          git archive 545860d885a5753e409ab1963fdbcb0174ae177f | tar -x -C .previous022
+          (cd .previous022 && /usr/bin/python3 finish_addon/build.py)
+          mkdir .previous023 .previous024
+          git archive 39117329c101616ca5263b89e3865a3fbd30388e | tar -x -C .previous023
+          git archive de94f341a2fd4f085ad9d85a71992bc394f5b4c6 | tar -x -C .previous024
+          for v in .previous023 .previous024; do (cd "$v" && /usr/bin/python3 finish_addon/build.py); done
+          bash -n finish_addon/hook.sh
+          bash -n finish_addon/install.sh
+          mkdir -p .finish-results
+      - name: Prepare disposable Rocky 8 image
+        run: |
+          docker build -t ocrun-finish-rocky8 - <<'DOCKERFILE'
+          FROM rockylinux/rockylinux:8@sha256:e8a49c5403b687db05d4d67333fa45808fbe74f36e683cec7abb1f7d0f2338c6
+          RUN timeout 180s dnf -y --disablerepo='*' --enablerepo=baseos,appstream \
+                --setopt=baseos.mirrorlist= \
+                --setopt=baseos.baseurl=https://dl.rockylinux.org/pub/rocky/8/BaseOS/x86_64/os/ \
+                --setopt=appstream.mirrorlist= \
+                --setopt=appstream.baseurl=https://dl.rockylinux.org/pub/rocky/8/AppStream/x86_64/os/ \
+                --setopt=timeout=15 --setopt=retries=1 install tar rsync procps-ng redis && dnf clean all
+          DOCKERFILE
+          docker image inspect ocrun-finish-rocky8 --format '{{.Id}}' > .finish-results/container-image.txt
+      - name: Verify real collector stop, Excel, transfer, failure recovery and scheduler hooks
+        shell: bash
+        run: |
+          set -o pipefail
+          docker run --rm --network none -e GITHUB_ACTIONS=true \
+            -v "$GITHUB_WORKSPACE:/src:ro" -v "$GITHUB_WORKSPACE/.finish-results:/results" \
+            ocrun-finish-rocky8 /usr/libexec/platform-python -I -B /src/finish_addon/cloud_test.py \
+            2>&1 | tee .finish-results/finish-addon.txt
+      - name: Verify report security and small-report compatibility
+        if: always()
+        shell: bash
+        run: |
+          set -o pipefail
+          docker run --rm --network none -e GITHUB_ACTIONS=true \
+            -v "$GITHUB_WORKSPACE:/src:ro" -v "$GITHUB_WORKSPACE/.finish-results:/results" \
+            ocrun-finish-rocky8 /usr/libexec/platform-python -I -B /src/report_addon/cloud_test.py \
+            2>&1 | tee .finish-results/report-addon.txt
+      - name: Publish validation summary
+
+        if: always()
+        run: |
+          if [ -f .finish-results/finish-addon.json ]; then
+            cat .finish-results/finish-addon.json >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Verify exact previous-release upgrade and rollback
+        if: always()
+        shell: bash
+        run: |
+          set -o pipefail
+          docker run --rm --network none -e GITHUB_ACTIONS=true \
+            -v "$GITHUB_WORKSPACE:/src:ro" -v "$GITHUB_WORKSPACE/.finish-results:/results" \
+            ocrun-finish-rocky8 /usr/libexec/platform-python -I -B /src/finish_addon/upgrade_test.py \
+            2>&1 | tee .finish-results/upgrade.txt
+      - name: Publish final summary
+        if: always()
+        run: |
+          if [ -f .finish-results/finish-addon.json ]; then
+            cat .finish-results/finish-addon.json >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Package verified node upgrade
+        run: /usr/bin/python3 finish_addon/release.py
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: offline-finish-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            finish-dist/
+            report-dist/
+            node-release/
+            .finish-results/
+          include-hidden-files: true
+          retention-days: 14

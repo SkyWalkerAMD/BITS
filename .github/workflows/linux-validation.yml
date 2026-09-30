@@ -1,0 +1,305 @@
+name: Cloud Linux validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      distro_matrix:
+        description: 'Also install client dependencies in all eight target OS containers (no hardware/systemd acceptance)'
+        required: false
+        default: false
+        type: boolean
+  push:
+    branches: [main]
+    paths:
+      - 'ocrun/**'
+      - 'mon_sensors_plugin/**'
+      - 'mon-sensors-plugin'
+      - 'sckocp_api/**'
+      - 'sckocp-api'
+      - 'examples/read-sckocp.py'
+      - 'integrations/mon-sensors/**'
+      - 'mon-sensors'
+      - 'tests/**'
+      - 'ci/**'
+      - '.github/workflows/linux-validation.yml'
+      - 'requirements-test.txt'
+      - 'build.py'
+      - 'templates/self-extract.sh.in'
+      - '*.sh'
+      - 'systemd/**'
+  pull_request:
+    paths:
+      - 'ocrun/**'
+      - 'mon_sensors_plugin/**'
+      - 'mon-sensors-plugin'
+      - 'sckocp_api/**'
+      - 'sckocp-api'
+      - 'examples/read-sckocp.py'
+      - 'integrations/mon-sensors/**'
+      - 'mon-sensors'
+      - 'tests/**'
+      - 'ci/**'
+      - '.github/workflows/linux-validation.yml'
+      - 'requirements-test.txt'
+      - 'build.py'
+      - 'templates/self-extract.sh.in'
+      - '*.sh'
+      - 'systemd/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  automatic-installation:
+    name: Ubuntu 22.04 / automatic API and plugin installers
+    runs-on: ubuntu-22.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build offline installers and exercise real installation
+        shell: bash
+        run: |
+          mkdir -p .cloud-results
+          /usr/bin/python3 build.py
+          sudo --preserve-env=GITHUB_ACTIONS /usr/bin/python3 ci/plugin_adoption_root_test.py 2>&1 | tee .cloud-results/plugin-adoption.txt
+          sudo --preserve-env=GITHUB_ACTIONS /usr/bin/python3 ci/automatic_install_test.py 2>&1 | tee .cloud-results/automatic-install.txt
+      - name: Write automatic installation summary
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f .cloud-results/automatic-install.json ]]; then
+            { printf '### Automatic API and plugin installation\n\n```json\n'; cat .cloud-results/automatic-install.json; printf '\n```\n\nOffline installer verification on a disposable Ubuntu VM. Synthetic monitoring provider only; no production activation data or real hardware.\n'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: automatic-installation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .cloud-results/automatic-install.txt
+            .cloud-results/automatic-install.json
+            .cloud-results/plugin-adoption.txt
+            dist/sckocp-api-*.run
+            dist/mon-sensors-plugin-*.run
+            dist/sckocp-api-*.tar.gz
+            dist/mon-sensors-plugin-*.tar.gz
+            dist/manifest.json
+          retention-days: 14
+
+  mon-sensors-legacy:
+    name: Ubuntu 22.04 / original mon-sensors integration
+    runs-on: ubuntu-22.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build overlay and exercise original monitoring command
+        shell: bash
+        run: |
+          mkdir -p .cloud-results
+          sudo apt-get update
+          sudo apt-get install -y rsync
+          /usr/bin/python3 -m pip install --disable-pip-version-check --target "$RUNNER_TEMP/mon-sensors-report-deps" pandas==2.2.3 openpyxl==3.1.5 XlsxWriter==3.2.5
+          /usr/bin/python3 ci/build_mon_sensors_overlay.py
+          PYTHONPATH="$RUNNER_TEMP/mon-sensors-report-deps" /usr/bin/python3 ci/mon_sensors_legacy_test.py 2>&1 | tee .cloud-results/mon-sensors-legacy.txt
+      - name: Write legacy monitoring summary
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f .cloud-results/mon-sensors-legacy.json ]]; then
+            { printf '### Original mon-sensors integration\n\n```json\n'; cat .cloud-results/mon-sensors-legacy.json; printf '\n```\n\nOriginal command scripts run in a temporary home with a synthetic provider. No production credentials or real hardware are involved.\n'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: mon-sensors-legacy-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .cloud-results/mon-sensors-legacy.txt
+            .cloud-results/mon-sensors-legacy.json
+            .cloud-results/mon-sensors/
+          include-hidden-files: true
+          retention-days: 14
+
+  validate:
+    name: Ubuntu 22.04 / Python 3.11
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    env:
+      PYTHONUNBUFFERED: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements-test.txt
+
+      - name: Install test dependencies
+        shell: bash
+        run: |
+          mkdir -p .cloud-results
+          bash ci/setup.sh 2>&1 | tee .cloud-results/setup.txt
+
+      - name: Run Linux tests and syntax checks
+        shell: bash
+        run: |
+          fixture_python=$(python3 -c 'import os, sys; print(os.path.realpath(sys.executable))')
+          sudo --preserve-env=GITHUB_ACTIONS /usr/bin/python3 ci/prepare_installer_python.py "$fixture_python" > .cloud-results/installer-python-fixture.json
+          bash ci/validate.sh
+
+      - name: Build and verify runtime archive
+        shell: bash
+        run: |
+          .cloud-venv/bin/python build.py 2>&1 | tee .cloud-results/build.txt
+          .cloud-venv/bin/python tests/check_dist.py --runtime-only 2>&1 | tee .cloud-results/package.txt
+
+      - name: Write test summary
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f .cloud-results/summary.json ]]; then
+            {
+              printf '### Cloud Linux test results\n\n```json\n'
+              cat .cloud-results/summary.json
+              printf '\n```\n\nThis job covers unit/process tests. See the separate real-service and installation jobs; hardware is not covered.\n'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Save logs and runtime archive
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: linux-validation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .cloud-results/
+            dist/ocrun-runtime-*.tar.gz
+            dist/manifest.json
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
+
+  services:
+    name: Ubuntu 22.04 real services and recovery
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install center and run real-service integration
+        shell: bash
+        run: |
+          mkdir -p .cloud-results
+          address=$(hostname -I | awk '{print $1}')
+          sudo apt-get update
+          sudo apt-get install -y python3 redis-server rsync nginx
+          sudo --preserve-env=GITHUB_ACTIONS /usr/bin/python3 ci/server_installation.py "$address" 2>&1 | tee .cloud-results/server-install.txt
+          sudo --preserve-env=GITHUB_ACTIONS /usr/bin/python3 ci/integration.py 2>&1 | tee .cloud-results/integration.txt
+      - name: Collect service diagnostics
+        if: always()
+        shell: bash
+        run: |
+          sudo journalctl -u ocrun-redis -u ocrun-rsync -u ocrun-log-verifier -u ocrun-cloud-agent --no-pager > .cloud-results/services.txt
+          if [[ -f .cloud-results/integration.json ]]; then
+            { printf '### Real-service integration\n\n```json\n'; cat .cloud-results/integration.json; printf '\n```\n'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: real-services-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .cloud-results/
+          include-hidden-files: true
+          retention-days: 14
+
+  installation:
+    name: Ubuntu 22.04 client install and rollback
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install test service dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 redis-server rsync
+      - name: Exercise installer recovery on disposable VM
+        shell: bash
+        run: |
+          mkdir -p .cloud-results
+          sudo --preserve-env=GITHUB_ACTIONS /usr/bin/python3 ci/installation.py 2>&1 | tee .cloud-results/installation.txt
+      - name: Collect installer diagnostics
+        if: always()
+        shell: bash
+        run: |
+          sudo journalctl -u ocrun-agent -u ocrun-installer-redis --no-pager > .cloud-results/installation-services.txt
+          if [[ -f .cloud-results/installation.json ]]; then
+            { printf '### Installer recovery\n\n```json\n'; cat .cloud-results/installation.json; printf '\n```\n'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: installation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .cloud-results/
+          include-hidden-files: true
+          retention-days: 14
+
+  python36:
+    name: Actual Python 3.6 runtime compatibility
+    runs-on: ubuntu-22.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Import and exercise runtime with Python 3.6
+        shell: bash
+        run: |
+          mkdir -p .cloud-results
+          docker run --rm --network none -v "$GITHUB_WORKSPACE:/src:ro" -w /src python:3.6.15-slim-buster python ci/python36_smoke.py 2>&1 | tee .cloud-results/python36.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: python36-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .cloud-results/
+          include-hidden-files: true
+          retention-days: 14
+
+  distro-dependencies:
+    name: Dependency installation / ${{ matrix.image }}
+    if: github.event_name == 'workflow_dispatch' && inputs.distro_matrix
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ['centos:7.9.2009', 'ubuntu:20.04', 'ubuntu:22.04', 'ubuntu:24.04', 'ubuntu:26.04', 'rockylinux/rockylinux:8', 'rockylinux/rockylinux:9', 'rockylinux/rockylinux:10']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install client dependencies in distribution container
+        shell: bash
+        run: |
+          mkdir -p .cloud-results
+          docker run --rm -e GITHUB_ACTIONS=true -v "$GITHUB_WORKSPACE:/src:ro" -w /src '${{ matrix.image }}' bash ci/distro_dependencies.sh 2>&1 | tee .cloud-results/distribution.txt
+          printf 'Dependency installation only: containers share the Ubuntu runner kernel. Hardware and systemd are not validated.\n' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: distro-${{ strategy.job-index }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .cloud-results/
+          include-hidden-files: true
+          retention-days: 14

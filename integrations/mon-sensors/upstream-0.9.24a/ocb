@@ -1,0 +1,203 @@
+#! /bin/bash
+
+# 加载基础函数和变量
+source ~/ocrun/oc.env
+
+# 定义ocb动作
+[ -z $1 ] && OPS=run || OPS=$1
+
+# 定义日志文件
+BOOT_LOG=~/log/$(hostname)-boot.log
+OCB_LOG=~/log/$(hostname)-ocb.log
+
+[ -d $(dirname $BOOT_LOG) ] || mkdir -p $(dirname $BOOT_LOG)
+[ -d $(dirname $OCB_LOG) ] || mkdir -p $(dirname $OCB_LOG)
+
+recoed_boot() {
+    # 启动/关闭记录函数
+    [ -z $1 ] && return 1 || _OPS=$1
+    [ -z $2 ] && _LOGFILE=${BOOT_LOG}
+    case $_OPS in
+	install)
+	    echo $(date), ocb install >>${_LOGFILE}
+	    ;;
+	
+	uninstall)
+	    echo $(date), ocb uninstall >>${_LOGFILE}
+	    ;;
+	
+	ocb)
+	    echo $(date), ocb daemon is running >>${_LOGFILE}
+	    ;;
+	
+	boot)
+	    echo $(date), System is started >>${_LOGFILE}
+	    ;;
+	
+	shutdown)
+	    echo $(date), System will shutdown >>${_LOGFILE}
+	    ;;
+
+	killme)
+	    echo $(date), ocb daemon will killed  >>${_LOGFILE}
+	    ;;
+	reload)
+	    echo $(date), ocb daemon will reload  >>${_LOGFILE}
+	    ;;
+	
+	*)
+	    return 1
+	    ;;
+    esac
+}
+
+install_ocb() {
+    # 安装ocb到自动启动
+    _RC_FILE=/etc/rc.d/rc.local
+    chmod u+x /etc/rc.local
+    systemctl enable rc-local
+    sed -i '/ocb/d' ${_RC_FILE}
+    echo "nohup ${APPPATH}/ocb >> $OCB_LOG &" >> ${_RC_FILE}
+    sed -i '/oc.profile/d' ~/.bash_profile
+    echo "source ${APPPATH}/oc.profile" >> ~/.bash_profile
+    recoed_boot install
+}
+
+uninstall_ocb() {
+    # 从自动启动删除ocb
+    _RC_FILE=/etc/rc.d/rc.local
+    sed -i '/ocb/d' ${_RC_FILE}
+    sed -i '/oc.profile/d' ~/.bash_profile
+    recoed_boot uninstall
+}
+
+app_check() {
+    _MAIN_VERSION=$(curl -s http://${LOGSVR}/config/ocrun-version.txt|grep MAIN_VERSION |awk -F= '{print $2}')
+    _CURRENT_MAIN_VERSION=$(grep MAIN_VERSION ~/ocrun/version.txt | awk -F= '{print $2}')
+    
+    [[ "$_MAIN_VERSION" == "$_CURRENT_MAIN_VERSION" ]] && echo "版本检查: 目前已是最新版, 无需升级" || ${APPPATH}/ocsync prd
+}
+
+auto_poweroff() {
+    # 自动关机函数
+
+    # 检测间隔时间
+    [ -z $1 ] && _CHECK_NUM=6 || _CHECK_NUM=$1
+    [ -z $2 ] && _INTERVAL=300 || _INTERVAL=$2
+
+    # 初始化计数器
+    _COUNT_NUM=$_CHECK_NUM
+    
+    # 定义检测程序列表
+    _LOAD_LIST="stress stress-ng mlc mbw bcr bcfi bcfd mprime unixbench sysjitter cpu2017 ptu"
+
+    # 检查关注进程
+    _check_app() {
+	_PS_LIST=$(ps -eo args)
+	for i in $_LOAD_LIST; do
+	    echo $_PS_LIST |grep -v grep |grep -i $i  >> /dev/null  && _COUNT_NUM=$_CHECK_NUM  && echo $(date), $i 进程运行中, 不执行关机, 关机倒计时被重置!
+	done
+    }
+
+    # 检查用户登
+    _check_user() {
+	who |grep -e tty -e pts >/dev/null && _COUNT_NUM=$_CHECK_NUM && echo $(date), 有用户登录中, 不执行关机, 关机倒计时被重置!  
+    }
+
+    echo $(date), 自动关机被激活, 系统将于 30分钟后关闭！
+    
+    while [[ $_COUNT_NUM -gt 0 ]]; do
+	_COUNT_NUM=$[$_COUNT_NUM-1]
+	_check_app
+	_check_user
+	sleep $_INTERVAL
+	echo "$(date), ${_COUNT_NUM} 次后关机"
+    done
+    # 记录关机
+    recoed_boot shutdown
+
+    # 同步数据到LOGSVR
+    ${APPPATH}/oct push
+
+    # 执行关机
+    /usr/sbin/poweroff
+}
+
+run_task() {
+    # 任务运行函数
+    [ $(rdb-check-tasks $(hostname)) -ne 0 ] && echo $(date), $(hostname) 没有压测任务 >> $BOOT_LOG
+    while [ $(rdb-check-tasks $(hostname)) -eq 0 ] ;do
+	rdb-get-tasks $(hostname)
+	RUN_LOG=${LOGPATH}/$(hostname)-${TASKID}.log
+	echo $(date), ${TASKNAME} 开始运行.... >> ${RUN_LOG}
+
+	# 同步数据到LOGSVR
+	${APPPATH}/oct push
+	
+	ps -ef | grep -e "mon_sensors" | grep -v grep >/dev/null || ${APPPATH}/oct mon ${TASKID} ${TASKTIME} >/dev/null
+	rdb-update-tasks $(hostname) ${TASKNAME}
+	${APPPATH}/oct ${TASKNAME} ${TASKID} ${TASKTIME}
+	sleep $RUNTIME
+	
+	${APPPATH}/oct killa 2>/dev/null
+	# ${APPPATH}/oct killm 2>/dev/null
+	echo $(date), ${TASKNAME} 停止运行.... >> ${RUN_LOG}
+	
+	# 同步数据到LOGSVR
+	# ${APPPATH}/oct push
+	rdb-delete-tasks $(hostname) $(echo ${TASKNAME}|awk -F_ '{print $1}')_
+    done
+}
+
+# 主程序部分
+run_main() {
+    # 记录系统启动时间
+    recoed_boot boot
+
+    # 记录ocb启动时间
+    recoed_boot ocb
+
+    # 等待系统初始化完成
+    echo "$(date), 等待系统初始化完成[ 60s ]"
+    sleep 60
+
+    # 同步MT日志
+    oct push
+
+    # 检查版本升级
+    app_check
+    
+    # 运行任务
+    run_task
+
+    # 任务运行完成后自动关机
+    auto_poweroff
+}
+
+case $OPS in
+    run)
+	run_main
+	;;
+    
+    install)
+	install_ocb
+	;;
+    
+    disable|uninstall)
+	uninstall_ocb
+	;;
+    killme)
+	kill -9 $(ps -ef |grep "ocrun/ocb"|grep -v grep|awk '{print $2}') 2>/dev/null
+	unset TMOUT
+	recoed_boot killme
+	;;
+    reload)
+	kill -9 $(ps -ef |grep "ocrun/ocb"|grep -v grep|awk '{print $2}') 2>/dev/null
+	recoed_boot reload
+	/etc/rc.d/rc.local
+	;;
+	
+    *)
+	echo "Usage: $(basename -s .sh $0) [ run | install/uninstall ]"
+	;;
+esac

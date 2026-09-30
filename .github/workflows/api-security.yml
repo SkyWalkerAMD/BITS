@@ -1,0 +1,90 @@
+name: Independent API security regression
+on:
+  push:
+    branches: [codex/api-hardening]
+  workflow_dispatch:
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+concurrency:
+  group: api-security-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  packages:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false, fetch-depth: 0}
+      - name: Build from exact source and check independent package allowlist
+        run: |
+          python3 build.py
+          python3 tests/check_dist.py --runtime-only
+          mkdir -p api-security-input previous-source
+          git archive 78df4a4925f11970c0116a82c97d2716a0089faa | tar -xf - -C previous-source
+          (cd previous-source && python3 build.py)
+          cp previous-source/dist/sckocp-api-0.3.1.run api-security-input/old-sckocp-api-0.3.1.run
+          cp dist/sckocp-api-0.3.2.* dist/mon-sensors-plugin-0.12.12.* dist/manifest.json api-security-input/
+          cp docs/monitoring/SCKOCP-API.md docs/monitoring/MON-SENSORS.md docs/security/API-SECURITY.md api-security-input/
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with: {name: 'api-security-packages-${{ github.run_id }}', path: api-security-input/, retention-days: 30}
+  matrix:
+    needs: packages
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - {label: rocky8, image: 'rockylinux/rockylinux:8'}
+          - {label: ubuntu22, image: 'ubuntu:22.04'}
+          - {label: debian11, image: 'debian:11'}
+          - {label: ubuntu26, image: 'ubuntu:26.04'}
+          - {label: rocky9, image: 'rockylinux/rockylinux:9'}
+          - {label: rocky10, image: 'rockylinux/rockylinux:10'}
+          - {label: alma8, image: 'almalinux:8'}
+          - {label: alma9, image: 'almalinux:9'}
+          - {label: alma10, image: 'almalinux:10'}
+          - {label: debian12, image: 'debian:12'}
+          - {label: debian13, image: 'debian:13'}
+          - {label: ubuntu24, image: 'ubuntu:24.04'}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: {name: 'api-security-packages-${{ github.run_id }}', path: api-security-input}
+      - name: Isolated security regressions and real old/new installer transitions
+        env: {BASE_IMAGE: '${{ matrix.image }}'}
+        run: |
+          mkdir -p .api-security-results
+          docker pull "$BASE_IMAGE"
+          docker image inspect "$BASE_IMAGE" --format '{{json .RepoDigests}}' > .api-security-results/image.json
+          docker build --build-arg BASE_IMAGE="$BASE_IMAGE" -t api-security -f ci/api-security.Dockerfile . || {
+            [ "$BASE_IMAGE" = debian:11 ] || exit 1
+            python3 -m workload_suite.debian11_ci security api-security
+          }
+          docker run --rm --network none --cpus 2 --memory 2g --pids-limit 512 \
+            -e GITHUB_ACTIONS=true -e GITHUB_SHA="$GITHUB_SHA" -e PYTHONDONTWRITEBYTECODE=1 \
+            -v "$GITHUB_WORKSPACE:/src:ro" -v "$GITHUB_WORKSPACE/api-security-input:/packages:ro" \
+            -v "$GITHUB_WORKSPACE/.api-security-results:/results" -w /src api-security \
+            bash -c 'p=/usr/libexec/platform-python; [ -x "$p" ] || p=/usr/bin/python3; "$p" -I -S -B ci/api_security_matrix.py' \
+            2>&1 | tee .api-security-results/tests.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with: {name: 'api-security-${{ matrix.label }}-${{ github.run_id }}', path: .api-security-results/, retention-days: 30, include-hidden-files: true, if-no-files-found: error}
+  release-artifacts:
+    needs: [packages, matrix]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: {pattern: 'api-security-*-${{ github.run_id }}', path: .api-security-results/evidence}
+      - name: Assemble only verified independent packages and evidence
+        run: python3 -I -S -B ci/api_security_release.py
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with: {name: 'sckocp-api-security-0.3.2-${{ github.run_id }}', path: .api-security-results/release/, retention-days: 90, include-hidden-files: true, if-no-files-found: error}

@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+"""Independent collector; also locates its private modules when installed in 0730."""
+import os
+import sys
+
+entry_directory = os.path.dirname(os.path.abspath(__file__))
+modules = os.path.join(entry_directory, "mon-sensors-plugin.d")
+# The installed shell launcher runs this private source with Python -I. That
+# mode deliberately omits the script directory, so add only our own location.
+sys.path.insert(0, modules if os.path.isdir(modules) else entry_directory)
+from mon_sensors_plugin.collector import _arguments, main
+from mon_sensors_plugin import runtime
+
+
+def entry(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    if argv[:1] == ["--guard-check"]:
+        return runtime.main(["--check"] + argv[1:])
+    if argv[:1] == ["--guard-run"]:
+        return runtime.main(["--run"] + argv[1:])
+    args = _arguments(argv)
+    if (args.stop_app is None and not args.once and args.logfile != "view" and
+            os.path.basename(entry_directory) == "mon-sensors-plugin.d"):
+        app = os.path.dirname(entry_directory)
+        try:
+            guarded = runtime.guard_valid(app)
+        except (OSError, ValueError) as error:
+            print("mon-sensors-plugin: {}".format(error), file=sys.stderr)
+            return 1
+        if not guarded:
+            # Re-exec as the recognizable supervisor before opening a log or
+            # collecting anything. Both backend selection and direct plugin use
+            # then share the same application lock and --stop-app lifecycle.
+            command = [sys.executable, "-I", "-S", "-B", os.path.abspath(__file__)]
+            os.execv(sys.executable, command + ["--guard-run", app, "--"] + command + argv)
+    return main(argv)
+
+if __name__ == "__main__":
+    raise SystemExit(entry())

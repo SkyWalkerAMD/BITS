@@ -1,0 +1,20 @@
+[Unit]
+Description=OCRUN distributed burn-in agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/ocrun/current
+Environment=PYTHONPATH=/opt/ocrun/current
+Environment=LC_ALL=C
+ExecStart=/usr/bin/python3 -m ocrun.agent --config /etc/ocrun/agent.json
+Restart=on-failure
+RestartSec=10
+KillMode=control-group
+TimeoutStopSec=160
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

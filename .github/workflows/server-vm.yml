@@ -1,0 +1,42 @@
+name: Server native-kernel VM acceptance
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        type: choice
+        options: [all, rocky8, rocky10, ubuntu26]
+        default: all
+      selinux_trace:
+        type: boolean
+        default: false
+  push:
+    branches: [codex/server-multidistro]
+    paths: ['.github/workflows/server-vm.yml']
+permissions:
+  contents: read
+jobs:
+  vm:
+    name: ${{ matrix.os }} / native kernel
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(inputs.profile == 'rocky8' && '["rocky8"]' || inputs.profile == 'rocky10' && '["rocky10"]' || inputs.profile == 'ubuntu26' && '["ubuntu26"]' || '["rocky8","rocky10","ubuntu26"]') }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Build package on cloud Linux
+        run: python3 -m server_deploy.build
+      - name: Verify native services, SELinux and reboot persistence
+        env:
+          OCRUN_SELINUX_TRACE: ${{ inputs.selinux_trace || false }}
+        run: bash ci/server_vm.sh '${{ matrix.os }}'
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: server-vm-${{ matrix.os }}-${{ github.run_id }}
+          path: .vm-results/
+          include-hidden-files: true
+          retention-days: 14

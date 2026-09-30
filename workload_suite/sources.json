@@ -1,0 +1,16 @@
+{
+  "schema": "ocrun-workload-sources-v1",
+  "version": "0.1.0",
+  "package_revision": "2",
+  "architecture": "x86_64",
+  "sources": {
+    "stress": {"version": "1.0.7", "url": "https://github.com/resurrecting-open-source-projects/stress/releases/download/1.0.7/stress-1.0.7.tar.gz", "sha256": "80d966622c4e8d0981f64f56c06a191ef7c9a32c2660b3b957ef7f014dfd78cd", "strip": 1, "license": "GPL-2.0-or-later"},
+    "stress-ng": {"version": "0.22.01", "commit": "72a9d0cae0f420a887991d4024d3101c4af7a4fc", "url": "https://codeload.github.com/ColinIanKing/stress-ng/tar.gz/72a9d0cae0f420a887991d4024d3101c4af7a4fc", "sha256": "dedd6c8b38f74f007718851503fd27e84ebdd90b811812393ab77d4fe5c0a7dd", "strip": 1, "license": "GPL-2.0-or-later"},
+    "mbw": {"version": "2.0", "commit": "c3155b544a5065e8235508059c6512af6c46bd4d", "url": "https://codeload.github.com/raas/mbw/tar.gz/c3155b544a5065e8235508059c6512af6c46bd4d", "sha256": "798a77ef9a9198841efe27542f5604341a4c634980e12157921e1c83c66798ad", "strip": 1, "license": "GPL-3.0-or-later"},
+    "cyclictest": {"version": "2.10", "project": "rt-tests", "commit": "40b14a2aac9449dfb07d4f9b4bd873fc3ea62f28", "url": "https://kernel.googlesource.com/pub/scm/utils/rt-tests/rt-tests/+archive/40b14a2aac9449dfb07d4f9b4bd873fc3ea62f28.tar.gz", "sha256": "7a82b7234f42a74fcbcfe4fe7e339cc9a7e01b3bf821281dc6e67db22202514b", "strip": 0, "license": "GPL-2.0-or-later"},
+    "unixbench": {"version": "6.0.1", "commit": "e949d4402f76b4bc9b7b114418faace882f0ef12", "url": "https://codeload.github.com/kdlucas/byte-unixbench/tar.gz/e949d4402f76b4bc9b7b114418faace882f0ef12", "sha256": "6ecd90666e88fa475b05ac9d2bf761bd70833871ba6cf0b21a94739fd6944ebb", "strip": 1, "license": "GPL-2.0"},
+    "mprime": {"version": "30.19b20", "url": "https://download.mersenne.ca/gimps/v30/30.19/p95v3019b20.linux64.tar.gz", "sha256": "4ce2377e03deb4cf189523136e26401ba08f67857a128e420dd030d00cdca601", "strip": 0, "license": "GIMPS", "selection": "Version recommended by mersenne.org/download on 2026-09-27; v31 mirror builds are not selected automatically"},
+    "mlc": {"version": "3.13", "url": "https://downloadmirror.intel.com/926327/mlc_v3.13.tgz", "sha256": "a8537e8ff3fad626d75a383fabc224ccc4cc98a0111c9989f7fb26b639f12019", "strip": 0, "license": "Intel Limited Tools License", "delivery": "included", "license_notice": "Original Intel license, redist.txt and documentation included unchanged; no additional redistribution rights are granted by OCRUN"},
+    "cpu2017": {"version": "1.0.5", "sha256": "c142b7086ce4ee466d22767a2f7c988833c54d3632c24c6f21b54fbde73e74a6", "source": "user-provided 0730 archive", "delivery": "reuse original cpu2017 tree without changing any file content", "license": "user's SPEC license"}
+  }
+}

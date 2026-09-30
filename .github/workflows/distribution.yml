@@ -1,0 +1,170 @@
+name: OCRUN integrated distribution
+on:
+  workflow_dispatch:
+    inputs:
+      component_run:
+        description: 'Optional successful component run; accepted only when component sources are unchanged'
+        type: string
+        default: ''
+  push:
+    branches: [main]
+    paths-ignore: ['drafts/**', 'ci/archive/**']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: distribution-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  control:
+    uses: ./.github/workflows/control-plugin.yml
+  components:
+    runs-on: ubuntu-22.04
+    outputs:
+      run: ${{ steps.select.outputs.run }}
+      commit: ${{ steps.select.outputs.commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false, fetch-depth: 0}
+      - id: select
+        env: {COMPONENT_RUN: '${{ inputs.component_run }}', GH_TOKEN: '${{ github.token }}'}
+        run: python3 -m distribution.components
+  tools:
+    if: ${{ !inputs.component_run }}
+    uses: ./.github/workflows/workloads.yml
+  center:
+    if: ${{ !inputs.component_run }}
+    uses: ./.github/workflows/server-deployment.yml
+    with:
+      matrix: full
+  node-packages:
+    needs: [tools, components]
+    if: ${{ always() && !cancelled() && needs.components.result == 'success' && (needs.tools.result == 'success' || needs.tools.result == 'skipped') }}
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix: {kind: [rpm, deb]}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: workload-${{ matrix.kind }}-${{ needs.components.outputs.run }}
+          path: native-input/tools
+          run-id: ${{ needs.components.outputs.run }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: workload-regression-${{ needs.components.outputs.run }}
+          path: native-input/report
+          run-id: ${{ needs.components.outputs.run }}
+          github-token: ${{ github.token }}
+      - name: Assemble the complete native node with its workload binaries
+        env: {KIND: '${{ matrix.kind }}', OCRUN_SOURCE_COMMIT: '${{ github.sha }}', OCRUN_COMPONENT_COMMIT: '${{ needs.components.outputs.commit }}'}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm cpio
+          tools=$(find native-input/tools -maxdepth 1 -name "*.$KIND" -type f)
+          python3 -m distribution.build --role node --kind "$KIND" --tools "$tools" --report native-input/report/mon-sensors-report-py36-0.2.0.tar.gz --output native-dist
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with: {name: 'native-node-${{ matrix.kind }}-${{ github.run_id }}', path: native-dist/, retention-days: 30}
+  center-packages:
+    needs: [node-packages, center, components]
+    if: ${{ always() && !cancelled() && needs.node-packages.result == 'success' && (needs.center.result == 'success' || needs.center.result == 'skipped') }}
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix: {kind: [rpm, deb]}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: {pattern: 'native-node-*-${{ github.run_id }}', path: native-input/nodes}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: server-package-${{ needs.components.outputs.run }}
+          path: native-input/server
+          run-id: ${{ needs.components.outputs.run }}
+          github-token: ${{ github.token }}
+      - name: Package the management system and both node formats for LAN distribution
+        env: {KIND: '${{ matrix.kind }}', OCRUN_SOURCE_COMMIT: '${{ github.sha }}', OCRUN_COMPONENT_COMMIT: '${{ needs.components.outputs.commit }}'}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm
+          mapfile -t nodes < <(find native-input/nodes -type f \( -name '*.rpm' -o -name '*.deb' \))
+          mapfile -t server < <(find native-input/server -name '*.tar.gz' -type f)
+          [[ ${#nodes[@]} == 2 && ${#server[@]} == 1 ]]
+          python3 -m distribution.build --role center --kind "$KIND" --server "${server[0]}" --nodes "${nodes[@]}" --output native-dist
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with: {name: 'native-center-${{ matrix.kind }}-${{ github.run_id }}', path: native-dist/, retention-days: 30}
+  native-acceptance:
+    needs: center-packages
+    if: ${{ always() && !cancelled() && needs.center-packages.result == 'success' }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - {label: rocky8, image: 'rockylinux/rockylinux:8', kind: rpm}
+          - {label: debian13, image: 'debian:13', kind: deb}
+          - {label: ubuntu26, image: 'ubuntu:26.04', kind: deb}
+          - {label: rocky10, image: 'rockylinux/rockylinux:10', kind: rpm}
+          - {label: rocky9, image: 'rockylinux/rockylinux:9', kind: rpm}
+          - {label: alma8, image: 'almalinux:8', kind: rpm}
+          - {label: alma9, image: 'almalinux:9', kind: rpm}
+          - {label: alma10, image: 'almalinux:10', kind: rpm}
+          - {label: debian11, image: 'debian:11', kind: deb}
+          - {label: debian12, image: 'debian:12', kind: deb}
+          - {label: ubuntu22, image: 'ubuntu:22.04', kind: deb}
+          - {label: ubuntu24, image: 'ubuntu:24.04', kind: deb}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: {pattern: 'native-*-${{ matrix.kind }}-${{ github.run_id }}', path: native-input}
+      - name: Fetch the exact published baseline for upgrade checks
+        env: {GH_TOKEN: '${{ github.token }}', KIND: '${{ matrix.kind }}'}
+        run: |
+          mkdir previous-native
+          gh release download v0.2.2 --repo "$GITHUB_REPOSITORY" --pattern "ocrun-*.$KIND" --dir previous-native
+          grep "[.]$KIND$" distribution/PREVIOUS-SHA256SUMS > previous-native/SHA256SUMS
+          (cd previous-native && sha256sum -c SHA256SUMS)
+      - name: Real native installation, authenticated batch and delivered workbook
+        env: {BASE_IMAGE: '${{ matrix.image }}', OCRUN_SOURCE_COMMIT: '${{ github.sha }}'}
+        run: bash distribution/cloud.sh
+      - name: Capture diagnostics
+        if: always()
+        run: |
+          docker logs ocrun-native-test > .native-results/boot.txt 2>&1 || true
+          docker rm -f ocrun-native-test || true
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with: {name: 'native-test-${{ matrix.label }}-${{ github.run_id }}', path: .native-results/, include-hidden-files: true, retention-days: 30}
+  release:
+    needs: [components, tools, center, control, native-acceptance]
+    if: ${{ always() && !cancelled() && needs.control.result == 'success' && needs.components.result == 'success' && needs.native-acceptance.result == 'success' && (needs.tools.result == 'success' || needs.tools.result == 'skipped') && (needs.center.result == 'success' || needs.center.result == 'skipped') }}
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: {path: release-input}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        if: ${{ inputs.component_run }}
+        with:
+          pattern: workload-*-${{ needs.components.outputs.run }}
+          path: release-input
+          run-id: ${{ needs.components.outputs.run }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        if: ${{ inputs.component_run }}
+        with:
+          pattern: server-*-${{ needs.components.outputs.run }}
+          path: release-input
+          run-id: ${{ needs.components.outputs.run }}
+          github-token: ${{ github.token }}
+      - name: Assemble only the successfully tested system packages
+        env: {COMPONENT_RUN: '${{ needs.components.outputs.run }}', COMPONENT_COMMIT: '${{ needs.components.outputs.commit }}'}
+        run: python3 -m distribution.release
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with: {name: 'ocrun-system-0.2.3-${{ github.run_id }}', path: system-dist/, retention-days: 90}

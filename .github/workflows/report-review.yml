@@ -1,0 +1,36 @@
+name: Acceptance report print review
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: 'Integrated distribution run containing the synthetic report preview'
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  render:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: workload-regression-${{ inputs.source_run }}
+          path: input
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+      - name: Render each printed page for visual inspection in cloud
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y poppler-utils fonts-noto-cjk
+          python3 -m pip install playwright==1.55.0
+          python3 finish_addon/visual_check.py input
+          mkdir review
+          pdfinfo input/report-print-preview.pdf > review/pdf-info.txt
+          pdftoppm -scale-to 1600 -png input/report-print-preview.pdf review/page
+          cp input/report-preview.html input/report-preview.png input/report-visual.json review/
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with: {name: 'report-print-review-${{ inputs.source_run }}', path: review/, retention-days: 30}

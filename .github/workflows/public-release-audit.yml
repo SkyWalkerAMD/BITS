@@ -1,0 +1,25 @@
+name: Public source and release audit
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false, fetch-depth: 0}
+      - name: Read existing verified artifacts, never rebuild them
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y rpm cpio poppler-utils
+          mkdir audit-input .public-audit
+          gh release download v0.2.3 --repo "$GITHUB_REPOSITORY" --pattern 'ocrun-system-0.2.3.tar.gz*' --dir audit-input
+          gh release download ocrun-plugin-v0.1.1 --repo "$GITHUB_REPOSITORY" --pattern 'ocrun-plugin-0.1.1.tar.gz*' --dir audit-input
+          python3 ci/public_release_audit.py
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with: {name: 'public-release-audit-${{ github.run_id }}', path: .public-audit/, include-hidden-files: true, retention-days: 90}

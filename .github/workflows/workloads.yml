@@ -1,0 +1,174 @@
+name: Version-pinned workload RPM and DEB
+on:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  sources:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false, fetch-depth: 0}
+      - run: |
+          python3 workload_suite/fetch.py workload-input
+          sudo env GITHUB_ACTIONS=true python3 workload_suite/cloud_hugepages.py python3 workload_suite/mlc_probe.py
+          python3 -m unittest server_deploy.test_server distribution.test_source_export -v
+          python3 build.py
+          python3 finish_addon/build.py
+          python3 -m server_deploy.build
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: workload-inputs-${{ github.run_id }}
+          path: workload-input/
+          retention-days: 14
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: workload-bridge-${{ github.run_id }}
+          path: |
+            finish-dist/
+            server-dist/
+            dist/mon-sensors-plugin-*
+            dist/sckocp-api-*
+            dist/manifest.json
+          retention-days: 14
+  build:
+    needs: sources
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {label: rpm, image: 'rockylinux/rockylinux:8'}
+          - {label: deb, image: 'debian:11'}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: workload-inputs-${{ github.run_id }}
+          path: workload-input
+      - name: Compile and assemble native packages only in cloud Linux
+        env: {BASE_IMAGE: '${{ matrix.image }}'}
+        run: |
+          set -o pipefail
+          mkdir -p workload-dist
+          docker pull "$BASE_IMAGE"
+          digest=$(docker image inspect "$BASE_IMAGE" --format '{{index .RepoDigests 0}}')
+          printf '%s\n' "$digest" > workload-dist/build-image.txt
+          if [ "$BASE_IMAGE" = debian:11 ]; then
+            python3 workload_suite/debian11_ci.py build workloads-builder 2>&1 | tee workload-dist/dependencies.txt
+          else
+            docker build --build-arg BASE_IMAGE="$digest" -f workload_suite/Dockerfile -t workloads-builder . 2>&1 | tee workload-dist/dependencies.txt
+          fi
+          docker run --rm -e GITHUB_ACTIONS=true -e OCRUN_SOURCE_COMMIT="$GITHUB_SHA" -v "$PWD:/src:ro" -v "$PWD/workload-input:/inputs:ro" -v "$PWD/workload-dist:/out" workloads-builder bash /src/workload_suite/build.sh 2>&1 | tee workload-dist/build.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: workload-${{ matrix.label }}-${{ github.run_id }}
+          path: workload-dist/
+          retention-days: 14
+  regression:
+    needs: sources
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false, fetch-depth: 0}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: workload-bridge-${{ github.run_id }}
+          path: .
+      - name: Build previous releases for real upgrade and rollback checks
+        run: |
+          python3 report_addon/build_offline.py
+          mkdir .baseline .previous020 .previous021 .previous022 .previous023 .previous024 .finish-results
+          git archive 2b1e0fe31aab59a389fc9d4d9f3cdb508b2a3c6b | tar -x -C .baseline
+          git archive 094ff47e537aec9bfe0a2223408010530e5dc3d5 | tar -x -C .previous020
+          git archive 30b56fb723091223a9308049f39b51221c24c127 | tar -x -C .previous021
+          git archive 545860d885a5753e409ab1963fdbcb0174ae177f | tar -x -C .previous022
+          git archive 39117329c101616ca5263b89e3865a3fbd30388e | tar -x -C .previous023
+          git archive de94f341a2fd4f085ad9d85a71992bc394f5b4c6 | tar -x -C .previous024
+          (cd .baseline && python3 report_addon/build_offline.py && python3 finish_addon/build.py)
+          for v in .previous020 .previous021 .previous022 .previous023 .previous024; do (cd "$v" && python3 finish_addon/build.py); done
+          (cd .previous021 && python3 build.py)
+          PYTHONPATH=tests python3 -m unittest tests.test_mon_sensors tests.test_plugin_runtime tests.test_plugin_install tests.test_plugin_adoption -v
+      - name: Prepare Rocky 8 Python 3.6 runtime
+        run: |
+          docker build -t workload-bridge-test - <<'DOCKERFILE'
+          FROM rockylinux/rockylinux:8
+          RUN dnf -y install tar rsync procps-ng redis && dnf clean all
+          DOCKERFILE
+      - name: Regress finalization, interruptions, atomic queue claims and rollback
+        run: |
+          set -o pipefail
+          docker run --rm --network none -e GITHUB_ACTIONS=true -v "$PWD:/src:ro" -v "$PWD/.finish-results:/results" workload-bridge-test /usr/libexec/platform-python -I -B /src/finish_addon/cloud_test.py 2>&1 | tee .finish-results/finish.txt
+          docker run --rm --network none -e GITHUB_ACTIONS=true -v "$PWD:/src:ro" -v "$PWD/.finish-results:/results" workload-bridge-test /usr/libexec/platform-python -I -B /src/finish_addon/upgrade_test.py 2>&1 | tee .finish-results/upgrade.txt
+          cp report-dist/mon-sensors-report-py36-0.2.0.run .finish-results/
+          cp report-dist/mon-sensors-report-py36-0.2.0.tar.gz .finish-results/
+          cp report-dist/SHA256SUMS .finish-results/SHA256SUMS
+          cp .previous021/dist/mon-sensors-plugin-0.12.9.tar.gz .finish-results/
+      - name: Render synthetic HTML and print preview without network requests
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y fonts-noto-cjk
+          python3 -m pip install playwright==1.55.0
+          python3 finish_addon/visual_check.py .finish-results
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: workload-regression-${{ github.run_id }}
+          path: .finish-results/
+          include-hidden-files: true
+          retention-days: 14
+  install:
+    needs: build
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - {label: rocky8, image: 'rockylinux/rockylinux:8', package: rpm}
+          - {label: rocky9, image: 'rockylinux/rockylinux:9', package: rpm}
+          - {label: rocky10, image: 'rockylinux/rockylinux:10', package: rpm}
+          - {label: alma8, image: 'almalinux:8', package: rpm}
+          - {label: alma9, image: 'almalinux:9', package: rpm}
+          - {label: alma10, image: 'almalinux:10', package: rpm}
+          - {label: debian11, image: 'debian:11', package: deb}
+          - {label: debian12, image: 'debian:12', package: deb}
+          - {label: debian13, image: 'debian:13', package: deb}
+          - {label: ubuntu22, image: 'ubuntu:22.04', package: deb}
+          - {label: ubuntu24, image: 'ubuntu:24.04', package: deb}
+          - {label: ubuntu26, image: 'ubuntu:26.04', package: deb}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: workload-${{ matrix.package }}-${{ github.run_id }}
+          path: workload-dist
+      - name: Native package installation and bounded Linux execution
+        env: {BASE_IMAGE: '${{ matrix.image }}'}
+        run: |
+          set -o pipefail
+          mkdir -p .workload-results
+          docker pull "$BASE_IMAGE"
+          docker image inspect "$BASE_IMAGE" --format '{{json .RepoDigests}}' > .workload-results/image.json
+          installed=false
+          if [ "$BASE_IMAGE" = debian:11 ]; then
+            python3 workload_suite/debian11_ci.py runtime workloads-debian11-test workload-dist/ocrun-workloads_0.1.0-3_amd64.deb 2>&1 | tee .workload-results/dependencies.txt
+            BASE_IMAGE=workloads-debian11-test
+            installed=true
+          fi
+          sudo env GITHUB_ACTIONS=true python3 workload_suite/cloud_hugepages.py docker run --rm --cap-add=IPC_LOCK --cpus=2 --memory=2g --pids-limit=256 -e GITHUB_ACTIONS=true -e OCRUN_ALREADY_INSTALLED="$installed" -e OCRUN_SOURCE_COMMIT="$GITHUB_SHA" -v "$PWD:/src:ro" -v "$PWD/.workload-results:/results" "$BASE_IMAGE" bash /src/workload_suite/smoke.sh 2>&1 | tee .workload-results/test.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: workload-test-${{ matrix.label }}-${{ github.run_id }}
+          path: .workload-results/
+          include-hidden-files: true
+          retention-days: 14

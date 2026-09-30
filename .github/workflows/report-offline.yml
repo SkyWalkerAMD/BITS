@@ -1,0 +1,62 @@
+name: Offline report supplement
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'report_addon/**'
+      - '.github/workflows/report-offline.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  rocky8-offline-report:
+    name: Rocky 8 / Python 3.6 / offline report installation
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build pinned offline dependencies and installer
+        run: |
+          /usr/bin/python3 report_addon/build_offline.py
+          bash -n report_addon/install.sh
+          mkdir -p .report-results
+      - name: Prepare disposable Rocky 8 image
+        run: |
+          docker build -t ocrun-report-rocky8 - <<'DOCKERFILE'
+          FROM rockylinux/rockylinux:8@sha256:e8a49c5403b687db05d4d67333fa45808fbe74f36e683cec7abb1f7d0f2338c6
+          RUN if ! command -v tar >/dev/null 2>&1; then \
+                timeout 180s dnf -y --disablerepo='*' --enablerepo=baseos \
+                  --setopt=baseos.mirrorlist= \
+                  --setopt=baseos.baseurl=https://dl.rockylinux.org/pub/rocky/8/BaseOS/x86_64/os/ \
+                  --setopt=timeout=15 --setopt=retries=1 install tar && dnf clean all; \
+              fi
+          DOCKERFILE
+          docker image inspect ocrun-report-rocky8 --format '{{.Id}}' > .report-results/container-image.txt
+      - name: Exercise installation and reports with networking disabled
+        shell: bash
+        run: |
+          set -o pipefail
+          docker run --rm --network none -e GITHUB_ACTIONS=true \
+            -v "$GITHUB_WORKSPACE:/src:ro" -v "$GITHUB_WORKSPACE/.report-results:/results" \
+            ocrun-report-rocky8 /usr/libexec/platform-python -I -B /src/report_addon/cloud_test.py \
+            2>&1 | tee .report-results/report-addon.txt
+      - name: Publish cloud validation summary
+        if: always()
+        run: |
+          if [ -f .report-results/report-addon.json ]; then
+            cat .report-results/report-addon.json >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: offline-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            report-dist/
+            .report-results/
+          include-hidden-files: true
+          retention-days: 14

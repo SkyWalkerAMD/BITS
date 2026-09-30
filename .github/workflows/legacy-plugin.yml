@@ -1,0 +1,96 @@
+name: Original OCRUN system enhancement
+on:
+  push:
+    branches: [codex/workload-packages]
+    paths: ['legacy_plugin/**', '.github/workflows/legacy-plugin.yml']
+  workflow_dispatch:
+    inputs:
+      full_matrix:
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false, fetch-depth: 0}
+      - name: Fixed previously verified components; build only in cloud
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm redis-server
+          mkdir legacy-input
+          gh release download v0.2.2 --repo "$GITHUB_REPOSITORY" --pattern ocrun-system-0.2.2.tar.gz --dir legacy-input
+          python3 -m unittest legacy_plugin.test_tasks distribution.test_source_export -v
+          python3 -m legacy_plugin.build --baseline legacy-input/ocrun-system-0.2.2.tar.gz
+          mkdir .legacy-previous
+          git archive 30b56fb723091223a9308049f39b51221c24c127 | tar -x -C .legacy-previous
+          (cd .legacy-previous && python3 build.py && python3 finish_addon/build.py)
+          cp .legacy-previous/dist/mon-sensors-plugin-0.12.9.run legacy-dist/ci/
+          cp .legacy-previous/finish-dist/mon-sensors-finish-0.2.1.run legacy-dist/ci/
+          mkdir legacy-dist/ci/previous
+          gh release download ocrun-plugin-v0.1.0 --repo "$GITHUB_REPOSITORY" --pattern 'ocrun-plugin*.rpm' --pattern 'ocrun-plugin*_amd64.deb' --dir legacy-dist/ci/previous
+          cp legacy_plugin/PREVIOUS-SHA256SUMS legacy-dist/ci/previous/SHA256SUMS
+          (cd legacy-dist/ci/previous && sha256sum -c SHA256SUMS)
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with: {name: 'legacy-packages-${{ github.run_id }}', path: legacy-dist/, retention-days: 30}
+  matrix:
+    runs-on: ubuntu-22.04
+    outputs:
+      include: ${{ steps.matrix.outputs.include }}
+    steps:
+      - id: matrix
+        env: {FULL: '${{ inputs.full_matrix || github.event_name == ''push'' }}'}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          rows = [{'label':'rocky8','image':'rockylinux/rockylinux:8','kind':'rpm'},
+                  {'label':'ubuntu22','image':'ubuntu:22.04','kind':'deb'}]
+          if os.environ['FULL'] == 'true':
+              rows += [{'label':'rocky'+v,'image':'rockylinux/rockylinux:'+v,'kind':'rpm'} for v in ('9','10')]
+              rows += [{'label':'alma'+v,'image':'almalinux:'+v,'kind':'rpm'} for v in ('8','9','10')]
+              rows += [{'label':'debian'+v,'image':'debian:'+v,'kind':'deb'} for v in ('11','12','13')]
+              rows += [{'label':'ubuntu'+v,'image':'ubuntu:'+v+'.04','kind':'deb'} for v in ('24','26')]
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f: f.write('include='+json.dumps(rows)+'\n')
+          PY
+  verify:
+    needs: [build, matrix]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include: ${{ fromJSON(needs.matrix.outputs.include) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: {name: 'legacy-packages-${{ github.run_id }}', path: legacy-dist}
+      - name: Native installation and real legacy protocol integration
+        env: {BASE_IMAGE: '${{ matrix.image }}', KIND: '${{ matrix.kind }}'}
+        run: bash legacy_plugin/cloud.sh
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with: {name: 'legacy-test-${{ matrix.label }}-${{ github.run_id }}', path: .legacy-results/, include-hidden-files: true, retention-days: 30}
+  release:
+    needs: [verify]
+    if: ${{ inputs.full_matrix || github.event_name == 'push' }}
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: {path: legacy-release-input}
+      - run: python3 -m legacy_plugin.release
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: 'ocrun-plugin-0.1.1-${{ github.run_id }}'
+          retention-days: 90
+          path: |
+            legacy-release/
+            ocrun-plugin-0.1.1.tar.gz
+            ocrun-plugin-0.1.1.tar.gz.sha256

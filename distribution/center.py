@@ -1,0 +1,82 @@
+"""Native management package entry; network configuration stays explicit."""
+import argparse
+import json
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path(__file__).absolute().parent
+sys.path.insert(0, str(ROOT))
+import common
+
+
+def main():
+    if len(sys.argv) > 1 and sys.argv[1] == 'results':
+        common.verify('center', require_root=False)
+        from control_addon.control import main as results
+        # The default matches the center's published results directory. No
+        # service or task mutation is involved; normal file permissions apply.
+        args = sys.argv[2:]
+        if args and '--results-root' not in args and '--help' not in args:
+            args += ['--results-root', '/srv/ocrun/logs']
+        raise SystemExit(results(args))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--version', action='version', version='ocrun-center ' + common.VERSION)
+    sub = parser.add_subparsers(dest='action')
+    setup = sub.add_parser('setup')
+    setup.add_argument('--address', required=True)
+    setup.add_argument('--network', required=True)
+    choice = setup.add_mutually_exclusive_group(required=True)
+    choice.add_argument('--check', action='store_true')
+    choice.add_argument('--apply', action='store_true')
+    setup.add_argument('--skip-deps', action='store_true')
+    sub.add_parser('rollback')
+    sub.add_parser('check')
+    sub.add_parser('publish-node')
+    sub.add_parser('results', help='list/show/verify/sample local batch results (use results --help)')
+    args = parser.parse_args()
+    common.verify('center')
+    installer = ['bash', str(ROOT / 'server/server_deploy/install.sh')]
+    if args.action == 'setup':
+        command = installer + ['--address', args.address, '--network', args.network,
+                               '--check' if args.check else '--apply']
+        if args.skip_deps:
+            command.append('--skip-deps')
+        subprocess.run(command, check=True)
+        if args.apply:
+            publish()
+    elif args.action == 'publish-node':
+        publish()
+    elif args.action == 'rollback':
+        subprocess.run(installer + ['--rollback'], check=True)
+    elif args.action == 'check':
+        if Path('/etc/ocrun-server/manifest.json').exists():
+            subprocess.run(['/usr/local/bin/ocrun-server', 'check'], check=True)
+        else:
+            print(json.dumps({'status': 'not_configured', 'version': common.VERSION,
+                              'next': 'ocrun-center setup --address IP --network CIDR --check'}))
+    else:
+        parser.error('Choose setup, check, publish-node or rollback')
+
+
+def publish():
+    # The server's existing publication routine verifies filename, contents and
+    # existing releases, then writes public data. Credentials never enter here.
+    sys.path.insert(0, str(ROOT / 'server'))
+    from server_deploy import safe
+    from server_deploy.publish import publish as put
+    config = safe.load('/etc/ocrun-server/server.json')
+    packages = common.load(ROOT / 'NODE-PACKAGES.json')
+    for filename, checksum in sorted(packages.items()):
+        if Path(filename).name != filename:
+            raise ValueError('Invalid node package name')
+        result = put(config, ROOT / 'releases' / filename, checksum)
+        print(json.dumps(result))
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+        print('ocrun-center: ' + str(error), file=sys.stderr)
+        sys.exit(1)

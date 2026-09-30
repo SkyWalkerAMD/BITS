@@ -1,0 +1,73 @@
+name: Original controller read-only plugin
+on:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false, fetch-depth: 0}
+      - name: Build only the independent controller reader
+        run: |
+          python3 -m control_addon.build
+          mkdir .control-baseline
+          git archive 9bea07af01a1054bf3c3cf2d92cb416c7f5f630f | tar -x -C .control-baseline
+          (cd .control-baseline && python3 -m control_addon.build)
+          cp .control-baseline/control-dist/mon-sensors-control-0.1.0.run control-dist/previous-0.1.0.run
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with: {name: control-package, path: control-dist/, retention-days: 30}
+  verify:
+    needs: build
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {label: alma8, image: 'almalinux:8', family: el}
+          - {label: rocky8, image: 'rockylinux/rockylinux:8', family: el}
+          - {label: ubuntu22, image: 'ubuntu:22.04', family: deb}
+          - {label: debian13, image: 'debian:13', family: deb}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: {name: control-package, path: control-dist}
+      - name: Prepare isolated Linux environment
+        env: {IMAGE: '${{ matrix.image }}', FAMILY: '${{ matrix.family }}'}
+        run: |
+          mkdir -p .control-results
+          mkdir -p .control-baseline/control-dist
+          cp control-dist/previous-0.1.0.run .control-baseline/control-dist/mon-sensors-control-0.1.0.run
+          if [ "$FAMILY" = el ]; then
+            dep='timeout 300s dnf install -y tar shadow-utils && dnf clean all'
+          else
+            dep='apt-get update && apt-get install -y python3 passwd tar && rm -rf /var/lib/apt/lists/*'
+          fi
+          printf 'FROM %s\nRUN %s\nENV LANG=C.UTF-8\n' "$IMAGE" "$dep" | docker build -t ocrun-control-test -
+          docker image inspect ocrun-control-test --format '{{.Id}}' > .control-results/image.txt
+      - name: Verify non-root reads, failure cases and installation rollback without network
+        env: {OCRUN_SOURCE_COMMIT: '${{ github.sha }}'}
+        run: |
+          set -o pipefail
+          docker run --rm --network none -e GITHUB_ACTIONS=true -e OCRUN_SOURCE_COMMIT \
+            -v "$GITHUB_WORKSPACE:/src:ro" -v "$GITHUB_WORKSPACE/.control-results:/results" \
+            ocrun-control-test bash -c 'py=/usr/libexec/platform-python; [ -x "$py" ] || py=/usr/bin/python3; exec "$py" -I -B /src/control_addon/cloud_test.py' \
+            2>&1 | tee .control-results/tests.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with: {name: 'control-test-${{ matrix.label }}', path: .control-results/, include-hidden-files: true, retention-days: 30}
+  release:
+    needs: verify
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: {path: control-release-input}
+      - run: python3 -m control_addon.release
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with: {name: 'mon-sensors-control-0.2.0-${{ github.run_id }}', path: control-release/, retention-days: 30}

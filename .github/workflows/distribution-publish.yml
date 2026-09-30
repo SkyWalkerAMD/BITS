@@ -1,0 +1,114 @@
+name: Publish verified distribution draft
+on:
+  workflow_dispatch:
+    inputs:
+      verified_run:
+        description: 'Successful integrated distribution run'
+        required: true
+        type: string
+      tag:
+        description: 'Existing version tag pinned to the tested source, e.g. v0.2.2'
+        required: true
+        type: string
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: publish-${{ inputs.tag }}
+  cancel-in-progress: false
+jobs:
+  draft:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERIFIED_RUN: ${{ inputs.verified_run }}
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false, fetch-depth: 0}
+      - name: Verify the successful run and immutable tag before downloading
+        run: |
+          python3 - <<'PY'
+          import json, os, re, subprocess
+          run, tag, repo = os.environ['VERIFIED_RUN'], os.environ['RELEASE_TAG'], os.environ['GITHUB_REPOSITORY']
+          if not re.fullmatch(r'[0-9]+', run) or not re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+', tag):
+              raise SystemExit('Invalid release inputs')
+          def api(path):
+              return json.loads(subprocess.check_output(['gh', 'api', 'repos/' + repo + path]))
+          evidence = api('/actions/runs/' + run)
+          if (evidence['path'] != '.github/workflows/distribution.yml' or evidence['conclusion'] != 'success'
+                  or evidence['head_repository']['full_name'] != repo):
+              raise SystemExit('Only a successful integrated run from this repository is publishable')
+          pinned = subprocess.check_output(['git', 'rev-parse', tag + '^{commit}']).decode().strip()
+          if pinned != evidence['head_sha']:
+              raise SystemExit('Tag does not match the tested source')
+          jobs = api('/actions/runs/' + run + '/jobs?per_page=100')['jobs']
+          if len(jobs) != 53 or any(j['conclusion'] != 'success' for j in jobs):
+              raise SystemExit('Expected all 53 integrated checks to pass')
+          with open('verified-run.json', 'w') as f:
+              json.dump({'source_commit': pinned, 'run': run, 'tag': tag, 'jobs': 53}, f, indent=2)
+          PY
+      - name: Download the tested distribution without rebuilding it
+        run: |
+          gh run download "$VERIFIED_RUN" --repo "$GITHUB_REPOSITORY" \
+            --name "ocrun-system-${RELEASE_TAG#v}-$VERIFIED_RUN" --dir verified
+      - name: Verify every file and prepare release attachments
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, shutil, subprocess
+          tag = os.environ['RELEASE_TAG']
+          version = tag[1:]
+          root = pathlib.Path('verified') / ('ocrun-system-' + version)
+          pinned = json.loads(pathlib.Path('verified-run.json').read_text())['source_commit']
+          meta = json.loads((root / 'RELEASE.json').read_text())
+          if meta['source_commit'] != pinned or meta['version'] != version or len(meta['matrix']) != 12:
+              raise SystemExit('Release metadata does not match the tested tag')
+          subprocess.run(['sha256sum', '-c', 'SHA256SUMS'], cwd=str(root), check=True)
+          archive = root.parent / (root.name + '.tar.gz')
+          subprocess.run(['sha256sum', '-c', archive.name + '.sha256'], cwd=str(root.parent), check=True)
+          from ci.release_assets import prepare
+          manifest = prepare(root, pathlib.Path('release-assets'))
+          pathlib.Path('release-assets.json').write_text(json.dumps(manifest, indent=2))
+          PY
+      - name: Create a draft containing only the verified attachments
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib, subprocess
+          expected = json.loads(pathlib.Path('release-assets.json').read_text())
+          repo, tag = os.environ['GITHUB_REPOSITORY'], os.environ['RELEASE_TAG']
+          def drafts():
+              # The tag-specific REST endpoint excludes draft releases.
+              pages = json.loads(subprocess.check_output(['gh', 'api', '--paginate', '--slurp',
+                  'repos/' + repo + '/releases?per_page=100']))
+              return [r for page in pages for r in page if r['tag_name'] == tag]
+          found = drafts()
+          if not found:
+              subprocess.run(['gh', 'release', 'create', tag, '--repo', repo, '--verify-tag', '--draft',
+                  '--title', 'OCRUN ' + tag[1:] + ' — 机器压测报告单与 RPM/DEB',
+                  '--notes', '已验证制品的发布草稿；说明与附件核对完成后再公开。'] +
+                  [str(p) for p in sorted(pathlib.Path('release-assets').iterdir())], check=True)
+              found = drafts()
+          if len(found) != 1:
+              raise SystemExit('Expected exactly one matching draft')
+          actual = found[0]
+          pathlib.Path('release-api.json').write_text(json.dumps(actual, indent=2))
+          if not actual['draft'] or {a['name'] for a in actual['assets']} != set(expected):
+              raise SystemExit('Draft attachment inventory mismatch')
+          for asset in actual['assets']:
+              entry = expected[asset['name']]
+              if asset['size'] != entry['bytes'] or asset.get('digest') != 'sha256:' + entry['sha256']:
+                  raise SystemExit('Uploaded attachment digest mismatch: ' + asset['name'])
+          print('Draft attachment names, sizes and SHA-256 verified')
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: 'release-metadata-${{ inputs.tag }}'
+          path: |
+            verified-run.json
+            release-assets.json
+            release-api.json
+            release-assets/*.md
+            release-assets/SHA256SUMS
+            release-assets/RELEASE.json
+          retention-days: 90

@@ -1,0 +1,82 @@
+name: Repository layout and packaging
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: ['docs/**', 'ci/**', '.github/workflows/**', 'build.py', 'distribution/**', 'CONTRIBUTING.md', 'README.md']
+permissions:
+  contents: read
+concurrency:
+  group: repository-layout-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  layout:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false, fetch-depth: 0}
+      - run: |
+          python3 ci/repository_layout.py
+          python3 -m unittest distribution.test_source_export -v
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with: {name: 'repository-layout-${{ github.run_id }}', path: .layout-results/layout.json, include-hidden-files: true, retention-days: 30}
+  packages:
+    needs: layout
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false, fetch-depth: 0}
+      - name: Build verification artifacts without changing a release
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y rpm cpio
+          mkdir .layout-input
+          gh release download v0.2.2 --repo "$GITHUB_REPOSITORY" --pattern ocrun-system-0.2.2.tar.gz --dir .layout-input
+          python3 ci/layout_packages.py
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: 'layout-packages-${{ github.run_id }}'
+          path: |
+            .layout-results/
+            legacy-dist/
+            dist/sckocp-api-*.run
+            dist/mon-sensors-plugin-*.run
+          include-hidden-files: true
+          retention-days: 14
+  native-installation:
+    needs: packages
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {label: rocky8, image: 'rockylinux/rockylinux:8', kind: rpm}
+          - {label: ubuntu22, image: 'ubuntu:22.04', kind: deb}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: {name: 'layout-packages-${{ github.run_id }}', path: layout-input}
+      - name: Prepare new and checksum-pinned prior packages
+        env: {GH_TOKEN: '${{ github.token }}', KIND: '${{ matrix.kind }}'}
+        run: |
+          mkdir -p native-input/checked previous-native
+          cp layout-input/.layout-results/native/*.$KIND native-input/checked/
+          cp layout-input/.layout-results/native/SHA256SUMS native-input/checked/
+          gh release download v0.2.2 --repo "$GITHUB_REPOSITORY" --pattern "ocrun-*.$KIND" --dir previous-native
+          grep "[.]$KIND$" distribution/PREVIOUS-SHA256SUMS > previous-native/SHA256SUMS
+          (cd previous-native && sha256sum -c SHA256SUMS)
+      - name: Installation, authenticated tasks, reports, delivery and upgrade
+        env: {BASE_IMAGE: '${{ matrix.image }}', OCRUN_SOURCE_COMMIT: '${{ github.sha }}'}
+        run: bash distribution/cloud.sh
+      - name: Diagnostics and disposable container cleanup
+        if: always()
+        run: |
+          docker logs ocrun-native-test > .native-results/boot.txt 2>&1 || true
+          docker rm -f ocrun-native-test || true
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with: {name: 'layout-native-${{ matrix.label }}-${{ github.run_id }}', path: .native-results/, include-hidden-files: true, retention-days: 30}

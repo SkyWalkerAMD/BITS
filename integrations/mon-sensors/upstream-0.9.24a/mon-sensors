@@ -1,0 +1,189 @@
+#! /bin/bash
+#
+# 加载基础函数和变量
+source ~/ocrun/oc.env
+
+#
+# OC280 For 10900/12900/13900/14900
+source ${APPPATH}/fbin/mon-sensors-fun201
+# 包含: recoed_sensors_proart_z790-creator_wifi
+#      recoed_sensors_prime_z790-p
+#      recoed_sensors_proart_z690-creator_wifi
+#      recoed_sensors_z490D4u-2l2t
+#      recoed_sensors_z690d4u
+#      tuf_gaming_z790-plus_wifi
+#      rog_maximus_z790_hero
+#.     pro_ws_w680-ace_ipmi
+
+# OC280 For U285K
+source ${APPPATH}/fbin/mon-sensors-fun202
+# 包含: recoed_sensors_pro_ws_z890-ace_se
+
+# OC380 For 10980XE
+source ${APPPATH}/fbin/mon-sensors-fun301
+# 包含: recoed_sensors_c9x299-pg300f
+#      recoed_sensors_mh11-oc0-y9
+
+# OC380 For 3175X
+source ${APPPATH}/fbin/mon-sensors-fun302
+# 包含: recoed_sensors_wc621d8a-2t
+
+# OC380 Xean-W-4th/5th
+source ${APPPATH}/fbin/mon-sensors-fun303
+# 包含: recoed_sensors_pro_ws_w790-ace
+#      recoed_sensors_pro_ws_w790e-sage_se
+#      recoed_sensors_pro_ws_w890-sage
+#.     recoed_sensors_pro_ws_w890e-sage_se
+
+# OC380 For 7950X/9950X
+source ${APPPATH}/fbin/mon-sensors-fun304
+# 包含: recoed_sensors_proart_x670e-creator_wifi
+#      recoed_sensors_proart_x870e-creator_wifi
+
+# OC480 For 3990X/5995WX/7995WX
+source ${APPPATH}/fbin/mon-sensors-fun401
+# 包含: recoed_sensors_trx40d8-2n2t
+#      recoed_sensors_pro_ws_wrx80e-sage_se_wifi2
+#      recoed_pro_ws_trx50-sage_wifi
+#      recoed_pro_ws_wrx90e-sage_se
+
+# Other901 For 9554/9654
+source ${APPPATH}/fbin/mon-sensors-fun901
+# 包含: recoed_sensors_mz33-ar0-000
+#      recoed_sensors_rs720a-e12-rs12
+#      recoed_sensors_mz33-ar1-000
+
+
+# 程序主体
+## 参数定义
+# 参数1: 采集间隔时间(s)---> _INTERVAL
+# 参数2: 日志文件名称(绝对路径)---> _LOGFILE
+[ -z $1 ] && INTERVAL="5" || INTERVAL=$1
+[ -z $2 ] && LOGFILE=view || LOGFILE=$2
+
+# 获取主板类型
+MB_TYPE=$(dmidecode -t 2|grep "Product Name:"|awk '{$1=$2="";print}'|sed 's/[ ]*//'|sed 's/ /_/g')
+
+# 主板支持列表
+MB_LIST=( "C9X299-PG300F" "MH11-OC0-Y9" "WC621D8A-2T" "Pro_WS_WRX80E-SAGE_SE_WIFI_II" \
+    "Pro_WS_TRX50-SAGE_WIFI" "Pro_WS_WRX90E-SAGE_SE" "ProArt_X670E-CREATOR_WIFI" \
+    "ProArt_X870E-CREATOR_WIFI" "Pro_WS_W790E-SAGE_SE" "Pro_WS_W790-ACE" \
+    "ProArt_Z790-CREATOR_WIFI" "PRIME_Z790-P" "ProArt_Z690-CREATOR_WIFI" "TUF_GAMING_Z790-PLUS_WIFI" \
+    "ROG_MAXIMUS_Z790_HERO" "Pro_WS_W680-ACE_IPMI"\
+    "Pro_WS_Z890-ACE_SE" \
+    "TRX40D8-2N2T" "MZ33-AR0-000" "MZ33-AR1-000" "CR-Z490D4U-2L2T" "Z490D4U-2L2T" "Z690D4U" \
+    "K14PP-D24_Series" "Pro_WS_W890-SAGE" "Pro_WS_W890E-SAGE_SE" )
+
+# 主板支持检查
+if [[ " ${MB_LIST[@]} " =~ " ${MB_TYPE} " ]]; then
+  echo "${MB_TYPE} 目前支持数据采集"
+else
+  echo "${MB_TYPE} 目前不支持数据采集，请联系开发人员"
+  exit 1
+fi
+
+
+## 监控主程序
+case $MB_TYPE in
+    C9X299-PG300F )
+        recoed_sensors_c9x299-pg300f $INTERVAL $LOGFILE
+        ;;
+
+    MH11-OC0-Y9 )
+        recoed_sensors_mh11-oc0-y9 $INTERVAL $LOGFILE
+        ;;
+
+    WC621D8A-2T )
+        recoed_sensors_wc621d8a-2t $INTERVAL $LOGFILE
+        ;;
+
+    Pro_WS_WRX80E-SAGE_SE_WIFI_II )
+        recoed_sensors_pro_ws_wrx80e-sage_se_wifi2 $INTERVAL $LOGFILE
+        ;;
+
+    Pro_WS_TRX50-SAGE_WIFI )
+        recoed_pro_ws_trx50-sage_wifi $INTERVAL $LOGFILE
+        ;;
+
+    Pro_WS_WRX90E-SAGE_SE )
+        recoed_pro_ws_wrx90e-sage_se $INTERVAL $LOGFILE
+        ;;
+
+    ProArt_X670E-CREATOR_WIFI )
+        recoed_sensors_proart_x670e-creator_wifi $INTERVAL $LOGFILE
+        ;;
+
+    ProArt_X870E-CREATOR_WIFI )
+        recoed_sensors_proart_x870e-creator_wifi $INTERVAL $LOGFILE
+        ;;
+
+    Pro_WS_W790-ACE)
+        recoed_sensors_pro_ws_w790-ace $INTERVAL $LOGFILE
+        ;;
+
+    Pro_WS_W790E-SAGE_SE )
+        recoed_sensors_pro_ws_w790e-sage_se $INTERVAL $LOGFILE
+        ;;
+
+    Pro_WS_W890-SAGE)
+        recoed_sensors_pro_ws_w890-sage $INTERVAL $LOGFILE
+        ;;
+
+    Pro_WS_W890E-SAGE_SE)
+        recoed_sensors_pro_ws_w890e-sage_se $INTERVAL $LOGFILE
+        ;;
+        
+    ProArt_Z790-CREATOR_WIFI )
+        recoed_sensors_proart_z790-creator_wifi $INTERVAL $LOGFILE
+        ;;
+
+    PRIME_Z790-P )
+        recoed_sensors_prime_z790-p $INTERVAL $LOGFILE
+        ;;
+
+    ProArt_Z690-CREATOR_WIFI )
+        recoed_sensors_proart_z690-creator_wifi $INTERVAL $LOGFILE
+        ;;
+
+    TUF_GAMING_Z790-PLUS_WIFI )
+        tuf_gaming_z790-plus_wifi $INTERVAL $LOGFILE
+        ;;
+
+    ROG_MAXIMUS_Z790_HERO )
+        rog_maximus_z790_hero $INTERVAL $LOGFILE
+        ;;
+
+     Pro_WS_W680-ACE_IPMI)
+        pro_ws_w680-ace_ipmi $INTERVAL $LOGFILE
+        ;;
+        
+    Pro_WS_Z890-ACE_SE )
+        recoed_sensors_pro_ws_z890-ace_se $INTERVAL $LOGFILE
+        ;;
+
+    TRX40D8-2N2T)
+        recoed_sensors_trx40db-2n2t $INTERVAL $LOGFILE
+        ;;
+
+    CR-Z490D4U-2L2T|Z490D4U-2L2T)
+        recoed_sensors_z490d4u-2l2t  $INTERVAL $LOGFILE
+        ;;
+
+    Z690D4U)
+        recoed_sensors_z690d4u $INTERVAL $LOGFILE
+        ;;
+
+    MZ33-AR0-000)
+        recoed_sensors_mz33-ar0-000  $INTERVAL $LOGFILE    
+        ;;
+
+    MZ33-AR1-000)
+        recoed_sensors_mz33-ar1-000  $INTERVAL $LOGFILE    
+        ;;
+
+    K14PP-D24_Series)
+        recoed_sensors_rs720a-e12-rs12 $INTERVAL $LOGFILE
+        ;;
+
+esac
+

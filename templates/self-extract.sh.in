@@ -1,0 +1,43 @@
+#!/bin/bash
+# @PRODUCT@ offline installer. Obtain this file from a trusted distributor.
+set -euo pipefail
+umask 077
+unset TAR_OPTIONS GZIP BZIP BZIP2 XZ_OPT XZ_DEFAULTS CDPATH ENV BASH_ENV
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+if [[ $(uname -s) != Linux ]]; then
+    echo 'This installer requires Linux.' >&2
+    exit 1
+fi
+for required in tail sha256sum tar mktemp wc; do
+    command -v "$required" >/dev/null || { echo "Missing required tool: $required" >&2; exit 1; }
+done
+INSTALL_TMP=$(mktemp -d /tmp/sckocp-install.XXXXXXXXXX)
+cleanup() {
+    local result=$?
+    if [[ $INSTALL_TMP == /tmp/sckocp-install.* && -d $INSTALL_TMP && ! -L $INSTALL_TMP ]]; then
+        rm -rf -- "$INSTALL_TMP"
+    fi
+    exit "$result"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+# Hash the exact embedded archive before extracting or running package code.
+# The embedded digest detects corruption; it is not a publisher signature.
+exec 3<"${BASH_SOURCE[0]}"
+tail -c +@OFFSET@ <&3 >"$INSTALL_TMP/package.tar.gz"
+exec 3<&-
+if [[ $(wc -c <"$INSTALL_TMP/package.tar.gz") != @BYTES@ ]]; then
+    echo 'Installer payload length mismatch; obtain a fresh trusted copy.' >&2
+    exit 1
+fi
+actual=$(sha256sum "$INSTALL_TMP/package.tar.gz")
+if [[ ${actual%% *} != @SHA256@ ]]; then
+    echo 'Installer payload checksum mismatch; obtain a fresh trusted copy.' >&2
+    exit 1
+fi
+mkdir "$INSTALL_TMP/package"
+tar --no-same-owner --no-same-permissions -xzf "$INSTALL_TMP/package.tar.gz" -C "$INSTALL_TMP/package"
+/bin/bash "$INSTALL_TMP/package/@INSTALLER@" "$@"
+exit 0
+# __SCKOCP_ARCHIVE_BELOW__
