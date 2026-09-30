@@ -11,6 +11,14 @@ if [[ $BASE_IMAGE == debian:11 ]]; then
 else
     docker build --build-arg BASE_IMAGE="$digest" -f legacy_plugin/Dockerfile -t ocrun-legacy-test . 2>&1 | tee .legacy-results/install.txt
 fi
+if [[ $BASE_IMAGE == rockylinux/rockylinux:8 ]]; then
+    mkdir -p .legacy-results/legacy-menu
+    docker run --rm --network none --hostname LEGACY-CLOUD --cpus=2 --memory=3g --pids-limit=512 \
+        -e GITHUB_ACTIONS=true -e GITHUB_SHA -e KIND \
+        -v "$PWD:/src:ro" -v "$PWD/.legacy-results/legacy-menu:/results" \
+        ocrun-legacy-test /usr/libexec/platform-python -I -B /src/legacy_plugin/cloud_test.py legacy-menu \
+        2>&1 | tee .legacy-results/legacy-menu/test.txt
+fi
 docker run --rm --network none --hostname LEGACY-CLOUD --cpus=2 --memory=3g --pids-limit=512 \
     -e GITHUB_ACTIONS=true -e GITHUB_SHA -e KIND \
     -v "$PWD:/src:ro" -v "$PWD/.legacy-results:/results" \

@@ -517,7 +517,7 @@ h1{margin:8px 0;font-size:32px;color:#163944}h2{margin:30px 0 14px;font-size:20p
 @page{size:A4 landscape;margin:12mm}@media print{body{background:white;font-size:11px}main{margin:0;padding:0;max-width:none;box-shadow:none}.cards{grid-template-columns:repeat(4,1fr)}h1{font-size:25px}h2{break-after:avoid;margin-top:20px}thead{display:table-header-group}tr,.card,.chart,.notice{break-inside:avoid}table{font-size:9px}th,td{padding:5px}.charts{grid-template-columns:repeat(3,1fr)}a{color:inherit}}
 '''
     sections = [
-        '<header><div class="eyebrow">OCRUN / INTERNAL ACCEPTANCE</div><h1>机器压测报告单</h1><p class="subtle">' + esc(record['machine_key']) + ' · ' + esc(record['task_id']) + '</p></header>',
+        '<header><div class="eyebrow">BITS / INTERNAL ACCEPTANCE</div><h1>机器压测报告单</h1><p class="subtle">' + esc(record['machine_key']) + ' · ' + esc(record['task_id']) + '</p></header>',
         '<div class="cards"><div class="card">任务执行<strong>' + esc(execution) + '</strong></div><div class="card">监控样本<strong>' + str(stats['rows']) + ' 条</strong></div><div class="card">报告状态<strong>已生成 / 待回执核验</strong></div><div class="card">硬件结论<strong>待人工验收</strong></div></div>',
         '<div class="notice">没有配置自动验收阈值，不自动判定机器合格。sckocp v1 的传感器有效性及读数年龄未知，零值不保证测量成功。文件交付是否完成，以独立 .finish.json 回执及实际文件校验为准。</div>',
         '<h2>01 / 批次与证据范围</h2>' + table(['项目', '记录'], metadata),
@@ -537,7 +537,7 @@ h1{margin:8px 0;font-size:32px;color:#163944}h2{margin:30px 0 14px;font-size:20p
         '<h2>06 / 异常与待确认事项</h2><ul>' + warnings + '</ul>',
         '<h2>07 / 工具与文件追溯</h2>' + table(['序号', '任务', '实际执行程序', '程序 SHA-256', '版本'], binaries) + table(['原始结果文件', '字节数', 'SHA-256'], files),
         '<p class="subtle">完整明细见 Excel、MON 与 JSONL。本 HTML 及结构化报告 JSON 的哈希在另行发布的 .finish.json 中，避免自引用哈希。此文档先生成后上传，本页不预先宣称远端已交付。</p>',
-        '<footer>OCRUN · ' + esc(SCHEMA) + ' · 批次 ' + esc(record['case']) + '<br>内部验收记录。原始数据、执行记录与人工验收结论应共同归档；本报告没有数字签名。</footer>']
+        '<footer>BITS · ' + esc(SCHEMA) + ' · 批次 ' + esc(record['case']) + '<br>内部验收记录。原始数据、执行记录与人工验收结论应共同归档；本报告没有数字签名。</footer>']
     return ('<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
             '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'">'
             '<title>机器压测报告单 - ' + esc(record['task_id']) + '</title><style>' + css + '</style></head><body><main>' + ''.join(sections) + '</main></body></html>').encode('utf-8')

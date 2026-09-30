@@ -15,7 +15,7 @@ def main(argv=None):
                         help="Native output format; v1 works with original sckocp 1.1.0 and 1.2.0")
     parser.add_argument("--interval", type=float, default=1.0, help="Sampling window in seconds (0.05-60)")
     parser.add_argument("--timeout", type=float, default=20.0, help="Total collection deadline in seconds (0.1-120)")
-    parser.add_argument("--details", action="store_true", help="Include licensed mon/info console supplements within the same deadline")
+    parser.add_argument("--details", action="store_true", help="Include licensed mon/info supplements; memory timings are Primary-only regardless of rmal state")
     args = parser.parse_args(argv)
     interrupted = [130]
 

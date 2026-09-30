@@ -100,7 +100,8 @@ def collector_runtime(app):
     directory(app)
     if read(app / ".mon-sensors-backend", 32) != b"sckocp\n":
         raise ValueError("Automatic finalization currently requires the explicit sckocp backend")
-    modules = app / "mon-sensors-plugin.d"
+    headless = (app / '.bits-collector.d').exists()
+    modules = app / ('.bits-collector.d' if headless else 'mon-sensors-plugin.d')
     marker = json_read(modules / ".mon-sensors-plugin")
     if marker.get("owner") != "mon-sensors-plugin-v1":
         raise ValueError("A managed mon-sensors-plugin installation is required")
@@ -109,7 +110,8 @@ def collector_runtime(app):
             raise ValueError("Unsafe plugin manifest")
         if digest(read(modules / name)) != expected:
             raise ValueError("Installed collector differs from its manifest")
-    if digest(read(app / "mon-sensors-plugin")) != marker.get("launcher_sha256"):
+    entry = app / ('.bits-collector' if headless else 'mon-sensors-plugin')
+    if digest(read(entry)) != marker.get("launcher_sha256"):
         raise ValueError("Collector launcher differs from its manifest")
     runtime_file = modules / "mon_sensors_plugin/runtime.py"
     if "mon_sensors_plugin/runtime.py" not in marker["files"]:
@@ -127,6 +129,7 @@ def collector_runtime(app):
         sys.modules[package_name] = package
         package_spec.loader.exec_module(package)
     runtime.payload_validator = importlib.import_module(package_name + ".provider")
+    runtime.collector_entry = entry
     return runtime
 
 
@@ -173,7 +176,8 @@ def stopped_monitor(app, mon, runtime):
             command = argv[argv.index("--") + 1:] if "--" in argv else []
             # Both the legacy bridge and the direct plugin supervisor put the log
             # after the interval. Never match a pathname occurring in a random flag.
-            entries = (str(app / "mon-sensors"), str(app / "mon-sensors-plugin.d/mon-sensors-plugin"))
+            entries = (str(app / "mon-sensors"), str(app / "mon-sensors-plugin.d/mon-sensors-plugin"),
+                       str(app / '.bits-collector.d/mon-sensors-plugin'))
             matched = False
             for target in entries:
                 if target in command:

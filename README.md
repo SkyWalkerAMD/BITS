@@ -6,20 +6,20 @@
 
 | 场景 | 发布包 | 操作说明 |
 | --- | --- | --- |
-| 新服务器部署整套系统 | [OCRUN 0.2.3：管理端与节点 RPM/DEB](https://github.com/SkyWalkerAMD/ocrun-next/releases/tag/v0.2.3) | [完整系统部署](docs/deployment/DISTRIBUTION.md) |
-| 旧 OCRUN 增加功能，保留 ws/occt | [ocrun-plugin 0.1.1：控制端与节点 RPM/DEB](https://github.com/SkyWalkerAMD/ocrun-next/releases/tag/ocrun-plugin-v0.1.1) | [旧系统增强套件](docs/plugins/OCRUN-PLUGIN.md) |
-| 第三方程序读取本机监控 | [sckocp-api 0.3.2 独立安装器](https://github.com/SkyWalkerAMD/ocrun-next/releases/download/v0.2.3/sckocp-api-0.3.2.run) | [接口操作手册](docs/monitoring/SCKOCP-API-操作手册.md) |
+| 新服务器部署整套系统 | [BITS 0.2.4：管理端与节点 RPM/DEB](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.2.4) | [完整系统部署](docs/deployment/BITS.md) |
+| 旧 OCRUN 增加功能，保留 ws/occt | [BITS-o 0.1.2：控制端与节点 RPM/DEB](https://github.com/SkyWalkerAMD/BITS/releases/tag/bits-o-v0.1.2) | [旧系统增强套件](docs/deployment/BITS.md) |
+| 第三方程序读取本机监控 | [sckocp-api 0.4.0 独立安装器](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.2.4/sckocp-api-0.4.0.run) | [接口操作手册](docs/monitoring/SCKOCP-API-操作手册.md) |
 
 节点工具包括 stress 1.0.7、stress-ng 0.22.01、mprime 30.19b20（m1/m2/m4）、MLC 3.13、MBW 2.0、cyclictest 2.10、UnixBench 6.0.1。SPEC CPU2017 使用用户持有的原授权文件。[工具版本与命令](docs/workloads/MANUAL.md)。
 
-已发布包的云端验收覆盖 x86-64 的 Rocky/AlmaLinux 8/9/10、Debian 11/12/13、Ubuntu 22.04/24.04/26.04。RHEL、其他架构和真实硬件需另行验收。[版本与验证记录](docs/releases/README.md)。
+此前 OCRUN 已发布包的云端验收覆盖 x86-64 的 Rocky/AlmaLinux 8/9/10、Debian 11/12/13、Ubuntu 22.04/24.04/26.04。RHEL、其他架构和真实硬件需另行验收。[版本与验证记录](docs/releases/README.md)。
 
 ## 常用文档
 
 - [全部文档导航](docs/README.md)：部署、插件、节点、监控、报表、工具、安全及历史。
 - [节点任务、状态和失败恢复](docs/node/OPERATIONS.md)。
 - [机器压测报告与交付文件](docs/reports/ACCEPTANCE-REPORT.md)。
-- [升级与回滚](docs/releases/0.2.3.md)。
+- [升级与回滚](docs/releases/0.2.4.md)。
 - [开发与云端验证](CONTRIBUTING.md)。
 
 ## 仓库地图
@@ -36,7 +36,7 @@
 | `docs/` | 使用文档；历史材料在 `docs/archive/` |
 | 私有研究 | 原生 sckocp 源码和安全研究保留在独立私有仓库，不在公开历史中 |
 
-Python 导入路径和对外命令保持稳定；根目录构建、安装和命令入口用于兼容已有离线包。[目录约定与迁移对照](docs/development/REPOSITORY.md)。
+命令改为 bits-center / bits-node / bits-o；内部模块、数据目录和历史回执标识保持兼容。硬件查看使用 sckocp，批次内自动采集。[目录约定与迁移对照](docs/development/REPOSITORY.md)。
 
 ## 使用边界
 

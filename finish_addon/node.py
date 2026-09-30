@@ -86,6 +86,7 @@ def run_batch(app, queue, plan, remote):
         return {'status': 'idle', 'automatic_task_polling': False}
     snapshot, tasks = plan['snapshot'], plan['tasks']
     mon = Path(plan['mon'])
+    runtime = finish.collector_runtime(app)
     with lock(finish.root_state(app) / 'operation.lock'):
         state = finish.begin(app, str(mon), remote, snapshot['id'], snapshot['time'])
         state['queue_snapshot'] = snapshot
@@ -105,7 +106,7 @@ def run_batch(app, queue, plan, remote):
     collector = worker = None
     collector_log = open(str(case_dir / 'collector.log'), 'xb')
     try:
-        collector = subprocess.Popen([str(app / 'mon-sensors-plugin'), '2', str(mon)],
+        collector = subprocess.Popen([str(runtime.collector_entry), '2', str(mon)],
             stdout=collector_log, stderr=collector_log, stdin=subprocess.DEVNULL, start_new_session=True,
             preexec_fn=parent_death,
             env={'PATH': '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin', 'HOME': '/root',

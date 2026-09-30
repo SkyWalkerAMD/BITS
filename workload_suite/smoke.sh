@@ -10,7 +10,7 @@ else
     apt-get update
     apt-get install -y --no-install-recommends /src/workload-dist/*.deb
 fi
-ocrun-workloads check
+bits-o-workloads check
 taskset -pc $$
 # Bound tests to two available CPUs even on runners with large shared affinity sets.
 python3 -I -B /src/workload_suite/test_linux.py
@@ -31,17 +31,17 @@ cp -p /root/mbw-original "$target"
 # A refused dpkg preinst may leave the existing version unpacked; restore only
 # package-manager status now the operator-preserved bytes match the inventory.
 if command -v dpkg >/dev/null; then
-    if [ "$(dpkg-query -W -f='${db:Status-Status}' ocrun-workloads)" != installed ]; then
-        dpkg --configure ocrun-workloads
+    if [ "$(dpkg-query -W -f='${db:Status-Status}' bits-o-workloads)" != installed ]; then
+        dpkg --configure bits-o-workloads
     fi
 fi
 printf 'modified payload reinstall: refused, bytes preserved\n' >> /results/tamper-reinstall.txt
 if command -v rpm >/dev/null; then
-    rpm -V ocrun-workloads
-    dnf -y remove ocrun-workloads
+    rpm -V bits-o-workloads
+    dnf -y remove bits-o-workloads
 else
-    dpkg --verify ocrun-workloads
-    apt-get remove -y ocrun-workloads
+    dpkg --verify bits-o-workloads
+    apt-get remove -y bits-o-workloads
 fi
-test ! -e /usr/bin/ocrun-workloads
+test ! -e /usr/bin/bits-o-workloads
 printf 'uninstall: passed\n' > /results/uninstall.txt

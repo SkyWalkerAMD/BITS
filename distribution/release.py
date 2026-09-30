@@ -19,7 +19,7 @@ def main():
     component_run = os.environ.get('COMPONENT_RUN') or run
     component_commit = os.environ.get('COMPONENT_COMMIT') or commit
     inputs = Path('release-input')
-    target = Path('system-dist') / ('ocrun-system-' + VERSION)
+    target = Path('system-dist') / ('bits-system-' + VERSION)
     target.mkdir(parents=True)
     matrix = []
     for label, image in MATRIX:
@@ -87,11 +87,11 @@ def main():
             raise ValueError('Upstream source differs')
         copy(archive, target / 'sources' / archive.name)
     copy(source / 'sources.json', target / 'SOURCES.json')
-    source_export = export_sources(target / 'sources/ocrun-source.tar.gz', commit)
-    documents = dict([('docs/deployment/DISTRIBUTION.md', 'README.md'), ('docs/workloads/MANUAL.md', 'WORKLOADS-MANUAL.md'),
+    source_export = export_sources(target / 'sources/bits-source.tar.gz', commit)
+    documents = dict([('docs/deployment/BITS.md', 'README.md'), ('docs/workloads/MANUAL.md', 'WORKLOADS-MANUAL.md'),
                            ('docs/deployment/SERVER.md', 'SERVER-MANUAL.md'), ('docs/monitoring/SCKOCP-API.md', 'SCKOCP-API.md'),
                            ('docs/reports/ACCEPTANCE-REPORT.md', 'ACCEPTANCE-REPORT.md'), ('docs/plugins/CONTROL-READER.md', 'CONTROL-MANUAL.md'),
-                           ('docs/releases/0.2.3.md', 'OPTIMIZATION.md')])
+                           ('docs/releases/0.2.4.md', 'OPTIMIZATION.md')])
     from build import document_bytes
     for original, name in documents.items():
         put(target / name, document_bytes(original, name, documents))

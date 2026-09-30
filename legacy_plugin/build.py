@@ -11,11 +11,11 @@ import tarfile
 import tempfile
 
 from . import VERSION
-from distribution.build import put, copy, launch, extract_own, sha
+from distribution.build import put, copy, launch, extract_own, sha, check_input
 
 SOURCE = Path(__file__).resolve().parents[1]
 PREFIX = '/opt/ocrun-plugin/' + VERSION
-COMMAND = '/usr/bin/ocrun-plugin'
+COMMAND = '/usr/bin/bits-o'
 BASELINE_SHA = 'de52917ac365a27cc092e74755da9d8c4d81e1c6ac85d16bd73882db81372949'
 BASELINE_COMMIT = '51d59acaa85ab39fd7b16f8c06c6bf43977f1f43'
 
@@ -32,37 +32,37 @@ fi
 '''
     if not remove:
         text += """
-if [ -e /opt/ocrun-plugin/0.1.0 ] || [ -L /opt/ocrun-plugin/0.1.0 ] || [ -e CURRENT_PREFIX ] || [ -L CURRENT_PREFIX ] || [ -e /usr/bin/ocrun-plugin ] || [ -L /usr/bin/ocrun-plugin ]; then
+if [ -e /opt/ocrun-plugin/0.1.0 ] || [ -L /opt/ocrun-plugin/0.1.0 ] || [ -e CURRENT_PREFIX ] || [ -L CURRENT_PREFIX ] || [ -e /usr/bin/bits-o ] || [ -L /usr/bin/bits-o ]; then
  echo 'Existing plugin paths retained. Remove the detached package before reinstalling.' >&2
  exit 1
 fi
 """
     else:
         if kind == 'rpm':
-            text += 'rpm -V ocrun-plugin-' + role + ' || { echo "Modified package retained." >&2; exit 1; }\n'
+            text += 'rpm -V bits-o-' + role + ' || { echo "Modified package retained." >&2; exit 1; }\n'
         else:
-            text += ('differences=$(dpkg --verify ocrun-plugin-' + role + ')\n'
+            text += ('differences=$(dpkg --verify bits-o-' + role + ')\n'
                      '[ -z "$differences" ] || { printf "%s\\n" "$differences" >&2; exit 1; }\n')
         text += '''
-unsafe=$(find CURRENT_PREFIX /usr/bin/ocrun-plugin -xdev \\( ! -user root -o -perm /7022 -o -type l -o -links +1 -type f \\) -print)
+unsafe=$(find CURRENT_PREFIX /usr/bin/bits-o -xdev \\( ! -user root -o -perm /7022 -o -type l -o -links +1 -type f \\) -print)
 [ -z "$unsafe" ] || { echo 'Unsafe package paths retained.' >&2; exit 1; }
 '''
     return text.replace('CURRENT_PREFIX', PREFIX)
 
 
 def package(stage, role, kind, out):
-    name = 'ocrun-plugin-' + role
+    name = 'bits-o-' + role
     if kind == 'rpm':
         top = stage.parent / ('rpm-' + role)
         for d in ('BUILD', 'BUILDROOT', 'RPMS', 'SRPMS', 'SOURCES', 'SPECS'):
             (top / d).mkdir(parents=True)
         depends = 'bash, findutils, (python3 >= 3.6 or platform-python >= 3.6)'
         if role == 'node':
-            depends += ', ocrun-workloads = 0.1.0-3.el8, rsync, curl, util-linux, procps-ng, (redis or valkey), iputils, dmidecode'
+            depends += ', bits-o-workloads = 0.1.0-3.el8, rsync, curl, util-linux, procps-ng, (redis or valkey), iputils, dmidecode'
         spec = top / 'SPECS/plugin.spec'
         spec.write_text('Name: ' + name + '\nVersion: ' + VERSION + '\nRelease: 1.el8\n'
             'Summary: Original OCRUN system enhancement (' + role + ')\nLicense: GPLv3+\nBuildArch: x86_64\n'
-            'Requires: ' + depends + '\nConflicts: ocrun-plugin-' + ('node' if role == 'control' else 'control') + ', ocrun-node, ocrun-center\n'
+            'Requires: ' + depends + '\nConflicts: bits-o-' + ('node' if role == 'control' else 'control') + ', bits-node, bits-center, ocrun-node, ocrun-center, ocrun-plugin-node, ocrun-plugin-control\n'
             '%global debug_package %{nil}\n%global __os_install_post %{nil}\n%description\n'
             'Explicit legacy integration; no task, network service or scheduler is started by installation.\n'
             '%install\nmkdir -p %{buildroot}\ncp -a ' + str(stage) + '/. %{buildroot}/\n'
@@ -76,10 +76,10 @@ def package(stage, role, kind, out):
         control.mkdir()
         depends = 'bash, findutils, python3 (>= 3.6)'
         if role == 'node':
-            depends += ', ocrun-workloads (= 0.1.0-3), rsync, curl, util-linux, procps, redis-tools, iputils-ping, dmidecode'
+            depends += ', bits-o-workloads (= 0.1.0-3), rsync, curl, util-linux, procps, redis-tools, iputils-ping, dmidecode'
         put(control / 'control', 'Package: ' + name + '\nVersion: ' + VERSION + '-1\nArchitecture: amd64\n'
             'Maintainer: OCRUN local deployment\nSection: admin\nPriority: optional\nDepends: ' + depends + '\n'
-            'Conflicts: ocrun-plugin-' + ('node' if role == 'control' else 'control') + ', ocrun-node, ocrun-center\n'
+            'Conflicts: bits-o-' + ('node' if role == 'control' else 'control') + ', bits-node, bits-center, ocrun-node, ocrun-center, ocrun-plugin-node, ocrun-plugin-control\n'
             'Description: Original OCRUN system enhancement\n Explicit attach; installation does not start tasks or services.\n')
         put(control / 'preinst', guard(role, kind), True)
         put(control / 'prerm', guard(role, kind, True), True)
@@ -89,7 +89,7 @@ def package(stage, role, kind, out):
                         str(out / (name + '_' + VERSION + '-1_amd64.deb'))], check=True)
 
 
-def build(baseline, output):
+def build(baseline, output, tools):
     if sha(baseline) != BASELINE_SHA:
         raise ValueError('Published v0.2.2 baseline archive differs')
     output.mkdir(exist_ok=True, parents=True)
@@ -138,28 +138,35 @@ def build(baseline, output):
                                    ' -I -S -B /opt/mon-sensors-report/' + version + '/report.py "$@"\n').encode()
                             launchers.append(hashlib.sha256(raw).hexdigest())
                     put(root / 'REPORT-LAUNCHERS.json', json.dumps(launchers))
-                copy(SOURCE / 'docs/plugins/OCRUN-PLUGIN.md', root / 'MANUAL.md')
+                copy(SOURCE / 'docs/deployment/BITS.md', root / 'MANUAL.md')
                 for path in stage.rglob('*'):
                     if path.is_symlink():
                         raise ValueError('Symlink in code payload')
                     path.chmod(0o755 if path.is_dir() or path.stat().st_mode & 0o111 else 0o644)
                 files = {p.relative_to(root).as_posix(): sha(p) for p in root.rglob('*') if p.is_file()}
                 put(root / 'PACKAGE.json', json.dumps({'role': role, 'version': VERSION, 'files': files,
-                    'source_commit': os.environ['GITHUB_SHA'], 'reused_workloads_source': BASELINE_COMMIT,
+                    'source_commit': os.environ['GITHUB_SHA'], 'workloads_source': os.environ['GITHUB_SHA'],
                     'component_versions': {'sckocp-api': component_builder.PUBLIC_API_VERSION,
                         'collector': component_builder.PLUGIN_VERSION, 'finish': '0.2.6', 'report': '0.2.0', 'workloads': '0.1.0-3'},
                     'services_started_by_install': False}, sort_keys=True, indent=2))
                 if role == 'node' and kind == 'deb':
                     # Same hash-inventoried Python payload, for the first
                     # maintenance stop before native workload preinstall guards.
-                    with tarfile.open(str(output / ('ocrun-plugin-node-' + VERSION + '-portable.tar.gz')), 'w:gz') as bundle:
+                    with tarfile.open(str(output / ('bits-o-node-' + VERSION + '-portable.tar.gz')), 'w:gz') as bundle:
                         def owned(info):
                             info.uid = info.gid = 0
                             info.uname = info.gname = 'root'
                             return info
-                        bundle.add(str(root), arcname='ocrun-plugin-node-' + VERSION, filter=owned)
+                        bundle.add(str(root), arcname='bits-o-node-' + VERSION, filter=owned)
                 package(stage, role, kind, output)
-        for file in previous.joinpath('standalone').glob('ocrun-workloads*'):
+        packages = sorted(tools.rglob('bits-o-workloads*.rpm')) + sorted(tools.rglob('bits-o-workloads*.deb'))
+        if len(packages) != 2:
+            raise ValueError('Both renamed workload native packages are required')
+        for file in packages:
+            check_input(file)
+            manifest = json.loads((file.parent / 'WORKLOADS.json').read_text())
+            if manifest['source_commit'] != os.environ['GITHUB_SHA']:
+                raise ValueError('Workloads must match this source commit')
             copy(file, output / file.name)
         api_archive = tmp / ('sckocp-api-' + component_builder.PUBLIC_API_VERSION + '.tar.gz')
         component_builder.public_api_package(api_archive)
@@ -167,8 +174,8 @@ def build(baseline, output):
             output / ('sckocp-api-' + component_builder.PUBLIC_API_VERSION + '.run'), 'install-sckocp-api.sh')
         # CI-only upgrade fixture, excluded from the published package set.
         copy(previous / 'standalone/mon-sensors-report-py36-0.2.0.run', output / 'ci/mon-sensors-report-py36-0.2.0.run')
-        copy(SOURCE / 'docs/plugins/OCRUN-PLUGIN.md', output / 'MANUAL.md')
-        copy(SOURCE / 'docs/releases/0.2.3.md', output / 'OPTIMIZATION.md')
+        copy(SOURCE / 'docs/deployment/BITS.md', output / 'MANUAL.md')
+        copy(SOURCE / 'docs/releases/0.2.4.md', output / 'OPTIMIZATION.md')
         put(output / 'SHA256SUMS', ''.join(sha(p) + '  ' + p.name + '\n' for p in sorted(output.iterdir()) if p.is_file() and p.name != 'SHA256SUMS'))
 
 
@@ -177,6 +184,7 @@ if __name__ == '__main__':
         raise SystemExit('Build only in authorized cloud Linux')
     parser = argparse.ArgumentParser()
     parser.add_argument('--baseline', type=Path, required=True)
+    parser.add_argument('--tools', type=Path, required=True)
     parser.add_argument('--output', type=Path, default=Path('legacy-dist'))
     args = parser.parse_args()
-    build(args.baseline, args.output)
+    build(args.baseline, args.output, args.tools)

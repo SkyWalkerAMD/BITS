@@ -167,4 +167,4 @@ jobs:
         env: {COMPONENT_RUN: '${{ needs.components.outputs.run }}', COMPONENT_COMMIT: '${{ needs.components.outputs.commit }}'}
         run: python3 -m distribution.release
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with: {name: 'ocrun-system-0.2.3-${{ github.run_id }}', path: system-dist/, retention-days: 90}
+        with: {name: 'bits-system-0.2.4-${{ github.run_id }}', path: system-dist/, retention-days: 90}

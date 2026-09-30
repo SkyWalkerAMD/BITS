@@ -40,6 +40,7 @@ def identity(pid):
 def idle(cfg):
     app = Path(cfg['app'])
     paths = {os.fsencode(str(app / x)) for x in ('ocb', 'oct', 'mon-sensors', 'mon-sensors-plugin',
+             '.bits-collector', '.bits-collector.d/mon-sensors-plugin',
              'mon-sensors-plugin.d/mon-sensors-plugin', 'mon-sensors-finish.d/finish.py')}
     for item in Path('/proc').iterdir():
         if not item.name.isdigit() or int(item.name) == os.getpid():

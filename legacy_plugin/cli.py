@@ -7,6 +7,7 @@ import pwd
 import re
 import socket
 import sys
+from types import SimpleNamespace
 
 from . import VERSION, common, tasks
 from server_deploy.wire import Redis
@@ -114,10 +115,59 @@ def control_tasks(cfg, args):
     return tasks.remove(redis, args.node, args.id, args.time, args.operation == 'archive', args.check)
 
 
+def setup(args):
+    """Configure the installed role from bounded data, then attach idempotently."""
+    common.root()
+    spec = common.verify()
+    role = spec['role']
+    app = args.app or ('/home/ocuser/ocrun' if role == 'control' else '/root/ocrun')
+    from control_addon.data import Reader
+    with Reader(app) as reader:
+        env = reader.read('oc.env').decode('utf-8')
+    endpoints = re.findall(r'^RDBSVR1=([A-Za-z0-9.-]+)\s*$', env, re.M)
+    if len(endpoints) != 1:
+        raise ValueError('Cannot safely read original RDBSVR1; use configure to inspect the endpoint')
+    serial = args.serial
+    if role == 'node' and not serial:
+        # Fixed sysfs device path, no shell, DMI probing, PATH or caller-supplied file.
+        serial = common.read(Path('/sys/devices/virtual/dmi/id/board_serial'), limit=1024).decode('ascii').strip()
+        if serial.lower() in ('', 'none', 'unknown', 'default string', 'to be filled by o.e.m.', 'not specified', 'system serial number'):
+            raise ValueError('Board serial is unavailable; rerun setup --serial VERIFIED_SERIAL')
+        tasks.name(serial)
+    values = SimpleNamespace(role=role, app=app, rdb_server=endpoints[0], rdb_port=6379,
+        log_server=None, node=None, serial=serial, results_root=args.results_root,
+        operator=args.operator, allow_node=args.allow_node, replace=args.replace, check=True)
+    cfg = configure(values)
+    cfg.pop('check'); cfg.pop('tasks_started')
+    if role == 'node':
+        from . import attach
+        attach.check(cfg)
+    if args.check:
+        return {'status': 'checked', 'role': role, 'configuration': cfg, 'tasks_started': False,
+                'next': 'bits-o setup with the same options and without --check'}
+    values.check = False
+    configure(values)
+    if role == 'node':
+        attached = attach.apply(cfg, args.resume)
+        return dict(attached, role=role, tasks_started=False,
+                    next='bits-o preflight; bits-o start explicitly starts the queued batch')
+    return {'status': 'ready', 'role': role, 'allowed_nodes': cfg['allowed_nodes'],
+            'tasks_started': False, 'next': 'bits-o tasks status --node NODE'}
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--version', action='version', version='ocrun-plugin ' + VERSION)
+    parser.add_argument('--version', action='version', version='bits-o ' + VERSION)
     sub = parser.add_subparsers(dest='command')
+    quick = sub.add_parser('setup', help='read original endpoints and board serial; configure and attach without starting tasks')
+    quick.add_argument('--app')
+    quick.add_argument('--serial')
+    quick.add_argument('--allow-node', action='append')
+    quick.add_argument('--results-root', default='/data/cds/result')
+    quick.add_argument('--operator', default='ocuser')
+    quick.add_argument('--replace', action='store_true')
+    quick.add_argument('--resume', action='store_true')
+    quick.add_argument('--check', action='store_true')
     setup = sub.add_parser('configure', help='explicit role and endpoints; does not start anything')
     setup.add_argument('--role', choices=('control', 'node'), required=True)
     setup.add_argument('--app')
@@ -173,6 +223,8 @@ def main(argv=None):
         parser.print_help(); return 2
     if args.command == 'configure':
         common.display(configure(args), True); return 0
+    if args.command == 'setup':
+        common.display(setup(args), True); return 0
     spec = common.verify()
     if args.command == 'maintenance-stop':
         if spec['role'] != 'node' or args.app != '/root/ocrun':
@@ -248,7 +300,7 @@ def main(argv=None):
     elif args.command == 'tools':
         if not args.args or args.args[0] not in ('list', 'check', 'import-spec'):
             raise ValueError('Use tools list/check/import-spec; attach manages binding')
-        common.run(['/usr/bin/ocrun-workloads'] + args.args, timeout=1800, capture=False)
+        common.run(['/usr/bin/bits-o-workloads'] + args.args, timeout=1800, capture=False)
     elif args.command == 'stop-scheduler':
         common.display(node.stop_scheduler(cfg), args.json)
     elif args.command in ('start', 'preflight'):
@@ -279,5 +331,5 @@ def entry():
         return main()
     except (OSError, ValueError, KeyError, TypeError) as exc:
         from control_addon.control import clean
-        print('ocrun-plugin: ' + clean(exc), file=sys.stderr)
+        print('bits-o: ' + clean(exc), file=sys.stderr)
         return 2

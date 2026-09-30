@@ -11,6 +11,12 @@ import common
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] in ('tasks', 'menu', 'node-config'):
+        common.verify('center')
+        arguments = sys.argv[1:]
+        if arguments[0] == 'tasks':
+            arguments[0] = 'task'
+        return subprocess.run(['/usr/local/bin/ocrun-server'] + arguments, check=True).returncode
     if len(sys.argv) > 1 and sys.argv[1] == 'results':
         common.verify('center', require_root=False)
         from control_addon.control import main as results
@@ -21,7 +27,7 @@ def main():
             args += ['--results-root', '/srv/ocrun/logs']
         raise SystemExit(results(args))
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--version', action='version', version='ocrun-center ' + common.VERSION)
+    parser.add_argument('--version', action='version', version='bits-center ' + common.VERSION)
     sub = parser.add_subparsers(dest='action')
     setup = sub.add_parser('setup')
     setup.add_argument('--address', required=True)
@@ -34,6 +40,9 @@ def main():
     sub.add_parser('check')
     sub.add_parser('publish-node')
     sub.add_parser('results', help='list/show/verify/sample local batch results (use results --help)')
+    sub.add_parser('tasks', help='add/status/delete tasks through the existing protocol')
+    sub.add_parser('menu', help='interactive task menu')
+    sub.add_parser('node-config', help='export a private connection file for a node')
     args = parser.parse_args()
     common.verify('center')
     installer = ['bash', str(ROOT / 'server/server_deploy/install.sh')]
@@ -54,7 +63,7 @@ def main():
             subprocess.run(['/usr/local/bin/ocrun-server', 'check'], check=True)
         else:
             print(json.dumps({'status': 'not_configured', 'version': common.VERSION,
-                              'next': 'ocrun-center setup --address IP --network CIDR --check'}))
+                              'next': 'bits-center setup --address IP --network CIDR --check'}))
     else:
         parser.error('Choose setup, check, publish-node or rollback')
 
@@ -78,5 +87,5 @@ if __name__ == '__main__':
     try:
         main()
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
-        print('ocrun-center: ' + str(error), file=sys.stderr)
+        print('bits-center: ' + str(error), file=sys.stderr)
         sys.exit(1)

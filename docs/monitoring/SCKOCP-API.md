@@ -187,3 +187,12 @@ PYTHONPATH="$PWD" python3 examples/read-sckocp.py --binary /usr/bin/sckocp
 0730 的可选适配器从 0.12.5 起调用本公共接口，默认支持原版 v1；0.12.6 将新增实现移到独立的 `mon_sensors_plugin/` 模块和 `mon-sensors-plugin` 命令，沿用旧日志与上报方式。原 `mon-sensors` 只在主动选择插件时转调它；插件安装说明随插件包提供。原版值只按报告值展示，质量未知。新版 OCRUN Agent 的验收采集器及 `ocrun.sckocp` 兼容入口仍要求 v2，不把 v1 值用于其保护或验收规则。第三方独立包不含 OCRUN。本版仅提供本地接口。
 
 外置接口沿用 sckocp 现有授权能力，不修复或更改其原有激活机制，也不能阻止掌握 root 权限的人修改程序或伪造管理端展示。安装独立接口无需重发 sckocp。测试与构建在云端 Linux 执行；模拟传感器和临时签名授权不代表生产硬件验收。
+# 0.4.0 补充信息与输出边界
+
+新增可选 `sckocp-api --details`。默认 API 基础 JSON 保持兼容；启用时附加 `sckocp-details-v1`，包含固定只读 overview/info 两次授权调用的独立状态、开始和观察时间、解析字段及经过白名单过滤的文本。总超时仍覆盖全部调用，基础授权失败不再读取补充信息。
+
+**内存时序仅输出 Primary 组**：原生 Primary 行及同组 tCWL/tRC（如提供）。Refresh、Secondary、Tertiary、未知分组及其原文不返回、不进入日志或报告。原机 rmal 解锁状态不改变该规则，API 没有 rmal/任意命令/任意参数转发入口。
+
+Pkg、DRAM 功耗、整机 PSU、内存/DIMM 温度、VCCIN、VID、TjMax、CPU stepping、平台和配置进入补充数据。未提供的数值为 null；传感器有效性和读数年龄没有原生证据时仍为未知。CLI 请求 details 且任一补充项失败时退出非零，但返回各部分状态供诊断，不泄露原生错误全文或授权信息。
+
+BITS 自动采集默认每 10 秒补充一次；不把异步补充当作每条基础样本的同步读数。HTML/报告 JSON 显示样本数量和来源，原 `.mon` 及 Excel 11 列不变。详见 [本轮边界](../releases/0.2.4.md)。下面的基础协议继续适用。

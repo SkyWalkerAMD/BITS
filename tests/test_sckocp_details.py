@@ -236,6 +236,17 @@ class DetailsTests(unittest.TestCase):
             provider.validate_details(poisoned)
 
 
+class PrivateCollectorTests(unittest.TestCase):
+    def test_original_monitor_preserved_and_patch_repeat_safe(self):
+        from mon_sensors_plugin.install import patched, SCRIPTS
+        root = Path(__file__).resolve().parents[1] / 'integrations/mon-sensors/upstream-0.9.24a'
+        original = {name: (root / Path(name).name).read_bytes() for name in SCRIPTS}
+        once = patched(original, headless=True)
+        self.assertEqual(original['mon-sensors'].replace(b'\r\n', b'\n'), once['mon-sensors'])
+        self.assertIn(b'"${APPPATH}/.bits-collector" --stop-app', once['oct'])
+        self.assertEqual(once, patched(once, headless=True))
+
+
 if __name__ == '__main__':
     if os.environ.get('GITHUB_ACTIONS') != 'true':
         raise SystemExit('Run in authorized cloud Linux')

@@ -105,7 +105,7 @@ def initialize(args):
         value, installed, unused = configured()
         if installed != connection or value['serial'] != args.serial or value['keep_on'] != args.keep_on:
             raise ValueError('Existing node configuration differs; preserved')
-        call(['/usr/bin/ocrun-workloads', 'bind', '--app', APP] + (['--check'] if args.check else []), stdout=subprocess.PIPE)
+        call(['/usr/bin/bits-o-workloads', 'bind', '--app', APP] + (['--check'] if args.check else []), stdout=subprocess.PIPE)
         if not args.check and (DATA / 'setup.json').exists():
             (DATA / 'setup.json').unlink()
             common.sync_directory(DATA)
@@ -170,7 +170,7 @@ def initialize(args):
             common.save(CONFIG / 'native.json', dict(result, status='configured', serial=args.serial,
                 keep_on=args.keep_on, connection_sha256=common.digest(connection_bytes), files=files,
                 package_sha256=common.digest(common.read(ROOT / 'PACKAGE.json'))))
-            call(['/usr/bin/ocrun-workloads', 'bind', '--app', APP], stdout=subprocess.PIPE)
+            call(['/usr/bin/bits-o-workloads', 'bind', '--app', APP], stdout=subprocess.PIPE)
             journal.unlink()
             common.sync_directory(DATA)
             result['status'] = 'configured'
@@ -300,11 +300,11 @@ def detach(check):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--version', action='version', version='ocrun-node ' + common.VERSION)
+    parser.add_argument('--version', action='version', version='bits-node ' + common.VERSION)
     sub = parser.add_subparsers(dest='action')
-    setup = sub.add_parser('configure')
+    setup = sub.add_parser('configure', aliases=['setup'])
     setup.add_argument('--config', required=True)
-    setup.add_argument('--serial', required=True)
+    setup.add_argument('--serial', help='Defaults to the fixed sysfs motherboard serial; override placeholders explicitly')
     setup.add_argument('--keep-on', action='store_true', help='Explicitly disable automatic shutdown on this new node')
     setup.add_argument('--check', action='store_true')
     for name in ('check', 'start', 'run', 'preflight', 'stop-scheduler'):
@@ -321,15 +321,27 @@ def main():
             item.add_argument('--reason', required=True)
     detaching = sub.add_parser('detach')
     detaching.add_argument('--check', action='store_true')
+    tools = sub.add_parser('tools')
+    tools.add_argument('args', nargs=argparse.REMAINDER)
     args = parser.parse_args()
     common.verify('node')
-    if args.action == 'configure':
+    if args.action in ('configure', 'setup'):
+        if not args.serial:
+            args.serial = common.read(Path('/sys/devices/virtual/dmi/id/board_serial'), 1024).decode('ascii').strip()
+            if args.serial.lower() in ('', 'none', 'unknown', 'default string', 'to be filled by o.e.m.', 'not specified', 'system serial number'):
+                raise ValueError('Board serial unavailable; supply --serial VERIFIED_SERIAL')
+            if not NAME.fullmatch(args.serial):
+                raise ValueError('Board serial needs a supported explicit --serial identifier')
         initialize(args)
+    elif args.action == 'tools':
+        if not args.args or args.args[0] not in ('list', 'check', 'import-spec'):
+            raise ValueError('Use tools list/check/import-spec')
+        call(['/usr/bin/bits-o-workloads'] + args.args)
     elif args.action == 'check' and not (CONFIG / 'native.json').exists():
-        tools = json.loads(call(['/usr/bin/ocrun-workloads', 'check'], stdout=subprocess.PIPE).stdout.decode('utf-8'))
+        tools = json.loads(call(['/usr/bin/bits-o-workloads', 'check'], stdout=subprocess.PIPE).stdout.decode('utf-8'))
         report = json.loads(call([ROOT / 'mon-sensors-report', '--check'], stdout=subprocess.PIPE).stdout.decode('utf-8'))
         print(json.dumps({'status': 'not_configured', 'tools': tools, 'report': report,
-            'next': 'ocrun-node configure --config PRIVATE.json --serial SERIAL', 'version': common.VERSION}))
+            'next': 'bits-node configure --config PRIVATE.json --serial SERIAL', 'version': common.VERSION}))
     elif args.action == 'detach':
         with common.lock_existing(DATA / '.setup.lock'):
             detach(args.check)
@@ -362,5 +374,5 @@ if __name__ == '__main__':
     try:
         main()
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
-        print('ocrun-node: ' + str(error), file=sys.stderr)
+        print('bits-node: ' + str(error), file=sys.stderr)
         sys.exit(1)

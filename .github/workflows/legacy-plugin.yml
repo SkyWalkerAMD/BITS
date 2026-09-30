@@ -1,4 +1,4 @@
-name: Original OCRUN system enhancement
+name: BITS-o legacy enhancement packages
 on:
   push:
     branches: [codex/workload-packages]
@@ -8,8 +8,13 @@ on:
       full_matrix:
         type: boolean
         default: false
+      workload_run:
+        description: 'Run with workload-rpm/deb artifacts built from this exact commit'
+        type: string
+        required: true
 permissions:
   contents: read
+  actions: read
 jobs:
   build:
     runs-on: ubuntu-22.04
@@ -17,6 +22,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with: {persist-credentials: false, fetch-depth: 0}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: workload-*-${{ inputs.workload_run }}
+          path: legacy-tools
+          run-id: ${{ inputs.workload_run }}
+          github-token: ${{ github.token }}
       - name: Fixed previously verified components; build only in cloud
         env: {GH_TOKEN: '${{ github.token }}'}
         run: |
@@ -25,14 +36,14 @@ jobs:
           mkdir legacy-input
           gh release download v0.2.2 --repo "$GITHUB_REPOSITORY" --pattern ocrun-system-0.2.2.tar.gz --dir legacy-input
           python3 -m unittest legacy_plugin.test_tasks distribution.test_source_export -v
-          python3 -m legacy_plugin.build --baseline legacy-input/ocrun-system-0.2.2.tar.gz
+          python3 -m legacy_plugin.build --baseline legacy-input/ocrun-system-0.2.2.tar.gz --tools legacy-tools
           mkdir .legacy-previous
           git archive 30b56fb723091223a9308049f39b51221c24c127 | tar -x -C .legacy-previous
           (cd .legacy-previous && python3 build.py && python3 finish_addon/build.py)
           cp .legacy-previous/dist/mon-sensors-plugin-0.12.9.run legacy-dist/ci/
           cp .legacy-previous/finish-dist/mon-sensors-finish-0.2.1.run legacy-dist/ci/
           mkdir legacy-dist/ci/previous
-          gh release download ocrun-plugin-v0.1.0 --repo "$GITHUB_REPOSITORY" --pattern 'ocrun-plugin*.rpm' --pattern 'ocrun-plugin*_amd64.deb' --dir legacy-dist/ci/previous
+          gh release download ocrun-plugin-v0.1.1 --repo "$GITHUB_REPOSITORY" --pattern 'ocrun-*.rpm' --pattern 'ocrun-*_amd64.deb' --dir legacy-dist/ci/previous
           cp legacy_plugin/PREVIOUS-SHA256SUMS legacy-dist/ci/previous/SHA256SUMS
           (cd legacy-dist/ci/previous && sha256sum -c SHA256SUMS)
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -88,9 +99,9 @@ jobs:
       - run: python3 -m legacy_plugin.release
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: 'ocrun-plugin-0.1.1-${{ github.run_id }}'
+          name: 'bits-o-0.1.2-${{ github.run_id }}'
           retention-days: 90
           path: |
             legacy-release/
-            ocrun-plugin-0.1.1.tar.gz
-            ocrun-plugin-0.1.1.tar.gz.sha256
+            bits-o-0.1.2.tar.gz
+            bits-o-0.1.2.tar.gz.sha256

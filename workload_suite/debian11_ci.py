@@ -68,8 +68,8 @@ def prepare(mode, tag, local_package=None):
         elif mode == 'security':
             packages = ['python3', 'python3-venv', 'tar', 'gzip', 'ca-certificates']
         else:
-            run(['docker', 'cp', str(local_package), container + ':/tmp/ocrun-workloads.deb'])
-            packages = ['/tmp/ocrun-workloads.deb']
+            run(['docker', 'cp', str(local_package), container + ':/tmp/bits-o-workloads.deb'])
+            packages = ['/tmp/bits-o-workloads.deb']
         plan = execute('apt-get', '-y', '--no-install-recommends', '--download-only', '--print-uris', 'install', *packages)
         requests = []
         for line in plan.splitlines():
@@ -133,7 +133,7 @@ def prepare(mode, tag, local_package=None):
             # Bullseye APT --no-download has a local-file path resolution bug.
             # Resolve/install its exact signed-index dependencies first, then
             # let dpkg install the already-built local package with no network.
-            print(execute('dpkg', '-i', '/tmp/ocrun-workloads.deb'), flush=True)
+            print(execute('dpkg', '-i', '/tmp/bits-o-workloads.deb'), flush=True)
         if mode in ('server', 'native'):
             execute('mkdir', '-p', '/fixture')
             for source, name in [('server_deploy/dependencies.sh', 'dependencies.sh'),
@@ -153,7 +153,7 @@ def prepare(mode, tag, local_package=None):
         if mode == 'legacy':
             execute('mkdir', '-p', '/root/plugin-packages')
             run(['docker', 'cp', str(local_package) + '/.', container + ':/root/plugin-packages/'])
-            for pattern in ('ocrun-workloads*.deb', 'ocrun-plugin-control*.deb'):
+            for pattern in ('bits-o-workloads*.deb', 'bits-o-control*.deb'):
                 selected = list(local_package.glob(pattern))
                 if len(selected) != 1:
                     raise ValueError('Ambiguous legacy fixture package')

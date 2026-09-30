@@ -43,6 +43,9 @@ def main():
     upgrade = json.loads((inputs / ('legacy-test-rocky8-' + run) / 'field-upgrade/validation.json').read_text())
     if upgrade['status'] != 'passed' or upgrade['source_commit'] != os.environ['GITHUB_SHA'] or upgrade['mode'] != 'field-upgrade':
         raise ValueError('Field-version upgrade path did not pass')
+    old_menu = json.loads((inputs / ('legacy-test-rocky8-' + run) / 'legacy-menu/validation.json').read_text())
+    if old_menu['status'] != 'passed' or old_menu['source_commit'] != os.environ['GITHUB_SHA'] or old_menu['mode'] != 'legacy-menu':
+        raise ValueError('Original occt task protocol acceptance did not pass')
     out = Path('legacy-release')
     out.mkdir(exist_ok=True)
     inventory = {}
@@ -53,24 +56,24 @@ def main():
         shutil.copyfile(str(package / name), str(out / name))
         inventory[name] = {'sha256': checksum, 'bytes': (out / name).stat().st_size}
     (out / 'VALIDATION.json').write_text(json.dumps({'source_commit': os.environ['GITHUB_SHA'],
-        'workflow_run': run, 'matrix': checks, 'field_version_upgrade': upgrade,
+        'workflow_run': run, 'matrix': checks, 'field_version_upgrade': upgrade, 'original_occt_protocol': old_menu,
         'hardware_validation': 'pending on real 215/K6C-165', 'kernel': 'shared cloud host kernel',
         'storage': 'isolated local directory served over real rsync; production NFS mapping unchanged',
         'scope': 'native packages, isolated real Redis/old scheduler/workloads/delivery; synthetic sensors'},
         ensure_ascii=False, indent=2) + '\n')
-    source_export = export_sources(out / 'ocrun-plugin-source.tar.gz', os.environ['GITHUB_SHA'])
-    (out / 'RELEASE.json').write_text(json.dumps({'name': 'ocrun-plugin', 'version': VERSION,
+    source_export = export_sources(out / 'bits-o-source.tar.gz', os.environ['GITHUB_SHA'])
+    (out / 'RELEASE.json').write_text(json.dumps({'name': 'bits-o', 'version': VERSION,
         'customer_sources': source_export,
         'component_versions': {'sckocp-api': PUBLIC_API_VERSION, 'mon-sensors-plugin': PLUGIN_VERSION},
         'source_commit': os.environ['GITHUB_SHA'], 'workflow_run': run, 'files': inventory,
         'roles': ['control', 'node'], 'task_protocol': 'original OCRUN per-host Redis layout',
-        'production_deployment': 'not performed', 'baseline_tools_release': 'v0.2.2',
+        'production_deployment': 'not performed', 'workloads_source': os.environ['GITHUB_SHA'], 'xlsxwriter_baseline_release': 'v0.2.2',
         'baseline_tools_sha256': 'de52917ac365a27cc092e74755da9d8c4d81e1c6ac85d16bd73882db81372949'}, indent=2) + '\n')
     (out / 'SHA256SUMS').write_text(''.join(sha(p) + '  ' + p.name + '\n' for p in sorted(out.iterdir())
         if p.is_file() and p.name != 'SHA256SUMS'))
-    archive = Path('ocrun-plugin-' + VERSION + '.tar.gz')
+    archive = Path('bits-o-' + VERSION + '.tar.gz')
     with tarfile.open(str(archive), 'w:gz') as bundle:
-        bundle.add(str(out), arcname='ocrun-plugin-' + VERSION)
+        bundle.add(str(out), arcname='bits-o-' + VERSION)
     Path(str(archive) + '.sha256').write_text(sha(archive) + '  ' + archive.name + '\n')
 
 

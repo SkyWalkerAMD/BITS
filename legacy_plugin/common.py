@@ -16,7 +16,7 @@ CONFIG = Path('/etc/ocrun-plugin/config.json')
 def verify(role=None):
     spec = json.loads(read(ROOT / 'PACKAGE.json').decode('utf-8'))
     if spec.get('version') != VERSION or spec.get('role') not in ('control', 'node'):
-        raise ValueError('Unknown ocrun-plugin package')
+        raise ValueError('Unknown bits-o package')
     if role and spec['role'] != role:
         raise ValueError('This command requires the {} package'.format(role))
     for name, expected in spec['files'].items():

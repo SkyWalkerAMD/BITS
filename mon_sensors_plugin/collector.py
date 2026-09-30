@@ -263,6 +263,7 @@ def stop_monitors(app, proc_root="/proc"):
     stop_runtime(app)
     targets = {_script_path(os.path.join(app, relative)) for relative in
                ("mon-sensors", "mon_sensors", "mon-sensors-plugin",
+                ".bits-collector", ".bits-collector.d/mon-sensors-plugin",
                 "mon-sensors-plugin.d/mon-sensors-plugin", "sckocp-collector/mon-sensors")}
     denied = False
     with os.scandir(proc_root) as entries:

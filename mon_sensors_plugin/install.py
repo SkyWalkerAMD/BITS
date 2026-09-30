@@ -117,12 +117,12 @@ DISPATCH = (V4_DISPATCH.replace(V4_BEGIN, BEGIN).replace(V4_END, END)
                      GUARD + 'if [[ ${MON_SENSORS_BACKEND+x} ]]; then'))
 
 
-def _launcher(app):
+def _launcher(app, helper=HELPER):
     interpreter = os.path.realpath(sys.executable)
     with trusted_executable(interpreter):
         pass
     return ('#!/bin/sh\n# Managed mon-sensors-plugin launcher.\nexec ' +
-            shlex.quote(interpreter) + ' -I -S -B ' + shlex.quote(str(app / HELPER / ENTRY)) +
+            shlex.quote(interpreter) + ' -I -S -B ' + shlex.quote(str(app / helper / ENTRY)) +
             ' "$@"\n').encode('utf-8')
 
 
@@ -211,7 +211,7 @@ def active_monitors(app, proc_root="/proc"):
     """Find collectors for this device without signalling or probing hardware."""
     targets = {str(app / name) for name in
                ("mon-sensors", "mon_sensors", ENTRY, HELPER + "/" + ENTRY,
-                "sckocp-collector/mon-sensors")}
+                "sckocp-collector/mon-sensors", ".bits-collector", ".bits-collector.d/mon-sensors-plugin")}
     active = []
     with os.scandir(proc_root) as entries:
         for entry in entries:
@@ -257,7 +257,7 @@ def _replace(text, old, new):
     raise ValueError("Unrecognized or ambiguous legacy script; no files changed")
 
 
-def patched(sources):
+def patched(sources, headless=False):
     result = {name: data.decode("utf-8").replace("\r\n", "\n") for name, data in sources.items()}
     mon = result["mon-sensors"]
     for old_begin, old_end, old_dispatch in ((PREVIOUS_BEGIN, PREVIOUS_END, PREVIOUS_DISPATCH),
@@ -283,6 +283,9 @@ def patched(sources):
         'nohup ${APPPATH}/mon-sensors 2 ${_MON_LOG} &',
         'nohup "${APPPATH}/mon-sensors" 2 "${_MON_LOG}" &')
     stop = '"${APPPATH}/mon-sensors-plugin" --stop-app "${APPPATH}"'
+    private_stop = '"${APPPATH}/.bits-collector" --stop-app "${APPPATH}"'
+    if headless and private_stop in result['oct']:
+        result['oct'] = _replace(result['oct'], private_stop, stop)
     v4_stop = 'python3 ' + stop
     previous_stop = 'python3 "${APPPATH}/sckocp-collector/mon-sensors" --stop-app "${APPPATH}"'
     old_stop = 'kill -9 $(ps -ef | grep -e "mon-sensors" | grep -v grep | awk \'{print $2}\')'
@@ -301,6 +304,11 @@ def patched(sources):
     result[analyzer] = _replace(result[analyzer], "aggfunc='mean')", "aggfunc='mean', dropna=False)")
     result[analyzer] = _replace(result[analyzer], "sheet_filename = sys.argv[3]\n",
         'sheet_filename = sys.argv[3] if len(sys.argv) > 3 else "Monitoring"\n')
+    if headless:
+        # Keep the original monitor command's code; the batch executor owns a
+        # private collector instead. Known old bridges are removed exactly.
+        result['mon-sensors'] = result['mon-sensors'].replace(DISPATCH, '', 1)
+        result['oct'] = result['oct'].replace('${APPPATH}/mon-sensors-plugin', '${APPPATH}/.bits-collector')
     return {name: text.encode("utf-8") for name, text in result.items()}
 
 
@@ -338,7 +346,7 @@ def _lock_file(app, create):
         raise
 
 
-def install(app, source, backend=None, check=False, adopt_original=False, modules_only=False):
+def install(app, source, backend=None, check=False, adopt_original=False, modules_only=False, headless=False):
     if backend not in (None, "legacy", "sckocp", "auto"):
         raise ValueError("Unsupported backend selection")
     if modules_only and (backend is not None or adopt_original):
@@ -365,14 +373,16 @@ def install(app, source, backend=None, check=False, adopt_original=False, module
         if config_before is not None and config_before not in (b"legacy\n", b"sckocp\n", b"auto\n"):
             raise ValueError("Unrecognized device backend configuration")
         config_after = (backend + "\n").encode("ascii") if backend is not None else config_before
-        prepared = originals if modules_only else patched(originals)
+        prepared = originals if modules_only else patched(originals, headless=headless)
         payload = {name: _regular(source / name) for name in FILES}
-        launcher = _launcher(app)
+        helper_name = '.bits-collector.d' if headless else HELPER
+        entry_name = '.bits-collector' if headless else ENTRY
+        launcher = _launcher(app, helper_name)
         digest = {name: hashlib.sha256(data).hexdigest() for name, data in payload.items()}
-        helper = app / HELPER
+        helper = app / helper_name
         if modules_only and not helper.exists():
             raise ValueError('--modules-only requires an existing managed plugin')
-        entry = app / ENTRY
+        entry = app / entry_name
         entry_before = _regular(entry) if entry.exists() or entry.is_symlink() else None
         entry_mode = stat.S_IMODE(entry.stat().st_mode) if entry_before is not None else 0o755
         previous = {}
@@ -507,6 +517,7 @@ def main(argv=None):
     parser.add_argument("--check", action="store_true", help="Validate and show the plan without changing files")
     parser.add_argument('--modules-only', action='store_true',
                         help='Upgrade only managed plugin modules and launcher; preserve scheduler/report hooks')
+    parser.add_argument('--headless', action='store_true', help='Private BITS batch collector; preserve original monitoring command')
     parser.add_argument("--adopt-original", action="store_true",
                         help="Root only: adopt known original UID 201 files after exact release hash validation; requires --app")
     args = parser.parse_args(argv)
@@ -521,7 +532,7 @@ def main(argv=None):
             if not any(marker in existing for marker in (BEGIN, PREVIOUS_BEGIN, V2_BEGIN, V3_BEGIN, V4_BEGIN)):
                 backend = "sckocp"
         result = install(app, args.source, backend, check=args.check, adopt_original=args.adopt_original,
-                         modules_only=args.modules_only)
+                         modules_only=args.modules_only, headless=args.headless)
         result["discovered"] = automatic
         print(json.dumps(result, ensure_ascii=False))
     except (OSError, ValueError) as error:

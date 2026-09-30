@@ -54,11 +54,11 @@ def template(root):
     app = root / 'template'
     sys.path.insert(0, str(SOURCE))
     from mon_sensors_plugin.install import FILES
-    helper = app / 'mon-sensors-plugin.d'
+    helper = app / '.bits-collector.d'
     for name in FILES:
         put(helper / name, (SOURCE / name).read_bytes().replace(b'\r\n', b'\n'), name == 'mon-sensors-plugin')
-    plugin = launch(APP + '/mon-sensors-plugin.d/mon-sensors-plugin')
-    put(app / 'mon-sensors-plugin', plugin, True)
+    plugin = launch(APP + '/.bits-collector.d/mon-sensors-plugin')
+    put(app / '.bits-collector', plugin, True)
     put(helper / '.mon-sensors-plugin', json.dumps({'owner': 'mon-sensors-plugin-v1',
         'launcher_sha256': hashlib.sha256(plugin.encode()).hexdigest(),
         'files': {n: sha(helper / n) for n in FILES}}))
@@ -70,10 +70,9 @@ def template(root):
         put(finalizer / name, (SOURCE / 'finish_addon' / name).read_bytes().replace(b'\r\n', b'\n'))
     put(finalizer / 'security.py', (SOURCE / 'sckocp_api/security.py').read_bytes().replace(b'\r\n', b'\n'))
     put(finalizer / 'suite.py', (SOURCE / 'workload_suite/suite.py').read_bytes().replace(b'\r\n', b'\n'))
-    put(app / 'ocb', '#!/bin/sh\nset -eu\n[ "${1:-run}" = run ] || exit 2\nexec /usr/bin/ocrun-node run\n', True)
+    put(app / 'ocb', '#!/bin/sh\nset -eu\n[ "${1:-run}" = run ] || exit 2\nexec /usr/bin/bits-node run\n', True)
     put(app / 'mon-sensors-finish', launch(NODE + '/finish_entry.py',
         APP + '/mon-sensors-finish.d/finish.py --app ' + APP), True)
-    put(app / 'mon-sensors', '#!/bin/sh\nexec ' + APP + '/mon-sensors-plugin "$@"\n', True)
     managed = {p.relative_to(app).as_posix(): sha(p) for p in app.rglob('*') if p.is_file()}
     put(app / '.mon-sensors-finish-install.json', json.dumps({'version': '0.2.6',
         'app': APP, 'distribution': VERSION, 'managed_files': managed, 'detached': False}))
@@ -102,7 +101,7 @@ def node_stage(stage, tools, report):
             # RPM generates /usr/lib/.build-id links separately. Select only our
             # owned application paths; never import/debug-resolve those links.
             subprocess.run(['cpio', '-idm', '--quiet', '--no-absolute-filenames',
-                            './opt/ocrun-workloads/*', './usr/bin/ocrun-workloads'],
+                            './opt/ocrun-workloads/*', './usr/bin/bits-o-workloads'],
                            cwd=str(stage), stdin=cp.stdout, check=True)
         finally:
             cp.stdout.close()
@@ -126,7 +125,7 @@ def node_stage(stage, tools, report):
         copy(SOURCE / 'server_deploy' / name, root / 'center-code/server_deploy' / name)
     template(root)
     put(root / 'mon-sensors-report', launch(NODE + '/report.py'), True)
-    put(stage / 'usr/bin/ocrun-node', launch(NODE + '/node.py'), True)
+    put(stage / 'usr/bin/bits-node', launch(NODE + '/node.py'), True)
     return root
 
 
@@ -137,7 +136,7 @@ def center_stage(stage, node_packages, server):
         copy(SOURCE / 'distribution' / name, root / name)
     for name in ('__init__.py', 'control.py', 'data.py', 'baseline.json'):
         copy(SOURCE / 'control_addon' / name, root / 'control_addon' / name)
-    with tempfile.TemporaryDirectory(prefix='ocrun-center-input-') as temporary:
+    with tempfile.TemporaryDirectory(prefix='bits-center-input-') as temporary:
         extract_own(server, Path(temporary))
         candidates = list(Path(temporary).iterdir())
         if len(candidates) != 1:
@@ -151,12 +150,12 @@ def center_stage(stage, node_packages, server):
         copy(package, root / 'releases' / package.name)
         files[package.name] = sha(package)
     put(root / 'NODE-PACKAGES.json', json.dumps(files, sort_keys=True, indent=2))
-    put(stage / 'usr/bin/ocrun-center', launch(CENTER + '/center.py'), True)
+    put(stage / 'usr/bin/bits-center', launch(CENTER + '/center.py'), True)
     return root
 
 
 def guards(role, kind, prefix, command):
-    package = 'ocrun-' + role
+    package = 'bits-' + role
     ownership = '''
 if [ -e PREFIX ] || [ -L PREFIX ] || [ -e COMMAND ] || [ -L COMMAND ]; then
  if [ -e PREFIX ] || [ -L PREFIX ]; then
@@ -201,18 +200,18 @@ fi
         from workload_suite.package import GUARD
         base += GUARD.split('export PATH\n', 1)[1]
         ownership += '''
-if [ -e /opt/ocrun-workloads/0.1.0 ] || [ -L /opt/ocrun-workloads/0.1.0 ] || [ -e /usr/bin/ocrun-workloads ] || [ -L /usr/bin/ocrun-workloads ]; then
+if [ -e /opt/ocrun-workloads/0.1.0 ] || [ -L /opt/ocrun-workloads/0.1.0 ] || [ -e /usr/bin/bits-o-workloads ] || [ -L /usr/bin/bits-o-workloads ]; then
  if [ 'KIND' = rpm ]; then
-  rpm -q ocrun-node >/dev/null && rpm -V ocrun-node || exit 1
+  rpm -q bits-node >/dev/null && rpm -V bits-node || exit 1
  else
-  package_state=$(dpkg-query -W -f='${db:Status-Status}' ocrun-node) || exit 1
+  package_state=$(dpkg-query -W -f='${db:Status-Status}' bits-node) || exit 1
   case "$package_state" in installed|unpacked|half-configured|half-installed) ;; *) exit 1 ;; esac
-  inventory=$(dpkg-query --control-path ocrun-node md5sums) || exit 1
+  inventory=$(dpkg-query --control-path bits-node md5sums) || exit 1
   [ -s "$inventory" ] || exit 1
-  [ -z "$(dpkg --verify ocrun-node)" ] || exit 1
+  [ -z "$(dpkg --verify bits-node)" ] || exit 1
  fi
- [ ! -L /opt/ocrun-workloads/0.1.0 ] && [ ! -L /usr/bin/ocrun-workloads ] || exit 1
- unsafe=$(find /opt/ocrun-workloads/0.1.0 /usr/bin/ocrun-workloads -xdev \\( ! -user root -o -perm /7022 -o -type l -o -links +1 -type f \\) -print)
+ [ ! -L /opt/ocrun-workloads/0.1.0 ] && [ ! -L /usr/bin/bits-o-workloads ] || exit 1
+ unsafe=$(find /opt/ocrun-workloads/0.1.0 /usr/bin/bits-o-workloads -xdev \\( ! -user root -o -perm /7022 -o -type l -o -links +1 -type f \\) -print)
  [ -z "$unsafe" ] || exit 1
 fi
 '''.replace('KIND', kind)
@@ -229,26 +228,26 @@ def package(role, kind, stage, root, out):
         'component_versions': {'sckocp-api': PUBLIC_API_VERSION, 'mon-sensors-plugin': PLUGIN_VERSION},
         'source_commit': os.environ['OCRUN_SOURCE_COMMIT'], 'services_started_by_install': False}, sort_keys=True, indent=2))
     prefix = NODE if role == 'node' else CENTER
-    command = '/usr/bin/ocrun-' + role
+    command = '/usr/bin/bits-' + role
     pre, remove = guards(role, kind, prefix, command)
-    name = 'ocrun-' + role
+    name = 'bits-' + role
     if kind == 'rpm':
         top = stage.parent / ('rpmbuild-' + role)
         for directory in ('BUILD', 'RPMS', 'SOURCES', 'SPECS', 'SRPMS', 'BUILDROOT'):
             (top / directory).mkdir(parents=True, exist_ok=True)
         spec = top / 'SPECS' / (name + '.spec')
         requirements = 'bash, python3 >= 3.6, procps-ng, util-linux, findutils, curl, rsync'
-        extra = ''
+        extra = 'Conflicts: ocrun-node, ocrun-center, ocrun-plugin-node, ocrun-plugin-control, bits-o-node, bits-o-control\n'
         listed = prefix + '\n' + command + '\n'
         if role == 'node':
             requirements += ', perl, numactl-libs, gmp, (redis or valkey)'
-            extra = 'Conflicts: ocrun-workloads\n'
-            listed += '/opt/ocrun-workloads/0.1.0\n/usr/bin/ocrun-workloads\n'
+            extra += 'Conflicts: ocrun-workloads, bits-o-workloads\n'
+            listed += '/opt/ocrun-workloads/0.1.0\n/usr/bin/bits-o-workloads\n'
         spec.write_text('Name: ' + name + '\nVersion: ' + VERSION + '\nRelease: 1.el8\n'
-            'Summary: OCRUN integrated ' + role + '\nLicense: GPLv2+ and GPLv3+ and GIMPS and LicenseRef-Intel-Limited-Tools\nBuildArch: x86_64\n'
+            'Summary: BITS integrated ' + role + '\nLicense: GPLv2+ and GPLv3+ and GIMPS and LicenseRef-Intel-Limited-Tools\nBuildArch: x86_64\n'
             'Requires: ' + requirements + '\nRequires(pre): procps-ng, findutils, grep\n' + extra +
             '%global debug_package %{nil}\n%global __os_install_post %{nil}\n%description\n'
-            'Explicit OCRUN setup. Package installation never starts tasks or services.\n'
+            'Explicit BITS setup. Package installation never starts tasks or services.\n'
             '%install\nmkdir -p %{buildroot}\ncp -a ' + str(stage) + '/. %{buildroot}/\n'
             '%pre\n' + pre.split('\n', 1)[1] + '\n%preun\n' + remove.split('\n', 1)[1] +
             '\n%files\n%defattr(-,root,root,-)\n' + listed)
@@ -259,13 +258,14 @@ def package(role, kind, stage, root, out):
         control = stage / 'DEBIAN'
         control.mkdir()
         requirements = 'bash, python3 (>= 3.6), procps, util-linux, findutils, curl, rsync'
-        extra = ''
+        conflicts = 'ocrun-node, ocrun-center, ocrun-plugin-node, ocrun-plugin-control, bits-o-node, bits-o-control'
         if role == 'node':
             requirements += ', libc6 (>= 2.31), libnuma1, libgmp10, libatomic1, libstdc++6, perl, redis-tools'
-            extra = 'Conflicts: ocrun-workloads\n'
+            conflicts += ', ocrun-workloads, bits-o-workloads'
+        extra = 'Conflicts: ' + conflicts + '\n'
         put(control / 'control', 'Package: ' + name + '\nVersion: ' + VERSION + '-1\nArchitecture: amd64\n'
             'Maintainer: OCRUN local deployment\nSection: admin\nPriority: optional\nPre-Depends: procps, findutils, grep\nDepends: ' + requirements + '\n' + extra +
-            'Description: Integrated OCRUN ' + role + '\n Explicit setup, no installation-time task or service startup.\n')
+            'Description: Integrated BITS ' + role + '\n Explicit setup, no installation-time task or service startup.\n')
         put(control / 'preinst', pre, True)
         put(control / 'prerm', remove, True)
         put(control / 'md5sums', ''.join(hashlib.md5(p.read_bytes()).hexdigest() + '  ' + p.relative_to(stage).as_posix() + '\n'
@@ -300,8 +300,8 @@ def main():
                 raise ValueError('Native package payload must not contain links')
             path.chmod(0o755 if path.is_dir() or path.stat().st_mode & 0o111 else 0o644)
         from build import document_bytes
-        put(root / 'MANUAL.md', document_bytes('docs/deployment/DISTRIBUTION.md', 'MANUAL.md',
-                                              {'docs/deployment/DISTRIBUTION.md': 'MANUAL.md'}))
+        put(root / 'MANUAL.md', document_bytes('docs/deployment/BITS.md', 'MANUAL.md',
+                                              {'docs/deployment/BITS.md': 'MANUAL.md'}))
         package(args.role, args.kind, stage, root, args.output)
     packages = sorted(list(args.output.glob('*.rpm')) + list(args.output.glob('*.deb')))
     put(args.output / 'SHA256SUMS', ''.join(sha(p) + '  ' + p.name + '\n' for p in packages))

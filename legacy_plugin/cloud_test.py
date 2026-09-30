@@ -45,18 +45,18 @@ def sha(path):
 
 def install(role):
     suffix = '.rpm' if os.environ['KIND'] == 'rpm' else '.deb'
-    package = next(Path('/root/plugin-packages').glob('ocrun-plugin-' + role + '*' + suffix))
+    package = next(Path('/root/plugin-packages').glob('bits-o-' + role + '*' + suffix))
     if suffix == '.rpm':
         run('rpm', '-i', package)
     else:
         run('dpkg', '-i', package)
 
 
-def remove(role, good=True):
-    return run(*(['rpm', '-e'] if os.environ['KIND'] == 'rpm' else ['dpkg', '-r']) + ['ocrun-plugin-' + role], good=good)
+def remove(role, good=True, legacy=False):
+    return run(*(['rpm', '-e'] if os.environ['KIND'] == 'rpm' else ['dpkg', '-r']) + [('ocrun-plugin-' if legacy else 'bits-o-') + role], good=good)
 
 
-def controller_config():
+def controller_config(command='bits-o'):
     # Synthetic control env is never executed. The tested shipped baseline guard
     # correctly refuses this unknown copy. Configure the fixture explicitly as
     # root for protocol/permission tests; do not alter packaged program bytes.
@@ -68,7 +68,7 @@ def controller_config():
         (control / name).write_text('synthetic control baseline\n')
     account = pwd.getpwnam('ocuser')
     before = {p.name: sha(p) for p in control.iterdir()}
-    assert run('ocrun-plugin', 'configure', '--role', 'control', '--rdb-server', '127.0.0.1',
+    assert run(command, 'configure', '--role', 'control', '--rdb-server', '127.0.0.1',
                '--allow-node', 'LEGACY-CLOUD', '--check', good=False).returncode
     assert not CONFIG.exists()
     assert before == {p.name: sha(p) for p in control.iterdir()}
@@ -86,30 +86,40 @@ def upgrade_roundtrip(config_args, remote_dir, files, original_files):
     suffix = '.rpm' if os.environ['KIND'] == 'rpm' else '.deb'
     install_command = ['rpm', '-i'] if suffix == '.rpm' else ['dpkg', '-i']
     snapshot = {name: sha(remote_dir / name) for name in files}
+    def switch_tools(legacy):
+        current = 'bits-o-workloads' if legacy else 'ocrun-workloads'
+        new = 'ocrun-workloads' if legacy else 'bits-o-workloads'
+        directory = Path('/root/plugin-packages/ci/previous' if legacy else '/root/plugin-packages')
+        run(*(['rpm', '-e'] if suffix == '.rpm' else ['dpkg', '-r']) + [current])
+        run(*(install_command + [next(directory.glob(new + '*' + suffix))]))
     for role in ('control', 'node'):
         old = next(Path('/root/plugin-packages/ci/previous').glob('ocrun-plugin-' + role + '*' + suffix))
-        new = next(Path('/root/plugin-packages').glob('ocrun-plugin-' + role + '*' + suffix))
-        run(*(install_command + [old]))
-        assert json.loads(Path('/opt/ocrun-plugin/0.1.0/PACKAGE.json').read_text())['version'] == '0.1.0'
+        new = next(Path('/root/plugin-packages').glob('bits-o-' + role + '*' + suffix))
         if role == 'node':
-            run(*config_args)
+            switch_tools(True)
+        run(*(install_command + [old]))
+        assert json.loads(Path('/opt/ocrun-plugin/0.1.1/PACKAGE.json').read_text())['version'] == '0.1.1'
+        if role == 'node':
+            run(*(['ocrun-plugin'] + config_args[1:]))
             run('ocrun-plugin', 'attach')
         else:
-            controller_config()
+            controller_config('ocrun-plugin')
         replacement = ['rpm', '-U', str(new)] if suffix == '.rpm' else ['dpkg', '-i', str(new)]
         assert run(*replacement, good=False).returncode
         assert CONFIG.exists() and snapshot == {name: sha(remote_dir / name) for name in files}
         if role == 'node':
             run('ocrun-plugin', 'rollback')
         run('ocrun-plugin', 'unconfigure')
-        remove(role)
+        remove(role, legacy=True)
+        if role == 'node':
+            switch_tools(False)
         install(role)
         if role == 'node':
             run(*config_args)
-            run('ocrun-plugin', 'attach', '--check')
-            run('ocrun-plugin', 'attach')
-            run('ocrun-plugin', 'check')
-            run('ocrun-plugin', 'rollback')
+            run('bits-o', 'attach', '--check')
+            run('bits-o', 'attach')
+            run('bits-o', 'check')
+            run('bits-o', 'rollback')
             for name, expected in original_files.items():
                 assert sha(APP / name) == expected
         else:
@@ -117,15 +127,19 @@ def upgrade_roundtrip(config_args, remote_dir, files, original_files):
             # The synthetic control copy deliberately fails the real 215
             # baseline check; exercise the configured protocol without
             # weakening that guard or pretending the fixture is the original.
-            run('ocrun-plugin', 'status', '--json')
-        run('ocrun-plugin', 'unconfigure')
+            run('bits-o', 'status', '--json')
+        run('bits-o', 'unconfigure')
         remove(role)
         # Explicit package rollback keeps history and restores the old command.
+        if role == 'node':
+            switch_tools(True)
         run(*(install_command + [old]))
         run('ocrun-plugin', '--version')
-        remove(role)
+        remove(role, legacy=True)
+        if role == 'node':
+            switch_tools(False)
         assert snapshot == {name: sha(remote_dir / name) for name in files}
-    passed('published 0.1.0 control/node reject attached upgrade; explicit rollback/remove/upgrade/reattach and package rollback preserve original files and six artifacts')
+    passed('published 0.1.1 control/node migrate to BITS-o after explicit rollback/removal; package rollback preserves original files and six artifacts')
 
 
 def main():
@@ -151,7 +165,7 @@ def main():
             time.sleep(.05)
     controller_config()
     passed('installed control package has exact source; unknown original files refused without changes')
-    base = ['ocrun-plugin', 'tasks', 'add', '--node', 'LEGACY-CLOUD', '--id', 'PLUGIN-CLOUD']
+    base = ['bits-o', 'tasks', 'add', '--node', 'LEGACY-CLOUD', '--id', 'PLUGIN-CLOUD']
     assert run(*(base + ['--task', 'strss=3']), good=False).returncode
     assert rdb.call('DBSIZE') == 0
     rdb.call('SET', 'UNRELATED', 1)
@@ -159,15 +173,15 @@ def main():
     assert rdb.call('GET', 'LEGACY-CLOUD') is None
     queued = data(*(base + ['--task', 'stress=3', '--task', 'stress-ng=3', '--task', 'stress=3', '--json']))
     assert queued['db'] == 2
-    run('su', '-s', '/bin/sh', 'ocuser', '-c', 'ocrun-plugin tasks status --node LEGACY-CLOUD --json')
-    overview = json.loads(run('su', '-s', '/bin/sh', 'ocuser', '-c', 'ocrun-plugin status --json').stdout.decode())
+    run('su', '-s', '/bin/sh', 'ocuser', '-c', 'bits-o tasks status --node LEGACY-CLOUD --json')
+    overview = json.loads(run('su', '-s', '/bin/sh', 'ocuser', '-c', 'bits-o status --json').stdout.decode())
     assert overview['batches'][0]['id'] == 'PLUGIN-CLOUD'
-    assert run('su', '-s', '/bin/sh', 'nobody', '-c', 'ocrun-plugin tasks status --node LEGACY-CLOUD', good=False).returncode
-    assert run('ocrun-plugin', 'tasks', 'status', '--node', 'PRODUCTION', good=False).returncode
+    assert run('su', '-s', '/bin/sh', 'nobody', '-c', 'bits-o tasks status --node LEGACY-CLOUD', good=False).returncode
+    assert run('bits-o', 'tasks', 'status', '--node', 'PRODUCTION', good=False).returncode
     assert run(*base, '--task', 'stress=3', good=False).returncode
     passed('control typo/dry-run/duplicate/allowlist/account guards; mapped empty DB reserved; repeated task accepted')
     assert remove('control', good=False).returncode
-    run('ocrun-plugin', 'unconfigure')
+    run('bits-o', 'unconfigure')
     changed = PREFIX / 'MANUAL.md'
     original_stat = changed.stat()
     original_manual = changed.read_bytes()
@@ -196,9 +210,14 @@ def main():
         'core_mhz': 3000, 'base_mhz': 2500, 'pkg_w': 120}], 'cores': [{'cpu': 0, 'socket': 0,
         'mhz': 3000, 'temp_c': 55, 'vid_v': 1.1, 'c0_pct': 100, 'c6_pct': 0}]}
     sensor = Path('/usr/local/bin/sckocp')
-    sensor.write_text('#!' + sys.executable + '\nimport time\ntime.sleep(.05)\nprint(' + repr(json.dumps(payload)) + ')\n')
+    sys.path.insert(0, str(SRC / 'tests'))
+    from test_sckocp_details import INFO, OVERVIEW
+    sensor.write_text('#!' + sys.executable + '\nimport time,sys\ntime.sleep(.05)\nprint(' +
+        repr(INFO) + ' if sys.argv[1:]==["info"] else ' + repr(OVERVIEW) +
+        ' if sys.argv[1:]==["mon","--cols=1"] else ' + repr(json.dumps(payload)) + ')\n')
     sensor.chmod(0o700)
-    config_args = ['ocrun-plugin', 'configure', '--role', 'node', '--rdb-server', '127.0.0.1', '--serial', 'CLOUD-SERIAL']
+    config_args = ['bits-o', 'configure', '--role', 'node', '--rdb-server', '127.0.0.1', '--serial', 'CLOUD-SERIAL']
+    run('bits-o', 'setup', '--serial', 'CLOUD-SERIAL', '--check')
     run(*(config_args + ['--check']))
     assert not CONFIG.exists()
     run(*config_args)
@@ -212,7 +231,7 @@ def main():
         assert b'0.2.1' in run(APP / 'mon-sensors-finish', '--version').stdout
         passed('prepared exact field component versions: collector0.12.9 report0.2.0 finish0.2.1 on Python3.6')
     before = {name: sha(APP / name) for name in ('ocb', 'oct', 'mon-sensors', 'py/mon-analyse-log.py', 'oc.env')}
-    run('ocrun-plugin', 'attach', '--check')
+    run('bits-o', 'attach', '--check')
     assert not (APP / '.ocrun-plugin').exists()
     # Simulate process death after the collector atomically installed, before
     # the suite marked that step complete. No production fault injection flag.
@@ -230,16 +249,23 @@ attach.apply(common.config())
 '''
     assert run(sys.executable, '-I', '-B', '-c', failure, good=False).returncode
     assert json.loads((APP / '.ocrun-plugin/attachment.json').read_text())['status'] == 'failed'
-    run('ocrun-plugin', 'attach', '--resume')
-    run('ocrun-plugin', 'attach')
-    run('ocrun-plugin', 'check')
+    run('bits-o', 'attach', '--resume')
+    run('bits-o', 'attach')
+    run('bits-o', 'check')
+    run('bits-o', 'setup', '--serial', 'CLOUD-SERIAL')
     assert sha(APP / 'oc.env') == before['oc.env']
+    if not field_upgrade:
+        assert sha(APP / 'mon-sensors') == before['mon-sensors']
+        assert not (APP / 'mon-sensors-plugin').exists()
+        assert (APP / '.bits-collector').exists()
+        assert run(APP / '.bits-collector', '--once', good=False).returncode != 0
+        passed('private batch collector preserves original monitor bytes and exposes no replacement hardware viewer')
     assert data('/usr/local/bin/mon-sensors-report', '--check')['version'] == '0.2.0'
     passed('fresh UID201 original node adopts safely; interrupted attachment resumes; repeat attach idempotent')
     assert remove('node', good=False).returncode
-    mlc = data('ocrun-plugin', 'tools', 'list')
+    mlc = data('bits-o', 'tools', 'list')
     assert mlc['tools']['mlc']['version'] == '3.13'
-    run('ocrun-plugin', 'preflight', '--json')
+    run('bits-o', 'preflight', '--json')
     passed('packaged selected tools including MLC3.13; real node preflight before queue claim')
     rsync_config = Path('/root/cloud-rsync.conf')
     rsync_config.write_text('use chroot = no\n[logs]\npath = /data/cds/result\nread only = no\nuid = ocuser\ngid = ' + str(account.pw_gid) + '\n')
@@ -248,11 +274,25 @@ attach.apply(common.config())
     (www / 'ocrun-version.txt').write_text('MAIN_VERSION=0.9.24a\n')
     http = subprocess.Popen([sys.executable, '-m', 'http.server', '80', '--bind', '127.0.0.1'],
         cwd=str(www.parent), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    started = data('ocrun-plugin', 'start')
+    legacy_menu = len(sys.argv) > 1 and sys.argv[1] == 'legacy-menu'
+    if legacy_menu:
+        # The read-only 215 source (oc.env rdb-add-tasks) uses SET mapping,
+        # SET IDS/DATES, RPUSH TASKS, SET <name> <seconds>. No plugin owner key.
+        # Reproduce only those writes in the disposable Redis, not the production env.
+        rdb.call('DEL', 'TASKS', 'OCRUN_PLUGIN_BATCH', 'MON_PLUGIN_CLAIM', 'STATUS', 'CURRENT', db=queued['db'])
+        rdb.call('SET', 'LEGACY-CLOUD', str(queued['db']))
+        rdb.call('SET', 'IDS', 'PLUGIN-CLOUD', db=queued['db'])
+        rdb.call('SET', 'DATES', queued['time'], db=queued['db'])
+        for name in ('stress', 'stress-ng', 'stress'):
+            rdb.call('RPUSH', 'TASKS', name, db=queued['db'])
+            rdb.call('SET', name, '3', db=queued['db'])
+        assert rdb.call('GET', 'OCRUN_PLUGIN_BATCH', db=queued['db']) is None
+        passed('queued with original occt Redis write sequence; no BITS task submission or ownership required')
+    started = data('bits-o', 'start')
     assert started['automatic_task_polling'] is False
     case = None
     for unused in range(150):
-        rows = data('ocrun-plugin', 'status', '--json')['cases']
+        rows = data('bits-o', 'status', '--json')['cases']
         if rows:
             case = rows[0]
             if case.get('error'):
@@ -272,8 +312,16 @@ attach.apply(common.config())
     for name, meta in files.items():
         assert sha(remote_dir / name) == meta['sha256']
     snapshot = {name: sha(remote_dir / name) for name in files}
-    run('ocrun-plugin', 'retry', '--case', case['case'])
+    run('bits-o', 'retry', '--case', case['case'])
     assert snapshot == {name: sha(remote_dir / name) for name in files}
+    sheet = next(remote_dir.glob('*PLUGIN-CLOUD*.report.json'))
+    report = json.loads(sheet.read_text())
+    assert report['statistics']['details']['snapshots'] > 0
+    for artifact in remote_dir.glob('*PLUGIN-CLOUD*'):
+        if artifact.name.endswith(('.jsonl', '.report.json', '.report.html')):
+            for restricted in (b'tRFC', b'tREFI', b'tFAW', b'tRAStoCAS'):
+                assert restricted not in artifact.read_bytes()
+    passed('native unlocked fixture exports only Primary timings throughout collection, report and delivery')
     passed('unchanged old ocb initializes then runs three real timed steps, including repeated names; six artifacts SHA verified, repeated recovery stable')
     report = json.loads(Path(case['mon']).with_suffix('.report.json').read_text())
     assert report['machine']['capture_phase'] == 'batch_start'
@@ -283,22 +331,22 @@ attach.apply(common.config())
     portable = Path('/root/portable-plugin')
     portable.mkdir()
     # Our own cloud-built archive; exact bytes are part of SHA256SUMS.
-    with tarfile.open('/root/plugin-packages/ocrun-plugin-node-0.1.2-portable.tar.gz') as bundle:
+    with tarfile.open('/root/plugin-packages/bits-o-node-0.1.2-portable.tar.gz') as bundle:
         bundle.extractall(str(portable))
     unrelated = subprocess.Popen(['sleep', '300'])
-    run(sys.executable, '-I', '-B', portable / 'ocrun-plugin-node-0.1.2/entry.py', 'maintenance-stop')
+    run(sys.executable, '-I', '-B', portable / 'bits-o-node-0.1.2/entry.py', 'maintenance-stop')
     assert unrelated.poll() is None
     unrelated.terminate(); unrelated.wait(timeout=5)
     run('flock', '-n', APP / '.mon-sensors-finish/launch.lock', '/bin/true')
-    run('ocrun-plugin', 'stop-scheduler')
-    assert run('ocrun-plugin', 'start', good=False).returncode
+    run('bits-o', 'stop-scheduler')
+    assert run('bits-o', 'start', good=False).returncode
     time.sleep(1)
     assert rdb.call('LLEN', 'TASKS', db=queued['db']) == 0
     passed('HTML machine report and streaming Excel; missing sensor stays null; idle scheduler stop and no new polling')
     hook = APP / 'ocb'; original = hook.read_bytes(); hook.write_bytes(original + b'\n# hand edit\n')
-    assert run('ocrun-plugin', 'rollback', '--check', good=False).returncode
+    assert run('bits-o', 'rollback', '--check', good=False).returncode
     hook.write_bytes(original)
-    run('ocrun-plugin', 'rollback', '--check')
+    run('bits-o', 'rollback', '--check')
     failure = '''import sys, os
 sys.path.insert(0, '/opt/ocrun-plugin/0.1.2')
 from legacy_plugin import attach, common
@@ -312,8 +360,8 @@ attach.rollback(common.config())
 '''
     assert run(sys.executable, '-I', '-B', '-c', failure, good=False).returncode
     assert json.loads((APP / '.ocrun-plugin/attachment.json').read_text())['status'] == 'rolling_back'
-    run('ocrun-plugin', 'rollback')
-    run('ocrun-plugin', 'rollback')
+    run('bits-o', 'rollback')
+    run('bits-o', 'rollback')
     for name, expected in before.items():
         assert sha(APP / name) == expected
     if field_upgrade:
@@ -327,26 +375,32 @@ attach.rollback(common.config())
         assert (APP / 'py').stat().st_uid == 201
         assert not Path('/usr/local/bin/mon-sensors-report').exists()
     assert all((remote_dir / name).exists() for name in files)
-    run('ocrun-plugin', 'unconfigure')
+    run('bits-o', 'unconfigure')
     remove('node')
     passed('modified hooks block rollback; interrupted rollback resumes; original bytes/ownership/link restored; native removal retains results')
     install('control')
     controller_config()
     receipt = 'LEGACY-CLOUD_CLOUD-SERIAL/' + Path(case['mon']).with_suffix('.finish.json').name
     result = json.loads(run('su', '-s', '/bin/sh', 'ocuser', '-c',
-        'ocrun-plugin results verify --receipt ' + receipt + ' --json').stdout.decode())
+        'bits-o results verify --receipt ' + receipt + ' --json').stdout.decode())
     assert result['verified_here'] and result['html_report_path'].endswith('.report.html')
-    run('ocrun-plugin', 'tasks', 'archive', '--node', 'LEGACY-CLOUD', '--id', 'PLUGIN-CLOUD', '--time', queued['time'], '--receipt', receipt)
+    archive_args = ['bits-o', 'tasks', 'archive', '--node', 'LEGACY-CLOUD', '--id', 'PLUGIN-CLOUD', '--time', queued['time'], '--receipt', receipt]
+    if legacy_menu:
+        assert run(*archive_args, good=False).returncode
+        passed('original occt batch completed, collected, reported and verified; BITS preserves old-menu task ownership')
+        rdb.call('DEL', 'LEGACY-CLOUD')  # disposable fixture cleanup only
+    else:
+        run(*archive_args)
     assert rdb.call('GET', 'LEGACY-CLOUD') is None
     assert rdb.call('GET', 'UNRELATED') == '1'
     assert all((remote_dir / name).exists() for name in files)
     passed('ocuser reads six delivered artifacts through unified control entry; verified archive removes only owned task keys')
-    run('ocrun-plugin', 'unconfigure'); remove('control')
+    run('bits-o', 'unconfigure'); remove('control')
     upgrade_roundtrip(config_args, remote_dir, files, before)
     for child in (http, rsync, redis):
         child.terminate(); child.wait(timeout=10)
     Path('/results/validation.json').write_text(json.dumps({'source_commit': os.environ['GITHUB_SHA'],
-        'status': 'passed', 'mode': 'field-upgrade' if field_upgrade else 'fresh',
+        'status': 'passed', 'mode': 'field-upgrade' if field_upgrade else ('legacy-menu' if legacy_menu else 'fresh'),
         'checks': checks, 'python': sys.version, 'os_release': Path('/etc/os-release').read_text(),
         'sensor_source': 'synthetic cloud fixture; no activation/hardware validation',
         'control_configuration': 'unknown baseline refusal + explicitly prepared protocol fixture; real 215 setup pending'}, ensure_ascii=False, indent=2))

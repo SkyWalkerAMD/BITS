@@ -26,6 +26,7 @@ BLOCK = ('# BEGIN MON-SENSORS-FINISH v1\n'
 def busy(app):
     paths = {str(app / name) for name in ("ocb", "oct", "mon-sensors", "mon-sensors-plugin")}
     paths.add(str(app / "mon-sensors-plugin.d/mon-sensors-plugin"))
+    paths.update(str(app / n) for n in ('.bits-collector', '.bits-collector.d/mon-sensors-plugin'))
     for item in Path("/proc").iterdir():
         if not item.name.isdigit() or int(item.name) == os.getpid():
             continue
@@ -112,7 +113,7 @@ def main():
     saved = None
     if installed:
         saved = json_read(marker)
-        if saved.get("version") not in ('0.1.0', '0.2.0', '0.2.1', '0.2.2', '0.2.3', '0.2.4', VERSION) or saved.get("app") != str(app):
+        if saved.get("version") not in ('0.1.0', '0.2.0', '0.2.1', '0.2.2', '0.2.3', '0.2.4', '0.2.5', VERSION) or saved.get("app") != str(app):
             raise ValueError("Unrecognized finalization installation")
         if digest(before) != saved["ocb_after"] or digest(read(app / ENTRY)) != saved["launcher_sha256"]:
             raise ValueError("Managed scheduler or launcher has been modified")

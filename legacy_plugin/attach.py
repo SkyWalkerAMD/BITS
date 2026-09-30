@@ -15,6 +15,7 @@ import tempfile
 from . import common, node
 
 PATHS = ('mon-sensors', 'ocb', 'oct', 'py/mon-analyse-log.py', 'mon-analyse-log',
+         '.bits-collector', '.bits-collector.d',
          'mon-sensors-plugin', 'mon-sensors-plugin.d', '.mon-sensors-backend',
          'mon-sensors-finish', 'mon-sensors-finish.d', '.mon-sensors-finish-install.json',
          '.mon-sensors-workload-suite.json')
@@ -84,8 +85,12 @@ def without_data(value):
 def commands(cfg):
     app = Path(cfg['app'])
     existing = (app / 'mon-sensors-plugin.d').exists()
+    headless = (app / '.bits-collector.d').exists() or not existing
+    existing = existing or (app / '.bits-collector.d').exists()
     collector = common.python(common.ROOT / 'components/collector/install-plugin-entry.py', '--app', str(app))
     collector += ['--modules-only'] if existing else ['--backend', 'sckocp', '--adopt-original']
+    if headless:
+        collector += ['--headless']
     finalizer = common.python(common.ROOT / 'components/finish/install.py', '--app', str(app))
     return collector, finalizer
 
@@ -98,7 +103,7 @@ def check(cfg):
     common.root()
     common.verify('node')
     node.idle(cfg)
-    common.run(['/usr/bin/ocrun-workloads', 'check'])
+    common.run(['/usr/bin/bits-o-workloads', 'check'])
     collector, finalizer = commands(cfg)
     common.run(collector + ['--check'])
     if (Path(cfg['app']) / '.mon-sensors-finish-install.json').exists():
@@ -148,7 +153,12 @@ def apply(cfg, resume=False):
                     raise ValueError('Attached component files changed; no overwrite')
                 return {'status': 'already_attached', 'app': cfg['app']}
             if journal['status'] == 'rolled_back':
-                if capture(cfg, False) != without_data(journal['before']):
+                previous = without_data(journal['before'])
+                # Older rollback inventories predate the private worker. An
+                # omitted NEW path means absent, never permission to replace it.
+                for name in ('.bits-collector', '.bits-collector.d'):
+                    previous.setdefault(str(Path(cfg['app']) / name), None)
+                if capture(cfg, False) != previous:
                     raise ValueError('Original component files changed since rollback; review before reattaching')
                 retained = state / ('attachment.' + common.digest(common.read(path, limit=64 * 1024 ** 2))[:16] + '.json')
                 if retained.exists():
@@ -162,7 +172,7 @@ def apply(cfg, resume=False):
             journal = None
         if journal is None:
             check(cfg)
-            journal = {'schema': 'ocrun-plugin-attachment-v1', 'config': cfg, 'status': 'applying',
+            journal = {'schema': 'bits-o-attachment-v1', 'config': cfg, 'status': 'applying',
                        'before': capture(cfg), 'completed_steps': [], 'step': None}
             encoded = json.dumps(journal).encode()
             if len(encoded) > 48 * 1024 ** 2:
@@ -195,7 +205,7 @@ def apply(cfg, resume=False):
         steps = [('portable_report', report),
                  ('collector', lambda: common.run(collector)),
                  ('finalizer', lambda: common.run(finalizer)),
-                 ('workload_binding', lambda: common.run(['/usr/bin/ocrun-workloads', 'bind', '--app', cfg['app']]))]
+                 ('workload_binding', lambda: common.run(['/usr/bin/bits-o-workloads', 'bind', '--app', cfg['app']]))]
         try:
             for label, action in steps:
                 if label in journal['completed_steps']:

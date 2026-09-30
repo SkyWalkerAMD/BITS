@@ -41,7 +41,7 @@ def main():
         upstream = ROOT / 'integrations/mon-sensors/upstream-0.9.24a'
         sources = {n: (upstream / n).read_bytes() for n in ('ocb', 'oct', 'mon-sensors')}
         sources['py/mon-analyse-log.py'] = (upstream / 'mon-analyse-log.py').read_bytes()
-        spec['compatible_oct_sha256'] = [hashlib.sha256(patched(sources)['oct']).hexdigest()]
+        spec['compatible_oct_sha256'] = [hashlib.sha256(patched(sources, headless=h)['oct']).hexdigest() for h in (False, True)]
         baseline = '2b1e0fe31aab59a389fc9d4d9f3cdb508b2a3c6b'
         spec['previous_files'] = {}
         for name in ('common.py', 'finish.py', 'hook.sh', 'security.py'):

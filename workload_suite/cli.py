@@ -105,7 +105,7 @@ def import_archive(tool, archive, dry_run):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--version', action='version', version='ocrun-workloads ' + suite.VERSION)
+    parser.add_argument('--version', action='version', version='bits-o-workloads ' + suite.VERSION)
     commands = parser.add_subparsers(dest='action')
     for action in ('list', 'check'):
         commands.add_parser(action)
@@ -139,5 +139,5 @@ if __name__ == '__main__':
     try:
         main()
     except (OSError, ValueError, KeyError, tarfile.TarError) as error:
-        print('ocrun-workloads: ' + str(error), file=sys.stderr)
+        print('bits-o-workloads: ' + str(error), file=sys.stderr)
         sys.exit(1)

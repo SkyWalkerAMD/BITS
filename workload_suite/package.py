@@ -103,7 +103,7 @@ def stage_payload(work, stage):
         for p in files:
             copy(p, payload / 'licenses' / name / p.name)
     (stage / 'usr/bin').mkdir(parents=True)
-    launcher = stage / 'usr/bin/ocrun-workloads'
+    launcher = stage / 'usr/bin/bits-o-workloads'
     launcher.write_text('#!/bin/sh\nPATH=/usr/sbin:/usr/bin:/sbin:/bin\nexport PATH\n'
                        'for p in /usr/bin/python3 /usr/libexec/platform-python; do\n'
                        '  if [ -x "$p" ]; then exec "$p" -I -S -B ' + PREFIX + '/cli.py "$@"; fi\n'
@@ -138,17 +138,17 @@ fi
 # Query the package manager's stored inventory, never execute an existing /opt
 # launcher to decide whether it is safe to overwrite that launcher.
 INSTALL_GUARD = '''
-if [ -e /opt/ocrun-workloads/0.1.0 ] || [ -L /opt/ocrun-workloads/0.1.0 ] || [ -e /usr/bin/ocrun-workloads ] || [ -L /usr/bin/ocrun-workloads ]; then
+if [ -e /opt/ocrun-workloads/0.1.0 ] || [ -L /opt/ocrun-workloads/0.1.0 ] || [ -e /usr/bin/bits-o-workloads ] || [ -L /usr/bin/bits-o-workloads ]; then
     if command -v rpm >/dev/null; then
-        rpm -q ocrun-workloads >/dev/null || { echo 'Unmanaged workload paths exist; preserved.' >&2; exit 1; }
-        rpm -V ocrun-workloads || { echo 'Installed workload files changed; preserved.' >&2; exit 1; }
+        rpm -q bits-o-workloads >/dev/null || { echo 'Unmanaged workload paths exist; preserved.' >&2; exit 1; }
+        rpm -V bits-o-workloads || { echo 'Installed workload files changed; preserved.' >&2; exit 1; }
     else
-        status=$(dpkg-query -W -f='${db:Status-Status}' ocrun-workloads 2>/dev/null) || exit 1
+        status=$(dpkg-query -W -f='${db:Status-Status}' bits-o-workloads 2>/dev/null) || exit 1
         [ "$status" = installed ] || { echo 'Unmanaged workload paths exist; preserved.' >&2; exit 1; }
-        differences=$(dpkg --verify ocrun-workloads) || exit 1
+        differences=$(dpkg --verify bits-o-workloads) || exit 1
         [ -z "$differences" ] || { printf '%s\\n' "$differences" >&2; echo 'Installed workload files changed; preserved.' >&2; exit 1; }
     fi
-    [ ! -L /opt/ocrun-workloads/0.1.0 ] && [ ! -L /usr/bin/ocrun-workloads ] || exit 1
+    [ ! -L /opt/ocrun-workloads/0.1.0 ] && [ ! -L /usr/bin/bits-o-workloads ] || exit 1
     unsafe=$(find /opt/ocrun-workloads/0.1.0 -xdev \\( ! -user root -o -perm /022 -o -type l -o -links +1 -type f \\) -print)
     [ -z "$unsafe" ] || { printf '%s\\n' "$unsafe" >&2; echo 'Unsafe workload ownership, permissions or links; preserved.' >&2; exit 1; }
 fi
@@ -165,14 +165,15 @@ def package(work, out):
     if shutil.which('rpmbuild'):
         top = work / 'rpmbuild'
         (top / 'SPECS').mkdir(parents=True)
-        spec = top / 'SPECS/ocrun-workloads.spec'
-        spec.write_text('''Name: ocrun-workloads
+        spec = top / 'SPECS/bits-o-workloads.spec'
+        spec.write_text('''Name: bits-o-workloads
 Version: 0.1.0
 Release: 3.el8
 Summary: Version-pinned OCRUN x86-64 workload suite
 License: GPLv2+ and GPLv3+ and GIMPS and LicenseRef-Intel-Limited-Tools
 BuildArch: x86_64
 Requires: python3 >= 3.6, perl, procps-ng, numactl-libs, gmp
+Conflicts: ocrun-workloads, ocrun-node, bits-node
 AutoReqProv: yes
 %global debug_package %{nil}
 %global __os_install_post %{nil}
@@ -188,7 +189,7 @@ cp -a ''' + str(stage) + '''/. %{buildroot}/
 %files
 %defattr(-,root,root,-)
 /opt/ocrun-workloads/0.1.0
-/usr/bin/ocrun-workloads
+/usr/bin/bits-o-workloads
 ''')
         subprocess.run(['rpmbuild', '-bb', '--define', '_topdir ' + str(top), str(spec)], check=True)
         for p in top.rglob('*.rpm'):
@@ -196,13 +197,14 @@ cp -a ''' + str(stage) + '''/. %{buildroot}/
     else:
         control = stage / 'DEBIAN'
         control.mkdir()
-        (control / 'control').write_text('''Package: ocrun-workloads
+        (control / 'control').write_text('''Package: bits-o-workloads
 Version: 0.1.0-3
 Architecture: amd64
 Maintainer: OCRUN local deployment
 Section: utils
 Priority: optional
 Depends: libc6 (>= 2.31), libnuma1, libgmp10, libatomic1, libstdc++6, python3 (>= 3.6), perl, procps
+Conflicts: ocrun-workloads, ocrun-node, bits-node
 Description: Version-pinned OCRUN workload suite
  Private program paths, no network service and no automatic task start.
 ''')
@@ -214,7 +216,7 @@ Description: Version-pinned OCRUN workload suite
             p.relative_to(stage).as_posix() + '\n' for p in sorted(stage.rglob('*'))
             if p.is_file() and control not in p.parents))
         subprocess.run(['dpkg-deb', '-Zxz', '--uniform-compression', '--build', '--root-owner-group', str(stage),
-                        str(out / 'ocrun-workloads_0.1.0-3_amd64.deb')], check=True)
+                        str(out / 'bits-o-workloads_0.1.0-3_amd64.deb')], check=True)
     packages = list(out.glob('*.rpm')) + list(out.glob('*.deb'))
     (out / 'SHA256SUMS').write_text(''.join(sha(p) + '  ' + p.name + '\n' for p in packages))
 

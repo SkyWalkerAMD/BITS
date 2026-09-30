@@ -46,12 +46,12 @@ def main():
     address = sys.argv[1]
     for root in (NODE, CENTER):
         assert json.loads((root / 'PACKAGE.json').read_text())['source_commit'] == os.environ['OCRUN_SOURCE_COMMIT']
-    assert data('ocrun-center', 'check')['status'] == 'not_configured'
-    assert data('ocrun-node', 'check')['status'] == 'not_configured'
+    assert data('bits-center', 'check')['status'] == 'not_configured'
+    assert data('bits-node', 'check')['status'] == 'not_configured'
     assert not Path('/etc/ocrun-server/server.json').exists()
     assert not APP.exists()
     passed('native package installation has matching revision and does not configure services or start tasks')
-    tools = data('ocrun-workloads', 'list')
+    tools = data('bits-o-workloads', 'list')
     assert tools['package_revision'] == '3'
     assert tools['tools']['mlc'] == {'version': '3.13', 'delivery': 'included'}
     mlc = Path('/opt/ocrun-workloads/0.1.0/mlc/mlc')
@@ -59,12 +59,12 @@ def main():
     assert version.returncode in (0, 1) and b'3.13' in version.stdout + version.stderr
     assert not Path('/var/lib/ocrun-workloads/mlc-3.13').exists()
     passed('native node includes usable MLC 3.13 without an external import')
-    command = ['ocrun-center', 'setup', '--address', address, '--network', address + '/32', '--skip-deps']
+    command = ['bits-center', 'setup', '--address', address, '--network', address + '/32', '--skip-deps']
     run(*(command + ['--check']))
     assert not Path('/etc/ocrun-server/server.json').exists()
     run(*(command + ['--apply']))
-    assert data('ocrun-center', 'check')['status'] == 'ok'
-    packages = [json.loads(line) for line in run('ocrun-center', 'publish-node').stdout.decode().splitlines()]
+    assert data('bits-center', 'check')['status'] == 'ok'
+    packages = [json.loads(line) for line in run('bits-center', 'publish-node').stdout.decode().splitlines()]
     assert len(packages) == 2
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     for item in packages:
@@ -85,7 +85,7 @@ def main():
     run('ocrun-server', 'node-config', '--node', host, '--output', private)
     assert private.stat().st_mode & 0o777 == 0o600
     passed('protected database and private node credential export remain active')
-    configure = ['ocrun-node', 'configure', '--config', str(private), '--serial', 'CLOUD-SERIAL', '--keep-on']
+    configure = ['bits-node', 'configure', '--config', str(private), '--serial', 'CLOUD-SERIAL', '--keep-on']
     Path('/root/ocrun').mkdir()
     original = Path('/root/ocrun/ocb')
     original.write_text('original preserved\n')
@@ -117,13 +117,18 @@ def main():
     before = sha(Path('/etc/ocrun-node/native.json'))
     run(*configure)
     assert sha(Path('/etc/ocrun-node/native.json')) == before
-    run('ocrun-node', 'check')
+    run('bits-node', 'check')
+    assert not (APP / 'mon-sensors').exists()
+    assert not (APP / 'mon-sensors-plugin').exists()
+    assert (APP / '.bits-collector').is_file()
+    assert run(APP / '.bits-collector', '--once', good=False).returncode != 0
+    passed('native BITS uses a private batch worker with no mon-sensors command or interactive hardware viewer')
     passed('original node protection, read-only setup, interrupted setup recovery and repeatable explicit tool binding')
     tasks.add(redis, host, 'TYPO', 'cloud', ['stress=3'])
     db = int(redis.call('GET', host))
     redis.call('LSET', 'TASKS', 0, 'strss', db=db)
     redis.call('SET', 'strss', 3, db=db)
-    invalid = run('ocrun-node', 'preflight', good=False)
+    invalid = run('bits-node', 'preflight', good=False)
     assert invalid.returncode != 0 and b'strss' in invalid.stderr
     assert redis.call('LRANGE', 'TASKS', 0, -1, db=db) == ['strss']
     tasks.delete(redis, host, 'TYPO')
@@ -134,24 +139,29 @@ def main():
                'core_mhz': 3000, 'base_mhz': 2500, 'pkg_w': 120}], 'cores': [{'cpu': 0, 'socket': 0,
                'mhz': 3000, 'temp_c': 55, 'vid_v': 1.1, 'c0_pct': 100, 'c6_pct': 0}]}
     provider = Path('/usr/local/bin/sckocp')
-    provider.write_text('#!' + sys.executable + '\nimport time\ntime.sleep(.05)\nprint(' + repr(json.dumps(payload)) + ')\n')
+    sys.path.insert(0, '/src/tests')
+    sys.path.insert(0, '/src')
+    from test_sckocp_details import INFO, OVERVIEW
+    provider.write_text('#!' + sys.executable + '\nimport time,sys\ntime.sleep(.05)\nprint(' +
+        repr(INFO) + ' if sys.argv[1:]==["info"] else ' + repr(OVERVIEW) +
+        ' if sys.argv[1:]==["mon","--cols=1"] else ' + repr(json.dumps(payload)) + ')\n')
     provider.chmod(0o700)
     tasks.add(redis, host, 'MLC-PREFLIGHT', 'cloud', ['mlc=60'])
-    mlc_check = data('ocrun-node', 'preflight')
+    mlc_check = data('bits-node', 'preflight')
     assert mlc_check['tasks'][0]['binary'] == str(mlc)
     assert mlc_check['tasks'][0]['tool_version'] == '3.13'
     assert redis.call('LRANGE', 'TASKS', 0, -1, db=db) == ['mlc']
     tasks.delete(redis, host, 'MLC-PREFLIGHT')
     passed('installed node selects verified bundled MLC in preflight without claiming the queue')
     tasks.add(redis, host, 'NATIVE-BATCH', 'cloud', ['stress=3', 'stress-ng=3'])
-    assert data('ocrun-node', 'preflight')['status'] == 'checked'
-    started = data('ocrun-node', 'start')
+    assert data('bits-node', 'preflight')['status'] == 'checked'
+    started = data('bits-node', 'start')
     assert started['automatic_task_polling'] is False
-    assert run('ocrun-node', 'start', good=False).returncode != 0
+    assert run('bits-node', 'start', good=False).returncode != 0
     until = time.monotonic() + 150
     case = None
     while time.monotonic() < until:
-        values = data('ocrun-node', 'status')['cases']
+        values = data('bits-node', 'status')['cases']
         if values:
             case = values[0]
             if case['stage'] == 'complete':
@@ -181,17 +191,17 @@ def main():
     assert acceptance['statistics']['metrics']['vrm_temp_c']['mean'] is None
     assert acceptance['hardware_acceptance'] == 'not_automatically_assessed'
     assert all(s['binary_sha256'] and s['tool_version'] != 'unknown' for s in acceptance['steps'])
-    checked = data('ocrun-center', 'results', 'verify', '--receipt',
+    checked = data('bits-center', 'results', 'verify', '--receipt',
                    (host + '_CLOUD-SERIAL/') + Path(case['mon']).with_suffix('.finish.json').name, '--json')
     assert checked['verified_here'] and checked['html_report_path'].endswith('.report.html')
     receipt_name = (host + '_CLOUD-SERIAL/') + Path(case['mon']).with_suffix('.finish.json').name
     reader = json.loads(run('su', '-s', '/bin/sh', 'ocuser', '-c',
-        'ocrun-center results verify --receipt ' + receipt_name + ' --json').stdout.decode())
+        'bits-center results verify --receipt ' + receipt_name + ' --json').stdout.decode())
     assert reader['verified_here'] and reader['html_report_path'] == checked['html_report_path']
     assert run('su', '-s', '/bin/sh', 'nobody', '-c',
-        'ocrun-center results verify --receipt ' + receipt_name + ' --json', good=False).returncode
+        'bits-center results verify --receipt ' + receipt_name + ' --json', good=False).returncode
     for command in ('rollback', 'publish-node'):
-        assert run('su', '-s', '/bin/sh', 'ocuser', '-c', 'ocrun-center ' + command, good=False).returncode
+        assert run('su', '-s', '/bin/sh', 'ocuser', '-c', 'bits-center ' + command, good=False).returncode
     passed('management account verifies results without sudo; unauthorized reader and service mutations remain denied')
     workbook = Path(case['mon']).with_suffix('.xlsx')
     with zipfile.ZipFile(str(workbook)) as z:
@@ -201,20 +211,20 @@ def main():
         assert '<c r="H2"' not in text  # Missing VRM stays blank.
     passed('streaming workbook and detailed acceptance HTML/JSON, six hashes, center reader and management account access')
     snapshot = {name: sha(remote / name) for name in files}
-    run('ocrun-node', 'retry', '--case', case['case'])
+    run('bits-node', 'retry', '--case', case['case'])
     assert snapshot == {name: sha(remote / name) for name in files}
     time.sleep(1)
-    run('ocrun-node', 'stop-scheduler')
+    run('bits-node', 'stop-scheduler')
     passed('repeat finalization retains confirmed data bytes and scheduler stops without name-based process killing')
     tasks.delete(redis, host, 'NATIVE-BATCH')
     tasks.add(redis, host, 'NEXT', 'cloud', ['stress=3'])
     time.sleep(2)
     db = int(redis.call('GET', host))
     assert redis.call('LRANGE', 'TASKS', 0, -1, db=db) == ['stress']
-    assert len(data('ocrun-node', 'status')['cases']) == 1
+    assert len(data('bits-node', 'status')['cases']) == 1
     passed('completed idle node does not claim a newly added batch')
     extension = '.rpm' if shutil.which('rpm') else '.deb'
-    package = next(Path('/root/native-packages').rglob('ocrun-node*' + extension))
+    package = next(Path('/root/native-packages').rglob('bits-node*' + extension))
     reinstall = ['rpm', '-U', '--replacepkgs', str(package)] if extension == '.rpm' else ['dpkg', '-i', str(package)]
     assert run(*reinstall, good=False).returncode != 0
     assert snapshot == {name: sha(remote / name) for name in files}
@@ -222,9 +232,9 @@ def main():
     pending = data(APP / 'mon-sensors-finish', 'begin', '--mon',
                    '/var/log/ocrun-node/' + host + '_CLOUD-SERIAL_PENDING_cloud.mon',
                    '--remote', address + '::logs/' + host + '_CLOUD-SERIAL', '--task-id', 'PENDING', '--task-time', 'cloud')
-    assert run('ocrun-node', 'detach', good=False).returncode != 0
-    run('ocrun-node', 'close-incomplete', '--case', pending['case'], '--reason', 'cloud empty fixture deliberately closed')
-    assert data('ocrun-node', 'status', '--case', pending['case'])['cases'][0]['stage'] == 'closed_incomplete'
+    assert run('bits-node', 'detach', good=False).returncode != 0
+    run('bits-node', 'close-incomplete', '--case', pending['case'], '--reason', 'cloud empty fixture deliberately closed')
+    assert data('bits-node', 'status', '--case', pending['case'])['cases'][0]['stage'] == 'closed_incomplete'
     def interrupted_detach(source, target):
         rename(source, target)
         if str(source) == str(APP):
@@ -238,7 +248,7 @@ def main():
             assert 'simulated' in str(error)
     finally:
         os.rename = rename
-    detached = data('ocrun-node', 'detach')
+    detached = data('bits-node', 'detach')
     assert Path(detached['backup']).is_dir()
     assert all((Path('/var/log/ocrun-node') / n).exists() for n in files)
     passed('unfinished batches block detach; explicit closure and interrupted detach recovery preserve data')
@@ -247,17 +257,17 @@ def main():
     original_stat = changed.stat()
     changed.write_bytes(original + b'\nchanged\n')
     assert run(*reinstall, good=False).returncode != 0
-    remove_node = ['rpm', '-e', 'ocrun-node'] if extension == '.rpm' else ['dpkg', '-r', 'ocrun-node']
+    remove_node = ['rpm', '-e', 'bits-node'] if extension == '.rpm' else ['dpkg', '-r', 'bits-node']
     assert run(*remove_node, good=False).returncode != 0
     assert changed.read_bytes() == original + b'\nchanged\n'
     changed.write_bytes(original)
     os.utime(str(changed), ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns))
     if extension == '.deb':
-        if run('dpkg-query', '-W', '-f=${db:Status-Status}', 'ocrun-node').stdout.decode() != 'installed':
-            run('dpkg', '--configure', 'ocrun-node')
+        if run('dpkg-query', '-W', '-f=${db:Status-Status}', 'bits-node').stdout.decode() != 'installed':
+            run('dpkg', '--configure', 'bits-node')
     run(*reinstall)
     passed('modified native files refuse replacement and removal; restored known package can reinstall after detach')
-    entry = Path('/usr/bin/ocrun-node')
+    entry = Path('/usr/bin/bits-node')
     entry_mode = entry.stat().st_mode & 0o7777
     entry.chmod(entry_mode | 0o020)
     assert run(*reinstall, good=False).returncode != 0
@@ -265,16 +275,16 @@ def main():
     assert entry.stat().st_mode & 0o020
     entry.chmod(entry_mode)
     if extension == '.deb':
-        if run('dpkg-query', '-W', '-f=${db:Status-Status}', 'ocrun-node').stdout.decode() != 'installed':
-            run('dpkg', '--configure', 'ocrun-node')
+        if run('dpkg-query', '-W', '-f=${db:Status-Status}', 'bits-node').stdout.decode() != 'installed':
+            run('dpkg', '--configure', 'bits-node')
     passed('package changes refuse a writable command entry even when its content checksum matches')
-    run('ocrun-center', 'rollback')
+    run('bits-center', 'rollback')
     if extension == '.rpm':
-        run('rpm', '-e', 'ocrun-node', 'ocrun-center')
+        run('rpm', '-e', 'bits-node', 'bits-center')
     else:
-        run('dpkg', '-r', 'ocrun-node', 'ocrun-center')
-    assert not Path('/usr/bin/ocrun-node').exists()
-    assert not Path('/usr/bin/ocrun-center').exists()
+        run('dpkg', '-r', 'bits-node', 'bits-center')
+    assert not Path('/usr/bin/bits-node').exists()
+    assert not Path('/usr/bin/bits-center').exists()
     assert all((Path('/var/log/ocrun-node') / n).exists() for n in files)
     passed('native removal after explicit detach and center rollback retains task results')
     # Install actual published v0.2.2, then upgrade the detached roles to this build.
@@ -300,14 +310,18 @@ def main():
     assert changed.read_bytes() == content + b'\nlocal change\n'
     changed.write_bytes(content)
     os.utime(str(changed), ns=(attributes.st_atime_ns, attributes.st_mtime_ns))
-    run(*(installer + new_packages))
-    assert data('ocrun-node', 'check')['version'] == '0.2.4'
-    assert data('ocrun-workloads', 'list')['tools']['mlc']['delivery'] == 'included'
-    assert not old_node.exists() and not Path('/opt/ocrun-center/0.2.2').exists()
-    passed('published 0.2.2 upgrades after detach; modified old files and unmanaged new paths are retained and refused')
-    # Rollback uses explicit removal and the original retained artifacts, not forced downgrade.
+    # Brand migration is deliberately explicit; no native transaction silently
+    # removes an attached old role. The unchanged paths preserve case history.
     remover = ['rpm', '-e'] if extension == '.rpm' else ['dpkg', '-r']
     run(*(remover + ['ocrun-node', 'ocrun-center']))
+    run(*(installer + new_packages))
+    assert data('bits-node', 'check')['version'] == '0.2.4'
+    assert data('bits-o-workloads', 'list')['tools']['mlc']['delivery'] == 'included'
+    assert not old_node.exists() and not Path('/opt/ocrun-center/0.2.2').exists()
+    passed('published 0.2.2 migrates after explicit detach/removal; coinstallation and unmanaged paths are refused')
+    # Rollback uses explicit removal and the original retained artifacts, not forced downgrade.
+    remover = ['rpm', '-e'] if extension == '.rpm' else ['dpkg', '-r']
+    run(*(remover + ['bits-node', 'bits-center']))
     run(*(installer + old_packages))
     assert json.loads((old_node / 'PACKAGE.json').read_text())['version'] == '0.2.2'
     assert all((Path('/var/log/ocrun-node') / n).exists() for n in files)
@@ -315,7 +329,7 @@ def main():
     passed('explicit package rollback to published 0.2.2 preserves historical result files')
     Path('/results/native.json').write_text(json.dumps({'status': 'passed', 'source_commit': os.environ['OCRUN_SOURCE_COMMIT'],
         'checks': checks, 'sensor_data': 'synthetic cloud fixture; not hardware validation',
-        'kernel': 'shared cloud host kernel', 'native_packages': ['ocrun-center', 'ocrun-node']}, indent=2))
+        'kernel': 'shared cloud host kernel', 'native_packages': ['bits-center', 'bits-node']}, indent=2))
 
 
 if __name__ == '__main__':

@@ -44,3 +44,8 @@ Python 包本来就可阅读，无须反编译。接口不拥有激活签名私�
 
 - [Python 启动参数 -B、-I、-S](https://docs.python.org/3/using/cmdline.html)：缓存写入控制与 site 隔离是不同机制。
 - [Linux waitid / WNOWAIT](https://man7.org/linux/man-pages/man2/waitpid.2.html)：观察退出并保留子进程可等待状态。
+# BITS 补充采集边界（API 0.4.0）
+
+补充命令固定为 `mon --cols=1` 和 `info`，不执行用户拼接的 shell，不开放 `rmal` 或授权写操作。沿用原生授权检查、路径和属主检查、描述符固定、隔离环境、输出上限及子进程组超时清理。Primary 之外的时序在 info 管道逐行读取时丢弃，并在结构化解析和持久化读取时再次限制；不是只在 HTML 隐藏。
+
+这不是针对设备 root 的反逆向保证：原生程序和原生管道仍在客户操作系统内，root 可绕过、替换接口或直接分析原程序。接口不包含原生 C 实现、密钥、解锁实现；公开清理和源码白名单继续执行。强 root 威胁下的核心实现保护需独立的服务端边界，本轮不改变本地及离线授权策略。
