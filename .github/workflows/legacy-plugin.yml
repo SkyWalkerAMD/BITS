@@ -93,10 +93,15 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with: {persist-credentials: false}
+        with: {persist-credentials: false, fetch-depth: 0}
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with: {path: legacy-release-input}
       - run: python3 -m legacy_plugin.release
+      - name: Audit legacy public payloads
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y rpm cpio
+          python3 ci/prepare_bits_release.py legacy legacy-release
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: 'bits-o-0.1.2-${{ github.run_id }}'

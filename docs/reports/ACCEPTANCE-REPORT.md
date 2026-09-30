@@ -116,3 +116,10 @@ bash ./mon-sensors-finish-0.2.5.run --app /root/ocrun --rollback
 4. 215 ocuser 用 `verify` 核对六份材料，下载HTML，检查机器配置、两个步骤、统计、缺失列和打印版式。确认原ws/occt与历史v1批次仍可读取。
 
 云端证据区分真实包/服务/进程和合成传感器数据。真实硬件信息完整性、215真实NFS和人工验收结论仍由上述现场确认；发布包中的 `RELEASE.json` 记录具体源码与云端运行，不以演示报告冒充现场结果。
+# BITS 0.2.4 新增监控与配置内容
+
+HTML 与报告 JSON 的机器配置部分展示原生 Platform 全部已提供字段、CPU family/model/stepping/微码、Turbo/温控/功耗配置、PSU 和 DIMM 配置快照。内存时序**仅收录 Primary 组**，包括原生同组 tCWL/tRC（如提供）；其他组禁止经 API 导出，不受本机 rmal 解锁状态影响。
+
+监控统计部分按来源与插槽展示 Pkg、DRAM 功耗、内存温度、VCCIN、VID、TjMax；另列整机 PSU 输入、各 PSU 和 DIMM 温度。整机读数不按插槽累加。核心表按数字 0、1、2… 排列，增加 VID。统计包含样本计数，补充读数默认约 10 秒一次并保留其独立时间；部分 PSU 读数与完整总功耗分开统计。
+
+保留第一份及最后一份 info 配置，并记录期间配置变化次数；中间采集在 JSONL 附件中。原 `.mon` 与 Excel 仍为 11 列兼容明细，新增项目在 HTML / `.report.json` / `.mon.sckocp.jsonl`。旧批次不会使用当前机器的新信息补写；未提供项、未知有效性和年龄继续如实显示。

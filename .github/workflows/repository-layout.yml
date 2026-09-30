@@ -1,10 +1,16 @@
 name: Repository layout and packaging
 on:
   workflow_dispatch:
+    inputs:
+      workload_run:
+        description: 'Optional same-source workload artifacts; omit for layout checks only'
+        type: string
+        default: ''
   pull_request:
     paths: ['docs/**', 'ci/**', '.github/workflows/**', 'build.py', 'distribution/**', 'CONTRIBUTING.md', 'README.md']
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: repository-layout-${{ github.ref }}
   cancel-in-progress: true
@@ -18,21 +24,29 @@ jobs:
       - run: |
           python3 ci/repository_layout.py
           python3 -m unittest distribution.test_source_export -v
+          python3 -m unittest ci.test_release_assets -v
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with: {name: 'repository-layout-${{ github.run_id }}', path: .layout-results/layout.json, include-hidden-files: true, retention-days: 30}
   packages:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.workload_run != '' }}
     needs: layout
     runs-on: ubuntu-22.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with: {persist-credentials: false, fetch-depth: 0}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: workload-*-${{ inputs.workload_run }}
+          path: .layout-input/workloads
+          run-id: ${{ inputs.workload_run }}
+          github-token: ${{ github.token }}
       - name: Build verification artifacts without changing a release
         env: {GH_TOKEN: '${{ github.token }}'}
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y rpm cpio
-          mkdir .layout-input
+          mkdir -p .layout-input
           gh release download v0.2.2 --repo "$GITHUB_REPOSITORY" --pattern ocrun-system-0.2.2.tar.gz --dir .layout-input
           python3 ci/layout_packages.py
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

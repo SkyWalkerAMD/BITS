@@ -46,6 +46,15 @@ class PublicationTests(unittest.TestCase):
         for name in self.names:
             self.assertIn(self.root / name, found)
 
+    def test_bits_names_preserve_strict_attachment_inventory(self):
+        for old, new in (('sources/ocrun-source.tar.gz', 'sources/bits-source.tar.gz'),
+                         ('standalone/ocrun-workloads-0.1.0-3.el8.x86_64.rpm', 'standalone/bits-o-workloads-0.1.0-3.el8.x86_64.rpm'),
+                         ('standalone/ocrun-workloads_0.1.0-3_amd64.deb', 'standalone/bits-o-workloads_0.1.0-3_amd64.deb')):
+            (self.root / old).rename(self.root / new)
+            self.names[self.names.index(old)] = new
+        self.manifest()
+        self.assertEqual(len(selections(self.root)), 23)
+
     def test_modified_component_cannot_be_published(self):
         (self.root / 'standalone/sckocp-api-0.3.2.run').write_bytes(b'changed')
         with self.assertRaisesRegex(ValueError, 'Unverified'):

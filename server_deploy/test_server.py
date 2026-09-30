@@ -68,7 +68,9 @@ class ServerTests(unittest.TestCase):
         for name in ('ocrun-workloads-0.1.0-1.el8.x86_64.rpm',
                      'ocrun-workloads_0.1.0-1_amd64.deb', 'mon-sensors-finish-0.2.3.run',
                      'ocrun-workloads-0.1.0-2.el8.x86_64.rpm',
-                     'ocrun-workloads_0.1.0-2_amd64.deb', 'mon-sensors-finish-0.2.4.run'):
+                     'ocrun-workloads_0.1.0-2_amd64.deb', 'mon-sensors-finish-0.2.4.run',
+                     'bits-node-0.2.4-1.el8.x86_64.rpm', 'bits-node_0.2.4-1_amd64.deb',
+                     'bits-o-node-0.1.2-1.el8.x86_64.rpm', 'bits-o-workloads_0.1.0-3_amd64.deb'):
             self.assertIsNotNone(INSTALLER_NAME.fullmatch(name))
         for name in ('connection.json', 'server.json', 'other.rpm', '../ocrun-workloads_1_amd64.deb',
                      'ocrun-workloads_0.1.0-1_arm64.deb', 'sckocp-activation.key'):

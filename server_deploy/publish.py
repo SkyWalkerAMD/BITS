@@ -8,7 +8,9 @@ from . import safe
 INSTALLER_NAME = re.compile(
     r'(?:(?:sckocp-api|mon-sensors-plugin|mon-sensors-finish|mon-sensors-report-py36|ocrun-node-update)-[0-9][A-Za-z0-9_.-]*\.(?:run|tar\.gz)'
     r'|ocrun-(?:workloads|node)-[0-9][A-Za-z0-9_.-]*\.x86_64\.rpm'
-    r'|ocrun-(?:workloads|node)_[0-9][A-Za-z0-9_.+~-]*_amd64\.deb)\Z')
+    r'|ocrun-(?:workloads|node)_[0-9][A-Za-z0-9_.+~-]*_amd64\.deb'
+    r'|bits-(?:node|o-node|o-workloads)-[0-9][A-Za-z0-9_.-]*\.x86_64\.rpm'
+    r'|bits-(?:node|o-node|o-workloads)_[0-9][A-Za-z0-9_.+~-]*_amd64\.deb)\Z')
 
 
 def publish(config, filename, checksum):

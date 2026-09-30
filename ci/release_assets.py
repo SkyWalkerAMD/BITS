@@ -40,8 +40,12 @@ def selections(root):
     checked = inventory(root)
     names = ['README.md', 'RELEASE.json', 'SOURCES.json', 'ACCEPTANCE-REPORT.md',
              'CONTROL-MANUAL.md', 'WORKLOADS-MANUAL.md', 'SERVER-MANUAL.md',
-             'SCKOCP-API.md', 'OPTIMIZATION.md', 'sources/ocrun-source.tar.gz',
+             'SCKOCP-API.md', 'OPTIMIZATION.md',
              'example/report-preview.html', 'example/report-print-preview.pdf']
+    source_names = [name for name in ('sources/ocrun-source.tar.gz', 'sources/bits-source.tar.gz') if name in checked]
+    if len(source_names) != 1:
+        raise ValueError('Expected exactly one reviewed customer source archive')
+    names += source_names
     for role in ('node-rpm', 'node-deb', 'center-rpm', 'center-deb'):
         entry = meta['packages'][role]
         name = entry['file']
@@ -54,8 +58,8 @@ def selections(root):
         r'mon-sensors-finish-[0-9]+\.[0-9]+\.[0-9]+\.run',
         r'mon-sensors-control-[0-9]+\.[0-9]+\.[0-9]+\.run',
         r'mon-sensors-report-py36-[0-9]+\.[0-9]+\.[0-9]+\.run',
-        r'ocrun-workloads-[0-9]+\.[0-9]+\.[0-9]+-[0-9]+\.el8\.x86_64\.rpm',
-        r'ocrun-workloads_[0-9]+\.[0-9]+\.[0-9]+-[0-9]+_amd64\.deb',
+        r'(?:ocrun|bits-o)-workloads-[0-9]+\.[0-9]+\.[0-9]+-[0-9]+\.el8\.x86_64\.rpm',
+        r'(?:ocrun|bits-o)-workloads_[0-9]+\.[0-9]+\.[0-9]+-[0-9]+_amd64\.deb',
     )
     standalone = [p for p in (root / 'standalone').iterdir() if p.is_file()]
     selected = []

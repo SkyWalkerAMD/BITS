@@ -1,4 +1,4 @@
-name: OCRUN integrated distribution
+name: BITS integrated distribution
 on:
   workflow_dispatch:
     inputs:
@@ -146,7 +146,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with: {persist-credentials: false}
+        with: {persist-credentials: false, fetch-depth: 0}
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with: {path: release-input}
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
@@ -166,5 +166,11 @@ jobs:
       - name: Assemble only the successfully tested system packages
         env: {COMPONENT_RUN: '${{ needs.components.outputs.run }}', COMPONENT_COMMIT: '${{ needs.components.outputs.commit }}'}
         run: python3 -m distribution.release
+      - name: Audit public payloads and expose every reviewed installer directly
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y rpm cpio
+          python3 -m unittest ci.test_release_assets -v
+          python3 ci/prepare_bits_release.py system system-dist/bits-system-0.2.4
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with: {name: 'bits-system-0.2.4-${{ github.run_id }}', path: system-dist/, retention-days: 90}

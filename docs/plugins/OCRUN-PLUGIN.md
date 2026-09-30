@@ -182,3 +182,6 @@ ocrun-plugin unconfigure
 已有 v0.2.2 的工具与报告来源固定 SHA-256，组件版本可追溯；本次云端测试另外验证新控制入口、旧 Redis 共用数据库、重复任务、无效任务不改队列、接入/回滚、安装状态以及通过旧执行器生成报告并回读核验。具体通过项目与发行版写入 VALIDATION.json，不能用历史证据代替本次验证。
 
 真实 215/K6C-165 验收尚须由用户执行。建议首次仅 PLUGIN-SYSTEM 的 stress→stress-ng 各 60 秒，检查两步 duration_reached、cleanup_confirmed、报告路径、回执及共享目录 verify，再考虑扩展允许节点名单。
+# BITS-o 迁移入口
+
+当前发行的旧系统增强包已改名为 `bits-o-control`、`bits-o-node`，工具包为 `bits-o-workloads`，入口 `bits-o`。本文件下面保留原 0.1.1 操作记录，**当前版本安装请使用 [BITS 简明部署](../deployment/BITS.md)**，迁移与回滚见 [0.2.4](../releases/0.2.4.md)。原 `occt` 仍可下发任务，节点自动完成压测、采集、报告与交付。

@@ -1,6 +1,6 @@
-# sckocp-api 0.3.2 操作手册
+# sckocp-api 0.4.0 操作手册
 
-适用文件：`sckocp-api-0.3.2.run` 和 `sckocp-api-0.3.2.tar.gz`。以下命令在客户的 Linux 被监控设备上执行，示例中的程序路径需与设备实际安装一致。
+适用文件：`sckocp-api-0.4.0.run` 和 `sckocp-api-0.4.0.tar.gz`。以下命令在客户的 Linux 被监控设备上执行，示例中的程序路径需与设备实际安装一致。
 
 ## 1. 安装在哪里，需要什么权限
 
@@ -19,11 +19,11 @@
 
 ```bash
 # 查看安装器帮助；这些不是采集命令
-bash sckocp-api-0.3.2.run --help
+bash sckocp-api-0.4.0.run --help
 # 预检查：不改安装目标，不验证激活或采集硬件
-bash sckocp-api-0.3.2.run --check
+bash sckocp-api-0.4.0.run --check
 # 执行安装
-bash sckocp-api-0.3.2.run
+bash sckocp-api-0.4.0.run
 # 核对命令；这两条不采集
 /usr/local/bin/sckocp-api --version
 /usr/local/bin/sckocp-api --help
@@ -52,8 +52,8 @@ bash sckocp-api-0.3.2.run
 自定义位置示例，升级时也必须使用同一组路径：
 
 ```bash
-bash sckocp-api-0.3.2.run --prefix /opt/sckocp-local-api --bin-dir /opt/sckocp-api-bin --check
-bash sckocp-api-0.3.2.run --prefix /opt/sckocp-local-api --bin-dir /opt/sckocp-api-bin
+bash sckocp-api-0.4.0.run --prefix /opt/sckocp-local-api --bin-dir /opt/sckocp-api-bin --check
+bash sckocp-api-0.4.0.run --prefix /opt/sckocp-local-api --bin-dir /opt/sckocp-api-bin
 /opt/sckocp-api-bin/sckocp-api --version
 ```
 
@@ -64,10 +64,10 @@ bash sckocp-api-0.3.2.run --prefix /opt/sckocp-local-api --bin-dir /opt/sckocp-a
 `.run` 与 `.tar.gz` 二选一即可。按 root 在压缩包所在目录执行以下命令，解包目录与最终安装目录分开：
 
 ```bash
-mkdir -p /root/sckocp-api-0.3.2-source
-tar -xzf sckocp-api-0.3.2.tar.gz -C /root/sckocp-api-0.3.2-source
-bash /root/sckocp-api-0.3.2-source/install-sckocp-api.sh --check
-bash /root/sckocp-api-0.3.2-source/install-sckocp-api.sh
+mkdir -p /root/sckocp-api-0.4.0-source
+tar -xzf sckocp-api-0.4.0.tar.gz -C /root/sckocp-api-0.4.0-source
+bash /root/sckocp-api-0.4.0-source/install-sckocp-api.sh --check
+bash /root/sckocp-api-0.4.0-source/install-sckocp-api.sh
 ```
 
 也可不安装，直接在可信解包目录调用其中的 `./sckocp-api` 或 `python3 -m sckocp_api`。这种方式依赖调用者的 Python 环境，不会自动创建全局命令；正式部署优先使用安装器生成的固定入口。
@@ -87,7 +87,7 @@ command -v sckocp
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |
 | `-h`, `--help` | — | 显示帮助，不采集 |
-| `--version` | — | 显示 `sckocp-api 0.3.2`，不采集 |
+| `--version` | — | 显示 `sckocp-api 0.4.0`，不采集 |
 | `--binary PATH` | `/usr/bin/sckocp` | 原生程序的绝对路径；最长 4096 字符，不接受控制/格式字符 |
 | `--format v1\|v2` | `v1` | 原版 1.1.0/1.2.0 使用 v1；v2 仅适用于设备已经具备相应扩展的情况 |
 | `--interval SECONDS` | `1` | 单次采样窗口，范围 `0.05–60` 秒；不是两次调用间隔 |

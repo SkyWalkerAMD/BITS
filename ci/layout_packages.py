@@ -32,11 +32,11 @@ def main():
     # The legacy builder verifies the pinned release checksum and source commit,
     # preserves that provenance and exposes its original tool packages unchanged.
     run(sys.executable, '-m', 'legacy_plugin.build', '--baseline',
-        '.layout-input/ocrun-system-0.2.2.tar.gz')
+        '.layout-input/ocrun-system-0.2.2.tar.gz', '--tools', '.layout-input/workloads')
     legacy = ROOT / 'legacy-dist'
     with tempfile.TemporaryDirectory(prefix='layout-tools-') as temporary:
         unpacked = Path(temporary)
-        tools_deb, = legacy.glob('ocrun-workloads*.deb')
+        tools_deb, = legacy.glob('bits-o-workloads*.deb')
         check_input(tools_deb)
         run('dpkg-deb', '-x', str(tools_deb), str(unpacked))
         manifest, = unpacked.glob('opt/ocrun-workloads/*/MANIFEST.json')
@@ -47,10 +47,10 @@ def main():
         native = output / 'native'
         report, = (ROOT / 'report-dist').glob('*.tar.gz')
         for kind in ('rpm', 'deb'):
-            tools, = legacy.glob('ocrun-workloads*.' + kind)
+            tools, = legacy.glob('bits-o-workloads*.' + kind)
             run(sys.executable, '-m', 'distribution.build', '--role', 'node', '--kind', kind,
                 '--tools', str(tools), '--report', str(report), '--output', str(native), env=env)
-        nodes = sorted(native.glob('ocrun-node*'))
+        nodes = sorted(native.glob('bits-node*'))
         server, = (ROOT / 'server-dist').glob('*.tar.gz')
         env['OCRUN_COMPONENT_COMMIT'] = commit  # server was built above from this revision
         for kind in ('rpm', 'deb'):
@@ -69,7 +69,7 @@ def main():
     packages = {}
     for directory in (output / 'native', legacy):
         for path in sorted(directory.iterdir()):
-            if path.suffix not in ('.rpm', '.deb') or path.name.startswith('ocrun-workloads'):
+            if path.suffix not in ('.rpm', '.deb') or path.name.startswith('bits-o-workloads'):
                 continue
             check_input(path)
             packages[path.name] = {'bytes': path.stat().st_size, 'sha256': sha(path)}
