@@ -1,0 +1,45 @@
+# OCRUN 0.2.3 / 旧系统增强套件 0.1.1
+
+本轮面向完整系统和旧系统套件的交付、安全启动及升级验证。旧 215 的系统、原 OCRUN、ws/occt、Redis 协议、PXE 和生产任务不自动修改。
+
+## 修改与证据范围
+
+| 修改 | 解决的问题 | 验证位置 |
+|---|---|---|
+| 发布源码采用逐文件白名单和 SOURCE-MANIFEST.json | 旧发行脚本归档整个私有仓库，包含不该随接口交付的 sckocp 参考实现 | distribution/test_source_export.py；两套 release 作业 |
+| API 0.3.2、采集组件 0.12.12 随本次源码构建 | 完整系统脚本及旧套件仍引用 0.3.1 / 0.12.10 | PACKAGE.json、RELEASE.json、API 安全矩阵 |
+| 采集启动器、旧套件子解释器禁用 Python site 初始化 | 隔离模式 -I 本身仍可能执行全局 .pth/sitecustomize | 云端全局 .pth 注入对照；后台采集与停止回归 |
+| 完整管理端 results 可由有文件权限的普通用户使用 | 0.2.2 在只读结果入口要求 root | ocuser 实际核验六文件；nobody 拒绝读取；普通用户不能 rollback/publish-node |
+| 已发布版本升级与回滚验证 | 只测新装或重建旧源码不能代表已交付包可升级 | 固定 SHA-256 的完整系统 0.2.2、旧套件 0.1.0；十二系统 RPM/DEB 路径 |
+
+采集时限、任务防丢失、按身份停止、恢复不重跑任务、分段报表、HTML/JSON 验收单和下载副本核验沿用现有引擎，并做相关回归。sckocp 原版及授权规则不变；缺失传感器继续为空，v1 有效性和读数年龄继续标注未知。
+
+测试状态以同包 RELEASE.json / VALIDATION.json 与云端运行号为准；本文描述检查范围，不独立宣称测试通过。云端传感器为明确标识的模拟数据，容器共用宿主内核。真实 sckocp、SELinux、硬件压力与原现场环境需用户验收。
+
+## 客户交付范围
+
+仅使用本版本手工上传的安装包、发行归档、校验值及配套说明。客户源码附件来自 `distribution/customer-sources.json`，保留 OCRUN 组件、构建脚本、已选工具的上游材料和许可；不包含 sckocp 原生参考源码、授权签名程序、内部研究或 drafts。新生产模块未列入清单时发布失败，不能静默省略。
+
+旧插件 0.1.0 的源码附件已核实包含上述参考实现，完整系统旧发布脚本也使用整仓库归档。旧附件与私有 Git 历史仍保留；不要继续将旧源码附件或 GitHub 自动生成的 **Source code (zip/tar.gz)** 发给客户。仓库保持私有，不用开放整个仓库来分发二进制。历史材料是否曾分发及后续处置需要按实际记录确认，不能据此推断客户已经获得源码或密钥。
+
+这会减少交付中不必要的实现信息，并降低启动环境干扰风险。Python 接口仍可阅读，root 可以替换程序和操作系统；这些修改不构成“不可逆向”保证。敏感实现迁往自有服务器的研究单独推进，不在此版本改变离线能力。
+
+## 升级和回滚
+
+完整系统：root 先 `ocrun-node status --human`，处理 pending，再 `ocrun-node stop-scheduler`、`ocrun-node detach`；管理端先 `ocrun-center rollback`。保留 detach 返回的目录和旧包。安装 0.2.3 后，按 README 显式配置。原服务回滚会影响该新管理系统，须安排其维护窗口；不能把此步骤用于旧 215。
+
+旧套件节点：root 先 `ocrun-plugin status`，处理未完成批次，`ocrun-plugin stop-scheduler`、`ocrun-plugin rollback --check`、`ocrun-plugin rollback`、`ocrun-plugin unconfigure`。再使用包管理器移除旧 **ocrun-plugin-node**，安装 0.1.1，并按 MANUAL.md 显式 configure / attach。旧套件控制端只需 unconfigure、移除旧 **ocrun-plugin-control**、安装新包、恢复先前明确选择的配置。原工具包、日志和任务队列不删除，不强制覆盖已接入的安装。
+
+需要撤回时，用同样流程解除接入并移除新包，安装已核验的 0.1.0 或完整系统 0.2.2 原包，再显式配置；不能强制降级、混用新旧模块或直接覆盖备份。程序有未知改动时停止操作并保留现场。
+
+## 指定节点现场验收
+
+先在空闲 K6C-165 的 root 账户安装/升级旧套件，按 MANUAL.md 核对原文件并接入；215 由 root 安装控制套件、ocuser 查看结果。仅检查或安装不会下发任务。
+
+1. `ocrun-plugin check` 和 `ocrun-plugin preflight`：当前队列只读检查，没有待跑任务时应明确显示为空。
+2. 使用原 occt 为 K6C-165 建立唯一新批次（例如 REFRESH-011，stress → stress-ng 各 60 秒），节点执行一次 `ocrun-plugin start`。
+3. 节点 `ocrun-plugin status --json`：两项 duration_reached、cleanup_confirmed 为 true；执行、质量、报告、交付状态分别可见。
+4. 215 的 ocuser 执行 `ocrun-plugin results list`，再按返回路径执行 `ocrun-plugin results verify --receipt 相对路径 --json`：六份结果应核验一致，报告中的缺失传感器为空，质量为未知。
+5. 对同一已完成批次执行一次 `ocrun-plugin retry --case 实际批次ID`：不重新压测，确认哈希不变。
+
+其他生产节点不在本次现场验收范围。完整系统新服务器按 README 部署后单独做相同任务验收；旧节点的成功证据不替代新部署验收。

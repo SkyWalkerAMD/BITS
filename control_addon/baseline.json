@@ -1,0 +1,11 @@
+{
+  "release": "215 control copy MAIN_VERSION=0.9.19 DEV_VERSION=0.9.20a",
+  "source": "User-provided /home/ocuser/ocrun copy, inspected 2026-09-28; never executed",
+  "files": {
+    "occ": "2bb3aea09ca2e88f66eb2162ebcf3d575ad1d61806a48b686b6eae1873e848d5",
+    "oc.env": "1f0a2d7df3eb84b42c095de2d621262bdb0e0b69a559eb0623268ad21e7965fb",
+    "oc.profile": "92ffb406bc7613ce2def87dd5d159584989a3187e3f1e68c654c3644dd6a7127",
+    "oc-mgmt-task": "bdae564a0cd1396738869d4013de1b0c367e372729b6975739431905e501b38e",
+    "version.txt": "5bc2e71c29f3e66f371367b3a3e58641e0b8bc5c1af804a01dea2879aea8299b"
+  }
+}

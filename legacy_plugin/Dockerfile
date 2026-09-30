@@ -1,0 +1,11 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+COPY server_deploy/dependencies.sh /fixture/dependencies.sh
+COPY .cloud/server_image.sh /fixture/server_image.sh
+COPY legacy-dist /root/plugin-packages
+RUN GITHUB_ACTIONS=true bash /fixture/server_image.sh && \
+    if command -v dnf >/dev/null; then \
+      dnf -y install /root/plugin-packages/ocrun-plugin-control*.rpm /root/plugin-packages/ocrun-workloads*.rpm iputils dmidecode shadow-utils; \
+    else \
+      apt-get update && apt-get install -y /root/plugin-packages/ocrun-plugin-control*.deb /root/plugin-packages/ocrun-workloads*.deb iputils-ping dmidecode passwd; \
+    fi

@@ -1,0 +1,24 @@
+#!/bin/bash
+set -euo pipefail
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+case "${1:-}" in
+    start)
+        # An existing table is only ours after its contents match our saved
+        # running copy. Refuse another owner instead of flushing any ruleset.
+        if nft list table inet ocrun_server >/dev/null 2>&1; then
+            [[ -f /run/ocrun-server-guard.sha256 ]] || { echo 'Existing unowned ocrun_server nft table' >&2; exit 1; }
+            nft -s list table inet ocrun_server | sha256sum -c /run/ocrun-server-guard.sha256
+        else
+            nft -f /etc/ocrun-server/ingress.nft
+        fi
+        nft -s list table inet ocrun_server | sha256sum > /run/ocrun-server-guard.sha256
+        ;;
+    stop)
+        if [[ -f /run/ocrun-server-guard.sha256 ]] && nft list table inet ocrun_server >/dev/null 2>&1; then
+            nft -s list table inet ocrun_server | sha256sum -c /run/ocrun-server-guard.sha256
+            nft delete table inet ocrun_server
+            rm -f -- /run/ocrun-server-guard.sha256
+        fi
+        ;;
+    *) echo 'Usage: ocrun-server-guard start|stop' >&2; exit 2 ;;
+esac

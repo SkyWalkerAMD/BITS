@@ -1,0 +1,326 @@
+#! /bin/bash
+
+source ~/ocrun/oc.env
+
+[ -z $1 ] && OPS=help || OPS=$1
+[ -z $2 ] && TASKID=RedSun || TASKID=$2
+[ -z $3 ] && TASKTIME=${APP_DATE} || TASKTIME=$3
+
+# 定义日志文件
+BEN_LOG=${LOGPATH}/$(hostname)_${MB_SN}_benchmark.log
+TASK_LOG=${LOGPATH}/$(hostname)_${MB_SN}_${TASKID}_${TASKTIME}_${OPS}.log
+MON_LOG=${LOGPATH}/$(hostname)_${MB_SN}_${TASKID}_${TASKTIME}.mon
+
+
+# BMW内存测试容量
+MBW_MEM=$((($MEM_FREE*45)/100))
+
+run-mon() {
+    # 运行mon-sensors
+    [ -z $1 ] && _MON_LOG=view || _MON_LOG=$1
+    nohup ${APPPATH}/mon-sensors 2 ${_MON_LOG} &
+}
+
+run-stress() {
+    # 运行Stress
+    nohup ${APPPATH}/bin/stress/stress --cpu $CPU_NUM  >> ${TASK_LOG} &
+}
+
+run-stress-ng() {
+    # 运行Stress-NG
+    nohup ${APPPATH}/bin/stress-ng/stress-ng --cpu $CPU_NUM  >> ${TASK_LOG} &
+}
+
+run-p95() {
+    # 运行P95
+    [ -z $1 ] && _TYPE=no || _TYPE=$1
+    [ -z $2 ] && _MODE=m1 || _MODE=$2
+    nohup ${APPPATH}/bin/p95-${_TYPE}_${_MODE}/mprime -t >> ${TASK_LOG} &
+}
+
+run-bcfi() {
+    # 运行bcfi
+     nohup ${APPPATH}/bin/bcfi/bcfi  >> ${TASK_LOG} &
+}
+
+run-bcfd() {
+    # 运行bcfd
+     nohup ${APPPATH}/bin/bcfd/bcfd  >> ${TASK_LOG} &
+}
+
+run-ptu() {
+    ${APPPATH}/bin/ptu/ptu -y >> ${TASK_LOG} &
+}
+
+run-mlc() {
+    # 运行Intel MLC
+    echo "<---------------------Intel MLC Start: $(date) --------------------->" >> ${BEN_LOG}
+    lscpu |grep Vendor|grep AMD >/dev/null && echo 4000 > /proc/sys/vm/nr_hugepages
+    ${APPPATH}/bin/mlc/mlc >> ${BEN_LOG}
+    echo -e "<---------------------Intel MLC End: $(date) ----------------------->\n" >> ${BEN_LOG}
+}
+
+run-mbw() {
+    [ -z $1 ] && _MBW_MEM=1024 || _MBW_MEM=$1
+    # 运行MBW
+     echo "<---------------------MBW Start: $(date) --------------------->" >> ${BEN_LOG}
+     ${APPPATH}/bin/mbw/mbw -n 5 ${_MBW_MEM}|tee >> ${BEN_LOG}
+     echo -e "<---------------------MBW End: $(date) ----------------------->\n" >> ${BEN_LOG}
+}
+
+run-bcr() {
+    # 运行BC-Result
+    echo "<---------------------BC Result Start: $(date) --------------------->" >> ${BEN_LOG}
+    ${APPPATH}/bin/bcr/bcr >> ${BEN_LOG} 2>&1
+    echo -e "<---------------------BC Result End: $(date) ----------------------->\n" >> ${BEN_LOG}
+}
+
+run-spec() {
+    # 运行CPU2017
+    sed -i "/.*copies           =/c\   copies           = ${CPU_NUM}   # EDIT to change number of copies (see above)" ${APPPATH}/cpu2017/config/cpu2017.cfg
+    sed -i "/.*threads          =/c\   threads          = ${CPU_NUM}   # EDIT to change number of OpenMP threads (see above)" ${APPPATH}/cpu2017/config/cpu2017.cfg
+    ${APPPATH}/cpu2017/run-spec all >> ${TASK_LOG}
+    mkdir -p ${LOGPATH}/results/cpu2017
+    rsync -a ${APPPATH}/cpu2017/result/* ${LOGPATH}/results/cpu2017
+}
+
+run-sysjitter() {
+    # 运行sysjitter
+    echo "<---------------------Sysjitter Start: $(date) --------------------->" >> ${BEN_LOG}
+    ${APPPATH}/bin/sysjitter/sysjitter --runtime 10 200 | column -t >> ${BEN_LOG}
+    echo -e "<---------------------Sysjitter End: $(date) ----------------------->\n" >> ${BEN_LOG}
+}
+
+run-unixbench() {
+    # 运行unixbench
+    echo "<---------------------UnixBench Start: $(date) --------------------->" >> ${BEN_LOG}
+    cd ${APPPATH}/bin/unixbench/
+    ./Run >> ${BEN_LOG}
+    mkdir -p ${LOGPATH}/results/unixbench
+    rsync -a {APPPATH}/bin/unixbench/results/* ${LOGPATH}/results/unixbench
+    echo -e "<---------------------UnixBench End: $(date) ----------------------->\n" >> ${BEN_LOG}
+
+}
+
+kill-mon() {
+    # kill mon-sensors
+    kill -9 $(ps -ef | grep -e "mon-sensors" | grep -v grep | awk '{print $2}')
+}
+
+kill-all() {
+    # kill all apps
+     kill -9 $(ps -ef | grep -e "bc -l -q" -e mlc -e mbw -e bcr -e bcfi -e bcfd -e stress -e "mprime -t" -e ptu -e unixbench -e sysjitter -e cpu2017| grep -v grep | awk '{print $2}') 2>/dev/null
+
+}
+
+collect-info() {
+    # 收集信息
+    echo "$(date), Collect start [ cpu2017/unixbench/sosreport ]......" >> ${TASK_LOG}
+    mkdir -p ${LOGPATH}/results/cpu2017
+    rsync -a ${APPPATH}/cpu2017/result/* ${LOGPATH}/results/cpu2017
+    
+    mkdir -p ${LOGPATH}/results/unixbench
+    rsync -a {APPPATH}/bin/unixbench/results/* ${LOGPATH}/results/unixbench
+    
+    sosreport -a --batch --label ${MB_SN} >> ${TASK_LOG}
+    rsync -a /var/tmp/sosreport*.tar.xz $LOGPATH
+    
+    echo "$(date), Collect end [ cpu2017/unixbench/sosreport ]"  >> ${TASK_LOG}
+    # ipmitool lan print
+}
+
+push-log() {
+    # 推送日志到服务器
+    [ -z $1 ] && _LOGDIR=${HOSTNAME}_${MB_SN} || _LOGDIR=$1
+    rsync -a ${LOGPATH}/* ${LOGSVR}::logs/${_LOGDIR}
+}
+
+pull-log() {
+    # 拉取日志到服务器
+    [ -z $1 ] && _LOGDIR=${HOSTNAME}_${MB_SN} || _LOGDIR=$1
+    rsync -a ${LOGSVR}::logs/${_LOGDIR}/ ${LOGPATH}
+}
+
+analyse-log() {
+    # 分析mon日志
+    [ -z $1 ] && _LOGFILE=$(ls -ltr ${LOGPATH} |grep ".mon$"|tail -1|awk '{print $NF}') || _LOGFILE=$1
+    [ -z $2 ] && _RESULTFILE=${HOSTNAME}-Analyse.xlsx || _RESULTFILE=$2
+    ${APPPATH}/mon-analyse-log ${LOGPATH}/${_LOGFILE} ${LOGPATH}/${_RESULTFILE}
+}
+
+clean-log() {
+    # 删除日志目录
+    echo "注意: 此操作将删除日志目录[ ${LOGPATH} ], 请确保日志已经上传到服务器"
+    echo -e "删除！ 删除！ 删除！ 请输入: Yesyes"
+    read -p "输入确认: " _CHOICE
+    echo -e "\n"
+    if [ $_CHOICE == "Yesyes" ]; then
+	rm -rf ${LOGPATH} && echo "日志目录[ ${LOGPATH} ]删除成功"
+    else
+	echo "未删除日志目录[ ${LOGPATH} ]，退出！"
+    fi
+}
+
+clean-app() {
+    # 删除日志目录
+    echo "注意: 此操作将删除应用目录[ ${APPPATH} ], 请先删除日志目录[ ${LOGPATH} ]，因为删除应用目录后将无法正确删除日志目录"
+    echo -e "删除！ 删除！ 删除！ 请输入: Yesyes"
+    read -p "确认请输入: " _CHOICE
+    echo -e "\n"
+    if [ $_CHOICE == "Yesyes" ]; then
+	${APPPATH}/ocb uninstall && echo "ocb 已停止自动启动"
+	# /root/ocrun/ocb uninstall && echo "ocb 已停止自动启动"
+	rm -rf ${APPPATH} && echo "应用目录[ ${APPPATH} ]删除成功"
+    else
+	echo "未删除日志目录[ ${APPPATH} ]，退出！"
+    fi
+}
+
+case ${OPS} in
+    mon)
+	run-mon $MON_LOG
+	;;
+    
+    stress|stress_r2)
+	run-stress
+	;;
+
+    stress-ng|stress-ng_r2)
+	run-stress-ng
+	;;
+
+    p95-no_m1)
+	run-p95 no m1
+	;;
+
+    p95-no_m2)
+	run-p95 no m2
+	;;
+
+    p95-no_m4)
+	run-p95 no m4
+	;;
+
+    p95-avx_m1)
+	run-p95 avx m1
+	;;
+
+    p95-avx_m2)
+	run-p95 avx m2
+	;;
+
+    p95-avx_m4)
+	run-p95 avx m4
+	;;
+
+    p95-fma3_m1)
+	run-p95 fma3 m1
+	;;
+
+    p95-fma3_m2)
+	run-p95 fma3 m2
+	;;
+
+    p95-fma3_m4)
+	run-p95 fma3 m4
+	;;
+    
+    p95-avx512_m1)
+	run-p95 avx512 m1
+	;;
+
+    p95-avx512_m2)
+	run-p95 avx512 m2
+	;;
+
+    p95-avx512_m4)
+	run-p95 avx512 m4
+	;;
+
+    bcfi)
+	run-bcfi
+	;;
+
+    bcfd)
+	run-bcfd
+	;;
+    
+    ptu)
+	run-ptu
+	;;
+    
+    bcr)
+	run-bcr
+	;;
+
+    mlc)
+	run-mlc
+	;;
+
+    mbw)
+	run-mbw $MBW_MEM
+	;;
+
+    sysjitter)
+	run-sysjitter
+	;;
+    
+    unixbench)
+	run-unixbench
+	;;
+    cpu)
+	run-spec
+	;;
+    
+    killm)
+	kill-mon
+	;;
+
+    killa)
+	kill-all
+	;;
+
+    get|collect)
+	collect-info
+	;;
+    
+    push)
+	push-log
+	;;
+    
+    pull)
+	pull-log
+	;;
+    analyse)
+	analyse-log
+	;;
+
+    rmlogs)
+	clean-log
+	;;
+
+    rmapps)
+	clean-app
+	;;
+    memtest86|mt)
+    efibootmgr -n $(efibootmgr |grep Memtest86|sed 's/Boot\([0-9]*\).*/\1/')
+    ;;
+    pxe|pxe1)
+    efibootmgr -n $(efibootmgr |grep "PXE"|sed 's/Boot\([0-9]*\).*/\1/'|head -1|tail -1)
+    ;;
+    pxe2)
+    efibootmgr -n $(efibootmgr |grep "PXE"|sed 's/Boot\([0-9]*\).*/\1/'|head -2|tail -1)
+    ;;
+    pxe3)
+    efibootmgr -n $(efibootmgr |grep "PXE"|sed 's/Boot\([0-9]*\).*/\1/'|head -3|tail -1)
+    ;;
+    pxe4)
+    efibootmgr -n $(efibootmgr |grep "PXE"|sed 's/Boot\([0-9]*\).*/\1/'|head -4|tail -1)
+    ;;
+    bios)
+    systemctl reboot --firmware-setup
+    ;;
+    *)
+	echo "Usage: $(basename -s .sh $0) OPS TASKID TASKTIME"
+	;;
+esac

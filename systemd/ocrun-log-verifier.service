@@ -1,0 +1,19 @@
+[Unit]
+Description=OCRUN uploaded log integrity verifier
+After=ocrun-redis.service ocrun-rsync.service
+Wants=ocrun-redis.service
+
+[Service]
+Type=simple
+User=root
+Environment=PYTHONPATH=/opt/ocrun/current
+Environment=LC_ALL=C
+ExecStart=/usr/bin/python3 -m ocrun.logs --server-config /etc/ocrun/server.json --watch
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

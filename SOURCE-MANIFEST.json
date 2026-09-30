@@ -1,0 +1,863 @@
+{
+  "files": {
+    ".cloud/server.Dockerfile": {
+      "bytes": 276,
+      "sha256": "3b0ed189e2c608d40fe4c1a33f66c5b061e026a80a502ccdfeea5976185d2fcc"
+    },
+    ".cloud/server_deploy_test.py": {
+      "bytes": 14239,
+      "sha256": "2956af89f93f95b9322d36e56d6d49c0636b2d5921e7bb332502506b9327af43"
+    },
+    ".cloud/server_image.sh": {
+      "bytes": 2448,
+      "sha256": "2726b2ba82fe4bc78b4f49c4303925e5f6476c2bfb3009d516e9cb354c11392c"
+    },
+    "ACCEPTANCE-REPORT.md": {
+      "bytes": 8575,
+      "sha256": "d5a2a9c267c283ed7902732be97b6a2c93d4756d18a61992a73e5c0762ae230f"
+    },
+    "DISTRIBUTION.md": {
+      "bytes": 12419,
+      "sha256": "dc7918324b32e5555b5e14413a2fa525fd14b3343567ee2b313a08095cb0ff32"
+    },
+    "FLEET.md": {
+      "bytes": 6265,
+      "sha256": "be1c375b613230ba6c12d3e7ab958f7e6ea79786d1e683b471b0e1a00733dd55"
+    },
+    "MON-SENSORS.md": {
+      "bytes": 13849,
+      "sha256": "e23ac201a7b3fb94e84f37488d038348774f288cf616e17671fe47613a55dd24"
+    },
+    "OPERATIONS.md": {
+      "bytes": 5313,
+      "sha256": "8c74cd7778f42c42aa40d6c4c155d6ba5b8cc0a04d11c59b1fdc8499bf8bff98"
+    },
+    "PACKAGES.md": {
+      "bytes": 5749,
+      "sha256": "ce47d92ea61f774bae1f322443bce005cab758ff5ed3762223303708e22360e1"
+    },
+    "README-EXPERIMENTAL.md": {
+      "bytes": 16942,
+      "sha256": "c291167fc457f8cf40d19e22b53cd1b0cda41ec57191979d0b8a101081c88860"
+    },
+    "README.md": {
+      "bytes": 4514,
+      "sha256": "87fad0a8131a87a255e599446be1898ae823b3d2d38ce7e9ebfe1dddd9904cce"
+    },
+    "SCKOCP-API.md": {
+      "bytes": 17573,
+      "sha256": "15dd902c7dd473ed6e7db8115e66dce98606e74f14abae2664d828393126d45b"
+    },
+    "SCKOCP.md": {
+      "bytes": 8510,
+      "sha256": "fe9502c1f8318f5ea4870a2d2ebe7ace880f09f544dc13534c93234a64db6910"
+    },
+    "build.py": {
+      "bytes": 9030,
+      "sha256": "d85ac86a3b14857ae73b4992106244bf7c5de141024dc8185f1580855932d872"
+    },
+    "control_addon/MANUAL.md": {
+      "bytes": 8676,
+      "sha256": "1ae7cbf1fa457c4fd66b4e087ba01da02ea1c4d28d22725065022d24e7393c66"
+    },
+    "control_addon/__init__.py": {
+      "bytes": 83,
+      "sha256": "298c61c36fbed359fc51074bfc6141f483fcc4b07d3c35881eb2e89fbc257c4b"
+    },
+    "control_addon/baseline.json": {
+      "bytes": 606,
+      "sha256": "b44619c91594a8b7268ce939d03270001c0ac0bc9940b51321397b69f12e5253"
+    },
+    "control_addon/build.py": {
+      "bytes": 2487,
+      "sha256": "d3bb7932ac2d9c2f5b1e2f4c3b0669dcaf9fd5ae886c92b14c304a45fc5b7405"
+    },
+    "control_addon/cloud_test.py": {
+      "bytes": 14268,
+      "sha256": "7a43a2a80c1b0d5bf88ca4c858af70a270fe9750e892581bd5bdad73f0e7e4fe"
+    },
+    "control_addon/control.py": {
+      "bytes": 13279,
+      "sha256": "b9a3fa24a5c4e4322d2de4acbb3604f9a778a7524569225d5b116840f5cc5172"
+    },
+    "control_addon/data.py": {
+      "bytes": 5706,
+      "sha256": "5e99f3311da1dd0e3862d61373af3ae24404f576ccb3e57d6f6d020b3cbf1899"
+    },
+    "control_addon/install.py": {
+      "bytes": 9712,
+      "sha256": "9405cd6c0d3dee941d4a6482068a30f0fcace56c355faf3ce752ac27921b2e30"
+    },
+    "control_addon/install.sh": {
+      "bytes": 551,
+      "sha256": "8fd1a5b92d8ea1eef3a8721476662127a9a6cf3c10d5dcb04676d0b36399ce8c"
+    },
+    "control_addon/release.py": {
+      "bytes": 2354,
+      "sha256": "397c88f8358eda5d4902a88f6308aed81af72d75c2656bbb92af3b41b6e37aaf"
+    },
+    "distribution/Dockerfile": {
+      "bytes": 355,
+      "sha256": "c60a100dcf2657747004e24942971ca50e124ba9805b1cc29def84b906138af7"
+    },
+    "distribution/PREVIOUS-SHA256SUMS": {
+      "bytes": 394,
+      "sha256": "412bf4658db5b757c8eb1d7c8c1b931d833d037dedb806c58c4e311b156d363e"
+    },
+    "distribution/REFRESH.md": {
+      "bytes": 5386,
+      "sha256": "78cf2bde455f7e4ca3ecb95f665ec55cc83c9dd48c05a9e43678579b5534f883"
+    },
+    "distribution/build.py": {
+      "bytes": 16661,
+      "sha256": "440c8175f3c481fd36c0a56cc5e920b26eceec0885bc1d95c5075cdce0b71d06"
+    },
+    "distribution/center.py": {
+      "bytes": 3526,
+      "sha256": "e70b6ce10443deef8270e0dd9273aff2ff00d6dfa6fa0a7bbdab5bfb6cde9682"
+    },
+    "distribution/cloud.sh": {
+      "bytes": 1505,
+      "sha256": "7f1a0418b26877e3a22f7d2910c2afc5e6eb412a2e088f87efad09d3f6e17e2c"
+    },
+    "distribution/cloud_test.py": {
+      "bytes": 18086,
+      "sha256": "66fa9b0de93642bd801cfacfb8347baceef145aaaa2a18dad2a7d4e235b9789d"
+    },
+    "distribution/common.py": {
+      "bytes": 5206,
+      "sha256": "3ce465445f2eeb187fe23fe20d57eb39ac62ac4542c7cf8fcd1bd66e98e69785"
+    },
+    "distribution/components.py": {
+      "bytes": 2004,
+      "sha256": "2bdfa40b559681995a1b0870761abf3f5eab37933ff44b36bb42962e1d07faa7"
+    },
+    "distribution/customer-sources.json": {
+      "bytes": 7261,
+      "sha256": "7cb9ae02946b71f048ce7975bc20a7e5562173c31da5937772353ebf5ddf46b2"
+    },
+    "distribution/finish_entry.py": {
+      "bytes": 825,
+      "sha256": "ccb6243375fdf732f730ff35549742b380c62cda4359b7b449edf2f3770db7bd"
+    },
+    "distribution/image.sh": {
+      "bytes": 380,
+      "sha256": "9955bdc22668f2798ea6741eb3466a8730bb0da3ea7a0d2706fda228688bc5b6"
+    },
+    "distribution/node.py": {
+      "bytes": 18021,
+      "sha256": "0441894ecf5efd246b6e6efc079027a9948bee43d4437fe061331bbafd85ac55"
+    },
+    "distribution/release.py": {
+      "bytes": 7356,
+      "sha256": "95de3ac77c22d732e5a306324c959886bf435c7063f878a37766a955b817aec7"
+    },
+    "distribution/report.py": {
+      "bytes": 4553,
+      "sha256": "8b211081a6d67abcc0c32c1d92a487a8952f1841c138bf5d7755a11fc6546798"
+    },
+    "distribution/source_export.py": {
+      "bytes": 5357,
+      "sha256": "51aa7b24e72957b16d64dbf64163f1d8dec49f807d0697fbcd548a32011355a5"
+    },
+    "distribution/test_source_export.py": {
+      "bytes": 3334,
+      "sha256": "c9637d7394f59a6eb593c6a07d0b5fb3c5bceaef036a4fc3c074d0ab35d06843"
+    },
+    "docs/API-SECURITY.md": {
+      "bytes": 5247,
+      "sha256": "d4baa3f5e4a5fa979ef24195627d0a9b1fe4288a9f5248e941f7bb316f69b921"
+    },
+    "examples/read-sckocp.py": {
+      "bytes": 1575,
+      "sha256": "823c040c666ccc6fadc25153896cb45ded3feaafba973e3469c609721e5ac0c6"
+    },
+    "finish_addon/OPTIMIZATION.md": {
+      "bytes": 9775,
+      "sha256": "7567d8c03e32c477acc588e3f14e05b05fde5b3bc35713510bd4c6a48083c054"
+    },
+    "finish_addon/README-AUTH.md": {
+      "bytes": 1877,
+      "sha256": "b5cb67a0175296db33d5303622fd267c8768f5cb0170d8ce10f72d1b074b0c99"
+    },
+    "finish_addon/README-K6C165.md": {
+      "bytes": 3315,
+      "sha256": "aa78974b85ab8244aee2f19a59ba81faa80e73a416f4b3017ffde13d24def483"
+    },
+    "finish_addon/README-LINK-FIX.md": {
+      "bytes": 3550,
+      "sha256": "2f8d2ae0298e300fa335c4a00c0e40f38b2050116ecef2914b998be57b2e5737"
+    },
+    "finish_addon/README.md": {
+      "bytes": 1267,
+      "sha256": "7c39b91555f33cc2d0eff7eee7fa3856c646496e05ace77cf3c939cf9a208dab"
+    },
+    "finish_addon/build.py": {
+      "bytes": 6745,
+      "sha256": "fb04ea0f1adf8f75f6589f7eac0622f3d96b209d9dc9cb87f687243c67694047"
+    },
+    "finish_addon/cloud_test.py": {
+      "bytes": 23371,
+      "sha256": "efb49f53f5285eaa73f48105aac679f56009c83790c96ccd3bc3ceff8d1283d0"
+    },
+    "finish_addon/common.py": {
+      "bytes": 6898,
+      "sha256": "e58b018083577bd18153aec45379e93ce30377abdf06b2b5c3e9113f1048f2ae"
+    },
+    "finish_addon/finish.py": {
+      "bytes": 31482,
+      "sha256": "98fd6340ee16be374b68f321c4932675c6773db12a912bf452f65f240127b9b9"
+    },
+    "finish_addon/hook.sh": {
+      "bytes": 827,
+      "sha256": "cbb1d583ec74124e574653c943df1287028f9133d9348c88acd073b16827b844"
+    },
+    "finish_addon/install.py": {
+      "bytes": 14116,
+      "sha256": "1c48ead02084fc82d1aeeae85dc4c53865d07887f759a9fc5125ad3a136a7285"
+    },
+    "finish_addon/install.sh": {
+      "bytes": 552,
+      "sha256": "f60ede073d400e67b101d9985178b3e176f87b02b82a8026e4bfe8c75eab67b9"
+    },
+    "finish_addon/install_guard.py": {
+      "bytes": 675,
+      "sha256": "55a6e2c1040f8948c97c1dcfb56310a634f4d252605445ccf26f1f580be65377"
+    },
+    "finish_addon/node.py": {
+      "bytes": 12035,
+      "sha256": "41c3a079db6cbd4a92292bc8d9c75c0ac963e9b24de48e3425314f7fb6d88d61"
+    },
+    "finish_addon/oct-hook.sh": {
+      "bytes": 820,
+      "sha256": "7e1185b2ef9f804b242443795ce0d0a43368c97f306de12342451dac29f2fda0"
+    },
+    "finish_addon/operator_cli.py": {
+      "bytes": 1861,
+      "sha256": "5bbf4f83c52b117d9b1e5bf048f70b157f6f528628dd8bc9ca4f7b30be53798a"
+    },
+    "finish_addon/queue.py": {
+      "bytes": 5305,
+      "sha256": "4a45e8e475356e3d018adea602009a658310571d6ad385a33ae06e629b897ac0"
+    },
+    "finish_addon/release.py": {
+      "bytes": 2610,
+      "sha256": "8164339ef4085e30d02d7ac550cbee0a37c68916c76e544718256c719283ca44"
+    },
+    "finish_addon/reliability_test.py": {
+      "bytes": 20378,
+      "sha256": "02f67e9e809ce3ef420ae5cff865b01ba192d27c0421aca1d19605716691bcdb"
+    },
+    "finish_addon/report_sheet.py": {
+      "bytes": 27316,
+      "sha256": "e9bf22e77f8c02569dcb17a321b94c0693e711dca86a30822d1b6745db339f27"
+    },
+    "finish_addon/report_test.py": {
+      "bytes": 6265,
+      "sha256": "ccbc4bdb3da9ec5fd79558ea4fe5e0d3e28a469f4d2e4b02694653637b020dd7"
+    },
+    "finish_addon/tools_adoption.py": {
+      "bytes": 7981,
+      "sha256": "4d21a6a4aac02d1bec7278dd3adac57b24b1b602f22b3a8c2677c8353ec2fd52"
+    },
+    "finish_addon/update-node.sh": {
+      "bytes": 1674,
+      "sha256": "c2d667ddc323e2f90a2554c6f662854f723417b24a7eee9d68741dea6e262e52"
+    },
+    "finish_addon/upgrade_test.py": {
+      "bytes": 9227,
+      "sha256": "076e890cbba01f5adbbfd16f9433db2bf1e2c8aab8b9f08028631f26e7b41b4e"
+    },
+    "finish_addon/visual_check.py": {
+      "bytes": 1763,
+      "sha256": "dfce99bd2e00ac6927eb2cbe323bba0c0bc29dd3e77bec21ecd175bec38a4505"
+    },
+    "finish_addon/workload.py": {
+      "bytes": 9156,
+      "sha256": "2ce8eff4653155b8ce46e4e2b231e52a646220ecd14fc9344ed745903c10bc3a"
+    },
+    "install-client.sh": {
+      "bytes": 7715,
+      "sha256": "18096748499f8ddc9af5c95484956ac55062e074f5dc55a1bd6d9e617d4a7ec3"
+    },
+    "install-deps.sh": {
+      "bytes": 1241,
+      "sha256": "18c06576a9b3c9b6f7c5ce6382199fecd35cda52abf1e26a3dae89254d90b0ea"
+    },
+    "install-mon-sensors-plugin.sh": {
+      "bytes": 401,
+      "sha256": "4a7456375cb9f352e9f8846c230496673ea53d0510e1e874f5bf6a9c2c37103a"
+    },
+    "install-sckocp-api.sh": {
+      "bytes": 260,
+      "sha256": "04443237fd32a030bde82b7552756167972c07f8def711399578d9e5bdc96081"
+    },
+    "install-server.sh": {
+      "bytes": 6123,
+      "sha256": "36983215b6e454bc2f8683171cb959ed13c66980648900248f1638e67d3fd8cf"
+    },
+    "installer-python.sh": {
+      "bytes": 1511,
+      "sha256": "6ebd72aa189f431c5c3cf0006c7da5d55ebf56ccb23d0d9e8518629a1f621c8e"
+    },
+    "integrations/mon-sensors/README.md": {
+      "bytes": 800,
+      "sha256": "98589fc95597d6e8b11169a767609efbb6df2f1906bd61433f095f521d2fea62"
+    },
+    "integrations/mon-sensors/upstream-0.9.24a/README.md": {
+      "bytes": 582,
+      "sha256": "f6cdb1edcf8fd148d55fcbe8ef17b336845e200d1d314c0b8edbbcea3f0a76f9"
+    },
+    "integrations/mon-sensors/upstream-0.9.24a/mon-analyse-log.py": {
+      "bytes": 5328,
+      "sha256": "f7cd72229232d9b30098e3a343997d0c302ede48d59cd46afa66490a94473d0f"
+    },
+    "integrations/mon-sensors/upstream-0.9.24a/mon-sensors": {
+      "bytes": 5194,
+      "sha256": "0b3d54dad2b0349e0f9a7532fac78880771b7f90eb3cdafd759ab5c5feac6b2b"
+    },
+    "integrations/mon-sensors/upstream-0.9.24a/ocb": {
+      "bytes": 4853,
+      "sha256": "f5e9e73e84028f4b9afd7dcf6db93995ffb083f7cc4735f73e50ebd011f452e4"
+    },
+    "integrations/mon-sensors/upstream-0.9.24a/oct": {
+      "bytes": 9447,
+      "sha256": "badee4536510e3da547440068c1b4ced0e970c63f1b5679df1d43c7c6e271c15"
+    },
+    "integrations/mon-sensors/upstream/mon-analyse-log.py": {
+      "bytes": 5328,
+      "sha256": "f7cd72229232d9b30098e3a343997d0c302ede48d59cd46afa66490a94473d0f"
+    },
+    "integrations/mon-sensors/upstream/mon-sensors": {
+      "bytes": 5051,
+      "sha256": "b5edf8aa6968cf651361b239d766f6fc4d1e54b558873debe2d2f19fac14de0a"
+    },
+    "integrations/mon-sensors/upstream/ocb": {
+      "bytes": 4818,
+      "sha256": "be66b5178081f700534da8724fc0a00960338353c5a269046469bdb36b221e93"
+    },
+    "integrations/mon-sensors/upstream/oct": {
+      "bytes": 7794,
+      "sha256": "15dbbcd950b1d4b2eec15639f63187a32f87714f10fbd9aaf9ada5f899331f99"
+    },
+    "legacy_plugin/Dockerfile": {
+      "bytes": 617,
+      "sha256": "b3a535579cbbe2dd1155ab5ff32f6f43e6dd53746d8e97e7e9bcbb7a16114e2c"
+    },
+    "legacy_plugin/MANUAL.md": {
+      "bytes": 11455,
+      "sha256": "8117e1660d56203459ff258b142b125e93ce16ac063c30d6208b45ce89b125c8"
+    },
+    "legacy_plugin/PREVIOUS-SHA256SUMS": {
+      "bytes": 424,
+      "sha256": "4791ac9f56b3e64950da0b865f09ed0a53ff48ac2ed77a66dfff9cac655c25eb"
+    },
+    "legacy_plugin/__init__.py": {
+      "bytes": 97,
+      "sha256": "8f7613b3bb992536f831c19a29ff446be6cf47719ed553351d8ec3a77ead7422"
+    },
+    "legacy_plugin/attach.py": {
+      "bytes": 16465,
+      "sha256": "962013b4ef8c824c40c6bb7fdd354ea607ca52fc74621b691ee2ee88e393dda5"
+    },
+    "legacy_plugin/build.py": {
+      "bytes": 11588,
+      "sha256": "71e914335837d209828abcb823eb3bb98485bb7178778a5e0d4d8eed222d63dc"
+    },
+    "legacy_plugin/cli.py": {
+      "bytes": 15223,
+      "sha256": "d8035a028c8da5e43a1254bc08a2e3f99e5c5db6d4c91e7828d087d9dd226f91"
+    },
+    "legacy_plugin/cloud.sh": {
+      "bytes": 1523,
+      "sha256": "38e31d785907332ea3871f9bcfcb19d20608ddb22ec53c856d9a79502bff4a2c"
+    },
+    "legacy_plugin/cloud_test.py": {
+      "bytes": 19305,
+      "sha256": "d644ebf4ccdea07a53e7fa57f9cc1bb65e66a560242b4d710c43a601483412a1"
+    },
+    "legacy_plugin/common.py": {
+      "bytes": 3076,
+      "sha256": "7586738ae73c72c39eb80156c370c0ec3d29f8f0e03ef9eee14caa0312e0e153"
+    },
+    "legacy_plugin/node.py": {
+      "bytes": 7210,
+      "sha256": "f25af32d1bddc2333266ee4d548efb867a70d3dda9b0af34cfb7b4d9c127e268"
+    },
+    "legacy_plugin/release.py": {
+      "bytes": 4030,
+      "sha256": "d9370294755d04da4ae1f3a315203b72846fb4a60cb3cba28fad5f29572f783d"
+    },
+    "legacy_plugin/tasks.py": {
+      "bytes": 7997,
+      "sha256": "ca44a947e57095c2e943bc7124799b810b6dd7f379f8d51b53620b0e127d6d2d"
+    },
+    "legacy_plugin/test_tasks.py": {
+      "bytes": 5759,
+      "sha256": "6d97c524f41f7ff5edb440c007e203c4d1a41489fdb17b903458eb2c08bbfc79"
+    },
+    "mon-sensors-plugin": {
+      "bytes": 1778,
+      "sha256": "2030c289b97ed932d98e9adb8b4b17422ea8d669bd39618830d278754053cc22"
+    },
+    "mon_sensors_plugin/__init__.py": {
+      "bytes": 98,
+      "sha256": "11858c15c454b865b79fa751081a03dd162624a51cb3cbadc48ba59e47a86437"
+    },
+    "mon_sensors_plugin/adoption.py": {
+      "bytes": 9858,
+      "sha256": "0ec8cd9eb8dc90e4037c4f4cb770684de617669ac447a9cb9131664d18a10645"
+    },
+    "mon_sensors_plugin/collector.py": {
+      "bytes": 19511,
+      "sha256": "5fec1120991f372a2f6f8bbcbbe6afebc86c046070c94931664e5ac469cbdd92"
+    },
+    "mon_sensors_plugin/install.py": {
+      "bytes": 25883,
+      "sha256": "d11558ce94733ed9e2aa814431974aec4de2f86def2fc7185284ed5d03bdcfea"
+    },
+    "mon_sensors_plugin/runtime.py": {
+      "bytes": 13969,
+      "sha256": "2c05647c66352d7b013a55bf4e473cadb34ebd567ce62635ae1f11839c2db875"
+    },
+    "ocrun/__init__.py": {
+      "bytes": 93,
+      "sha256": "db9f1b68989763b2238f1ffd7913eefa52611e533befe68fa14436339c78f4db"
+    },
+    "ocrun/admin.py": {
+      "bytes": 12420,
+      "sha256": "2288522c6fda81dbf9d81e85c9fdd08e006d6297f146b3be6012cee9401e3181"
+    },
+    "ocrun/agent.py": {
+      "bytes": 22245,
+      "sha256": "fc5ddbe5f95fafc23a73d2fbbf82872d8bef796bb970cd35def6e69a9fc37f12"
+    },
+    "ocrun/common.py": {
+      "bytes": 4495,
+      "sha256": "e90c2b73ec498c91fb52e439f088cd815e1eeb5cdcf6bfb83b7393fc33f57861"
+    },
+    "ocrun/cpu_burn.py": {
+      "bytes": 1594,
+      "sha256": "d4e8c160e8d4ea915703e03cb60eea477b06b0b48385ed0c6d9ba83a72ddf3fa"
+    },
+    "ocrun/dashboard.py": {
+      "bytes": 8564,
+      "sha256": "84135f9e5f291c72745ee05e4063e2768bae841afc2b5fa4273d1fe2ad400bd5"
+    },
+    "ocrun/evaluation.py": {
+      "bytes": 8953,
+      "sha256": "1d5e2ab3b4485f056f78d5e904251a81371d767146afda1dbcde614c5ad69648"
+    },
+    "ocrun/fleet.py": {
+      "bytes": 10567,
+      "sha256": "6d82144ccd6a50f3c86bda74c27c9adc915f7cca9d2f4ba095e956529b970cf4"
+    },
+    "ocrun/legacy_install.py": {
+      "bytes": 243,
+      "sha256": "fc205e434f9278c0c5db4b3561d6bd4f335d2f9e3dbdc2935ffd364660f6f3ea"
+    },
+    "ocrun/logs.py": {
+      "bytes": 11035,
+      "sha256": "0ac4656229b73e94698db33b02686d2404972c203a94e74e3377e0b738c1e969"
+    },
+    "ocrun/mon_sensors.py": {
+      "bytes": 251,
+      "sha256": "fca50220f4286141ecb323433baac0edad29323ce2cf96606a5bac9edfa44ba3"
+    },
+    "ocrun/provision.py": {
+      "bytes": 4132,
+      "sha256": "b04143ad3ef8338e6f42b73c03a600409e5227adbffe70f696637415ff53d0de"
+    },
+    "ocrun/queue.py": {
+      "bytes": 7960,
+      "sha256": "9bcaba26803004e409a81b6a76e625661191c71c51117abe62cbc358162ce905"
+    },
+    "ocrun/rediswire.py": {
+      "bytes": 2721,
+      "sha256": "ac133ca42a8fc015bec786a12bf66e3ca0b908606a4272c3db66a2af2daafd6e"
+    },
+    "ocrun/report.py": {
+      "bytes": 3340,
+      "sha256": "f56a35e0d462370906e8923fe8d0bfc9729d19979254a3fd08633cf8af4b332a"
+    },
+    "ocrun/safety.py": {
+      "bytes": 6669,
+      "sha256": "fbbbc53a9ebec4a9485b65333e2c527f0c1ed03a7cf17a43acb4da7c3b57bb6c"
+    },
+    "ocrun/sckocp.py": {
+      "bytes": 380,
+      "sha256": "32c86e5ecce1da6eeae188332e7d0b59a68702543c1eb4f2ce67abf9e53c4426"
+    },
+    "ocrun/sckocp_metrics.py": {
+      "bytes": 4145,
+      "sha256": "591e6499d459e45caaba2c9eb651b2a985e3955eea834faeec8c308c29abbc9e"
+    },
+    "ocrun/sensors.py": {
+      "bytes": 19097,
+      "sha256": "6a8c2c80b9527665be63678e027eec86c7e6742e03f702835b307b10b334ac7c"
+    },
+    "ocrun/unpack.py": {
+      "bytes": 3245,
+      "sha256": "00f1a8e94cd2228be1795d259a208d2573044420ce8a59fd334f9dae368f5f52"
+    },
+    "ocrun/workloads.py": {
+      "bytes": 3753,
+      "sha256": "c38a4849d3c180408230a9aaa2edec530bd010ff2ccf0426066aa3d63e9dcdc4"
+    },
+    "report_addon/README.md": {
+      "bytes": 5178,
+      "sha256": "6f1c6203f500b0508108bec1f02bc94cc6b715a6034d45751d2e8478195e291e"
+    },
+    "report_addon/build_offline.py": {
+      "bytes": 7502,
+      "sha256": "15afd68d03bef204cf2cfac41c41d02b7d742d6aabe9f2428b9d35370540227d"
+    },
+    "report_addon/cloud_test.py": {
+      "bytes": 15398,
+      "sha256": "0522098a9d2fd9ac402c19b710fb68c07996bd6dd9581566e979610157b3112e"
+    },
+    "report_addon/common.py": {
+      "bytes": 4711,
+      "sha256": "29f9186fc08faa0bbe1fd8b67b3523e64e702b45480aab867ca1d2cb74ec04bd"
+    },
+    "report_addon/install.py": {
+      "bytes": 9276,
+      "sha256": "8e0c33973b21b1716edfea95b880d917e45c37ea898696a2358b2ca7d2cdc967"
+    },
+    "report_addon/install.sh": {
+      "bytes": 575,
+      "sha256": "c59753e0cf92d20b695067ed78873da99693bf25c2d8953e31978f3bc6fbc48c"
+    },
+    "report_addon/report.py": {
+      "bytes": 7012,
+      "sha256": "583ef4bd67af914ccfa5cb904e8ffc20b2addd3e6e6a9c22b5db31836fdf4fd8"
+    },
+    "report_addon/streaming.py": {
+      "bytes": 6525,
+      "sha256": "ecaa1de8b0bf19863bfb327fe50b9067e88e8674c4c8f42850f026f1b8b3ea3c"
+    },
+    "requirements-test.txt": {
+      "bytes": 23,
+      "sha256": "1dc2e091f173e7a67b098cad0564b2e6a3b934dcb4ad7b511974d604ac87db0e"
+    },
+    "sckocp-api": {
+      "bytes": 112,
+      "sha256": "c5e0f6c857fa72d3b70943d244f053f23aec45353c71d2e7c42ced95e5ed8894"
+    },
+    "sckocp_api/__init__.py": {
+      "bytes": 187,
+      "sha256": "cad974042d25786c103e7ded309e255713559df705b9ab13085f1516338a0c67"
+    },
+    "sckocp_api/__main__.py": {
+      "bytes": 48,
+      "sha256": "935a1c1166b0c1ea35a82256345000bf2c73ded718d77773bc27a71ecce28f7d"
+    },
+    "sckocp_api/bootstrap.py": {
+      "bytes": 4884,
+      "sha256": "eaea2df45f340b0ad0f844ac063a2ea49d11dfd1d178dfabb63c30ba9cea49ef"
+    },
+    "sckocp_api/cli.py": {
+      "bytes": 1572,
+      "sha256": "f00f21dd3251a2d0962770622430a1043c74a20e681cf18c3c347a52866e28c4"
+    },
+    "sckocp_api/install.py": {
+      "bytes": 20587,
+      "sha256": "3d692d379ddaa3d752cfdfd7d79a0fe644a0913cced8410027c348a0f3c851c5"
+    },
+    "sckocp_api/interface.py": {
+      "bytes": 461,
+      "sha256": "0077a7edb315b9e1a459ac042f31b8fa99a60296b90fb21cd329fdb7568e9d44"
+    },
+    "sckocp_api/provider.py": {
+      "bytes": 20307,
+      "sha256": "bef263f9e409c5419702837b00d843d74895a3ddcba99bf9e020de10aa39a093"
+    },
+    "sckocp_api/security.py": {
+      "bytes": 4938,
+      "sha256": "d0a9b341d3c7b647ae67e3cb1d8c8fcf94831222d7a245c342363bb6c7722bed"
+    },
+    "server_deploy/ACCEPTANCE.md": {
+      "bytes": 4649,
+      "sha256": "7b47e035a99d3fc4f8474569c2c2939bcdf7d268148d667315106f16391306dc"
+    },
+    "server_deploy/MANUAL.md": {
+      "bytes": 11598,
+      "sha256": "4a78ccb9340cbc966665af07cf4489f41b5341814f09e717d7a13b20df5eaf1d"
+    },
+    "server_deploy/__init__.py": {
+      "bytes": 101,
+      "sha256": "52216e7acf7cbcec4e94f25e16fc0f50d599013208977e0748527e0a58168610"
+    },
+    "server_deploy/build.py": {
+      "bytes": 1924,
+      "sha256": "fd348de332d40daa9b87a209c8e0bc2d49554e5842110391c02a7bba33b0421d"
+    },
+    "server_deploy/cli.py": {
+      "bytes": 4343,
+      "sha256": "1e7fd13e1059c6010fd61948c2c282be88f70b705b37f236700f3390bf1a33b1"
+    },
+    "server_deploy/connect-node.sh": {
+      "bytes": 628,
+      "sha256": "eb902c6df826738ceb714de01982154014934eb66960620f9ce14d51dccd3309"
+    },
+    "server_deploy/connection.py": {
+      "bytes": 2165,
+      "sha256": "58ecbbad5eec2e5461977458eec846a115ccb2107b21435389c74aad3f0db626"
+    },
+    "server_deploy/dependencies.sh": {
+      "bytes": 3820,
+      "sha256": "8a96acbc1980ed3f1be0ecb4d4c2e32dd8e099204e69672eb0c5394c78f590fd"
+    },
+    "server_deploy/guard.sh": {
+      "bytes": 1111,
+      "sha256": "b99f960439328e935f168e711bf61e848c1efd7fc50b8ece5da1d8008f691b3f"
+    },
+    "server_deploy/install.py": {
+      "bytes": 19686,
+      "sha256": "7433d188cb3b2fea92728938fb12a1c1eb8e81df1a2cdfb4d75c6890dfa27ff2"
+    },
+    "server_deploy/install.sh": {
+      "bytes": 1986,
+      "sha256": "348975d15297c478702f5ba2adc228a5f4d17b4cc7b29dca6c3cf7b4fc844f90"
+    },
+    "server_deploy/node_connect.py": {
+      "bytes": 9364,
+      "sha256": "c2527baeae9d542b730af3bac2ed975cc1d2569c2fd6129ea767f31c18adb1d5"
+    },
+    "server_deploy/platforms.py": {
+      "bytes": 2973,
+      "sha256": "ad3619d25581d1be0c6592830ec99ae3f602797a4b6accf11600e71f1bbe0ed2"
+    },
+    "server_deploy/publish.py": {
+      "bytes": 1833,
+      "sha256": "86e66f0614d85fbe55dd3e7e150d6eb4c757c87932d3edd4e4384ec00b375b5d"
+    },
+    "server_deploy/release.py": {
+      "bytes": 7517,
+      "sha256": "bea1edd6c4ff42126d8c64a4b1fc65a3792c5931c21264373e56773102101751"
+    },
+    "server_deploy/render.py": {
+      "bytes": 7070,
+      "sha256": "aeb266e5348ed694c2a7132779ffc9c41277546920d14797b5a967f2492a243a"
+    },
+    "server_deploy/safe.py": {
+      "bytes": 3428,
+      "sha256": "39b6b8a2e7af4cf08b16fb6c46eed4a0166461ca7d360bcef0ef7a34e3f1df22"
+    },
+    "server_deploy/security_setup.py": {
+      "bytes": 8492,
+      "sha256": "78aed6875a29a3b56c53107f4bc0069d95729512e12d7d78dbfe7ff2c791fe28"
+    },
+    "server_deploy/tasks.py": {
+      "bytes": 4153,
+      "sha256": "262e5f972903be68a83c2b1389273cbcdb788ef4eb5b4b9d4230a8b85673e030"
+    },
+    "server_deploy/test_server.py": {
+      "bytes": 6485,
+      "sha256": "b069857636d279b88dfc648f93e22ddad99f9b93b0a9270ecd2f5d67ab4b9f90"
+    },
+    "server_deploy/wire.py": {
+      "bytes": 2813,
+      "sha256": "7699a41a2ed521423e7ac37bb5a9996d76e97773e5e3ab94493ee2032e3f7f3a"
+    },
+    "systemd/ocrun-agent.service": {
+      "bytes": 436,
+      "sha256": "ef3efbb68a22ac5b67942766c10ef08667683eebf44c1cd7f42a3ed883a3e1b6"
+    },
+    "systemd/ocrun-log-verifier.service": {
+      "bytes": 431,
+      "sha256": "f8dd1e13f6dcbd4c8e67b0ac60d087c58c34acca8ea0a6e9d2b45efa3d07c96c"
+    },
+    "templates/self-extract.sh.in": {
+      "bytes": 1618,
+      "sha256": "6d9d30303dcc8309d1d658cfc43dea6d825a0dd575675691dd1b12229420085a"
+    },
+    "tests/check_dist.py": {
+      "bytes": 5629,
+      "sha256": "c474a465970990a1704b904e86471b1990d1224e44a74a34ca7979d5ce3fc1b4"
+    },
+    "tests/check_shell.py": {
+      "bytes": 941,
+      "sha256": "6772748bdf45f94ce3868998220de30d9f52214a0d97b72952a3abb489d2ea03"
+    },
+    "tests/run.py": {
+      "bytes": 1621,
+      "sha256": "e01fc3749935b59c1de98b2b61821cf376ef3fedd5ba359ea273bcba2dd16bca"
+    },
+    "tests/test_fleet.py": {
+      "bytes": 18240,
+      "sha256": "e8970079a5810aee3b31d14e828b70c0cfe4af90b48453b2d0f20a0c71cfcaf0"
+    },
+    "tests/test_linux.py": {
+      "bytes": 2750,
+      "sha256": "e7898322b08924bcad33d74e0a45dc65bdc8570bede6d1a36df50ad0732a5a61"
+    },
+    "tests/test_mon_sensors.py": {
+      "bytes": 29221,
+      "sha256": "464c7273908539ad731570bfeb4e16cc252553cb152cb5e05e2a1dd2093a831e"
+    },
+    "tests/test_optimization.py": {
+      "bytes": 8527,
+      "sha256": "f37ce272e6decd98500daba00bbc7b4f4aec31365bb36d31f57d31a72f5bac68"
+    },
+    "tests/test_plugin_adoption.py": {
+      "bytes": 2821,
+      "sha256": "a88fe8b2ba05eef98d8a184c8b393467a4cfe9528f8c7a54340f0ec18542412a"
+    },
+    "tests/test_plugin_install.py": {
+      "bytes": 15530,
+      "sha256": "d4e43d8fd0a64c0c2785b95e134996efbaaaa448b94bbbf54c67251f49c0b4a6"
+    },
+    "tests/test_plugin_python_compat.py": {
+      "bytes": 9475,
+      "sha256": "51eab14a8cf051761eadb8bc9bb733026bb0233eb2d2bc2c763f43382af02790"
+    },
+    "tests/test_plugin_runtime.py": {
+      "bytes": 16421,
+      "sha256": "467d069127cfe45bdb9a152afbfca9b3c187939a4e94fe112f962df41e1b4db3"
+    },
+    "tests/test_protection.py": {
+      "bytes": 6009,
+      "sha256": "d25b9911969ee30daac19fc512af2b3b3e5a16ba0b86a1b5b0993ed0fa0d0f6c"
+    },
+    "tests/test_protocol.py": {
+      "bytes": 2103,
+      "sha256": "312e423f6794aba17aaaf72407774fe5a3036b0a4afe26902963a26e173f0122"
+    },
+    "tests/test_runtime.py": {
+      "bytes": 17246,
+      "sha256": "e82af21886e8e909dc3fbd49c3abb48e4c546267f00346d927ef6fded773eb5b"
+    },
+    "tests/test_sckocp.py": {
+      "bytes": 14489,
+      "sha256": "5d32c2e6ce4cb111ebe7775cfd46c8cba645ec4dcd1d9c156d1ac7fd1943b550"
+    },
+    "tests/test_sckocp_collector.py": {
+      "bytes": 8737,
+      "sha256": "896599c53dbbb778504f5885c585a0bf93432627b5214943c0959ee2f4bf6b2b"
+    },
+    "tests/test_sckocp_input_safety.py": {
+      "bytes": 5064,
+      "sha256": "93d9a2d12179b76755000cc20972c6545f9ae4152ae38ebeaea767ae5609a390"
+    },
+    "tests/test_sckocp_install.py": {
+      "bytes": 22176,
+      "sha256": "8d4796b9f5ef1086e602fabf6c7c5ba3a69ffca2230680928cfc6c084600128f"
+    },
+    "tests/test_sckocp_original_api.py": {
+      "bytes": 4472,
+      "sha256": "a0b5cc3e169c640d63605b34b918d7f3417510ab2203a62b310ec2da654ee270"
+    },
+    "tests/test_sckocp_public_api.py": {
+      "bytes": 4039,
+      "sha256": "76f04f2e987b22356fac9dad2b0fd7c834476ccb57cdec8cc038d6a54b9e3969"
+    },
+    "tests/test_sckocp_security.py": {
+      "bytes": 13667,
+      "sha256": "cb1980b74c1416145cfc73fe65bfc1bf69a4bcb03cd270cb68c5b1eee3d731f1"
+    },
+    "tests/test_sensors_extended.py": {
+      "bytes": 9396,
+      "sha256": "27d9970153f10aaca4179e1ad3a155e33e2764f91edcc0eef313e0a14c0cbc1a"
+    },
+    "workload_suite/ACCEPTANCE.md": {
+      "bytes": 4197,
+      "sha256": "f1cc72a39eb68ddaa814d05f6c9044077b9f305482442df7faa2837106764cdc"
+    },
+    "workload_suite/Dockerfile": {
+      "bytes": 151,
+      "sha256": "15af5ab6e17e1a8d1b347578979a91e8b4b2065428fb0a780db44f21da1671c1"
+    },
+    "workload_suite/MANUAL.md": {
+      "bytes": 9557,
+      "sha256": "5d8233de1da7ba93cdc167cc5e488fec3227fe1856d11beb086da3f98fe99d7f"
+    },
+    "workload_suite/build.sh": {
+      "bytes": 799,
+      "sha256": "e41402edfcaed5e9bea7c705a4d3d353895492c39d6fcd9f6d1239edb4115ec1"
+    },
+    "workload_suite/cli.py": {
+      "bytes": 7313,
+      "sha256": "d2dd3c6439b55b63f739bc1011395b8e0e775e87272bd7e6832b085097a7402c"
+    },
+    "workload_suite/cloud_hugepages.py": {
+      "bytes": 1876,
+      "sha256": "373b3a180b799f57d32f6e0bd5509f69eb3175cdaac260e934751e80a9ee715d"
+    },
+    "workload_suite/debian11_ci.py": {
+      "bytes": 8979,
+      "sha256": "804effd04b032a43aef193eaf7d6dad869cab51b685da0a8b7c92d8be4777c07"
+    },
+    "workload_suite/dependencies.sh": {
+      "bytes": 822,
+      "sha256": "3aaf1ff9d6d82884dd78683b724261596f9a64e8fe571f8a08001405f34f184b"
+    },
+    "workload_suite/fetch.py": {
+      "bytes": 1426,
+      "sha256": "7d6ec4edb154ef0a0548811ba729d430fa0be8eecafa6d3dd988b2316dbd7dc0"
+    },
+    "workload_suite/mlc_probe.py": {
+      "bytes": 1383,
+      "sha256": "fae5f5744bd0a8f9a8a26b808f2d510ef832c5fa11935588f1178ccfe0174115"
+    },
+    "workload_suite/package.py": {
+      "bytes": 10955,
+      "sha256": "3a929c3bbca6ca417a43c5549362af107111a95c9d5fd3ac2178d8f84ce1112e"
+    },
+    "workload_suite/release.py": {
+      "bytes": 8054,
+      "sha256": "207095b634daa1cfb040167d013f0974493451eabc5b66bf90494a204fddb386"
+    },
+    "workload_suite/smoke.sh": {
+      "bytes": 1685,
+      "sha256": "d3bbe76246726fc479f94fc04ad5891fa9a9712419471f06caa959d4bdccaa4d"
+    },
+    "workload_suite/sources.json": {
+      "bytes": 2744,
+      "sha256": "5ab5baab7293fe3d4c22dc4f34c74fe764bfe8ebcfb54f5642f043bec040077a"
+    },
+    "workload_suite/suite.py": {
+      "bytes": 13550,
+      "sha256": "6f31aca6a486ea1034757ad77832d53f93255f0a718db419c6145bdaba025b62"
+    },
+    "workload_suite/test_linux.py": {
+      "bytes": 16297,
+      "sha256": "c6d23f0756a120db747ad5cb6967cc2b038cf79677f41faeab8a24bb0920ad48"
+    },
+    "workload_suite/vendor/README.md": {
+      "bytes": 877,
+      "sha256": "dcd0ccc889664ba167456e1897bf895fc3799d7fbd720e690334e6ce6e0bcf30"
+    },
+    "workload_suite/vendor/cyclictest.tar.gz": {
+      "bytes": 162540,
+      "sha256": "7a82b7234f42a74fcbcfe4fe7e339cc9a7e01b3bf821281dc6e67db22202514b"
+    },
+    "workload_suite/vendor/mbw.tar.gz": {
+      "bytes": 17205,
+      "sha256": "798a77ef9a9198841efe27542f5604341a4c634980e12157921e1c83c66798ad"
+    },
+    "workload_suite/vendor/mlc.tar.gz": {
+      "bytes": 1355592,
+      "sha256": "a8537e8ff3fad626d75a383fabc224ccc4cc98a0111c9989f7fb26b639f12019"
+    },
+    "workload_suite/vendor/mprime.tar.gz": {
+      "bytes": 5912959,
+      "sha256": "4ce2377e03deb4cf189523136e26401ba08f67857a128e420dd030d00cdca601"
+    },
+    "workload_suite/vendor/stress-ng.tar.gz": {
+      "bytes": 8568440,
+      "sha256": "dedd6c8b38f74f007718851503fd27e84ebdd90b811812393ab77d4fe5c0a7dd"
+    },
+    "workload_suite/vendor/stress.tar.gz": {
+      "bytes": 169111,
+      "sha256": "80d966622c4e8d0981f64f56c06a191ef7c9a32c2660b3b957ef7f014dfd78cd"
+    },
+    "workload_suite/vendor/unixbench.tar.gz": {
+      "bytes": 157694,
+      "sha256": "6ecd90666e88fa475b05ac9d2bf761bd70833871ba6cf0b21a94739fd6944ebb"
+    }
+  },
+  "policy": "distribution/customer-sources.json",
+  "schema": "ocrun-customer-source-manifest-v1",
+  "source_commit": "f56965cb22eb592a934b74e13fae7637fb5c2783"
+}
