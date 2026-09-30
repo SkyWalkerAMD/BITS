@@ -10,6 +10,10 @@
 | 旧 OCRUN 节点增强 0.1.2 | [bits-o-node](https://github.com/SkyWalkerAMD/BITS/releases/download/bits-o-v0.1.2/bits-o-node-0.1.2-1.el8.x86_64.rpm) | [bits-o-node](https://github.com/SkyWalkerAMD/BITS/releases/download/bits-o-v0.1.2/bits-o-node_0.1.2-1_amd64.deb) |
 | 旧增强节点必需的工具库 0.1.0-3 | [bits-o-workloads](https://github.com/SkyWalkerAMD/BITS/releases/download/bits-o-v0.1.2/bits-o-workloads-0.1.0-3.el8.x86_64.rpm) | [bits-o-workloads](https://github.com/SkyWalkerAMD/BITS/releases/download/bits-o-v0.1.2/bits-o-workloads_0.1.0-3_amd64.deb) |
 
+**完整系统不用另装 `bits-o-workloads`。** 管理端选择 `bits-center`；节点选择 `bits-node`，并单独安装、激活原版 `sckocp`。`bits-node` 已内含选定工具、本地接口、批次采集、报表和自动收尾；完整系统的工具通过这个 `bits-` 前缀的节点包交付。
+
+完整系统 Release 中另附的 `bits-o-workloads` 供旧节点增强套件使用。它与 `bits-node` 包含相同工具文件，不能同时安装；不要把附件列表理解为每台机器都要安装的清单。历史 `mon-sensors-*.run` 和独立 API 安装器也不是完整节点的额外安装步骤。
+
 这些包针对 x86-64。RPM 名称中的 `.el8` 表示兼容构建基线；实际云端矩阵包括 Rocky/AlmaLinux 8/9/10。RHEL、ARM、独立内核与真实硬件没有因此自动获得验收结论。
 
 ## 安装

@@ -8,6 +8,10 @@
 |旧 OCRUN 测试节点增强|bits-o-node + bits-o-workloads|bits-o|
 |第三方独立本地接口|sckocp-api|sckocp-api|
 
+**完整 BITS：管理端安装 `bits-center`，节点安装 `bits-node`，节点另备已激活的原版 `sckocp`。** `bits-node` 已集成选定压测工具、本地接口、批次采集和报表收尾功能，无需另装 `bits-o-workloads`、独立 `sckocp-api .run` 或历史 `mon-sensors-*.run`。
+
+`bits-o-workloads` 是旧系统增强包 `bits-o-node` 的独立依赖。它也作为独立附件出现在完整系统 Release 中，但不是完整 BITS 的安装依赖；`bits-node` 与它包含相同工具文件，包管理器会阻止两者混装。完整系统的工具随 `bits-node` 提供，安装包名称保持 `bits-` 前缀。
+
 RPM 面向已验收的 EL 8–10，DEB 面向 Debian 11–13 / Ubuntu 22.04、24.04、26.04，均为 x86-64。安装前校验 Release SHA256SUMS。系统仓库仍需提供包声明的依赖；包内包含选定工具，不等于包含整套操作系统依赖离线源。
 
 节点需要单独安装、激活并完成平台登记的原版 sckocp。BITS 不代办激活，也不分发授权码。硬件状态直接使用 `sckocp`、`sckocp info`；采集仅在任务批次内自动运行。
