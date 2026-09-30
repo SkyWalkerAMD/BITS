@@ -15,8 +15,8 @@ import zipfile
 
 if os.environ.get('GITHUB_ACTIONS') != 'true' or os.geteuid() != 0:
     raise SystemExit('Disposable cloud Linux root only')
-NODE = Path('/opt/ocrun-node/0.2.3')
-CENTER = Path('/opt/ocrun-center/0.2.3')
+NODE = Path('/opt/ocrun-node/0.2.4')
+CENTER = Path('/opt/ocrun-center/0.2.4')
 APP = Path('/var/lib/ocrun-node/app')
 checks = []
 
@@ -301,7 +301,7 @@ def main():
     changed.write_bytes(content)
     os.utime(str(changed), ns=(attributes.st_atime_ns, attributes.st_mtime_ns))
     run(*(installer + new_packages))
-    assert data('ocrun-node', 'check')['version'] == '0.2.3'
+    assert data('ocrun-node', 'check')['version'] == '0.2.4'
     assert data('ocrun-workloads', 'list')['tools']['mlc']['delivery'] == 'included'
     assert not old_node.exists() and not Path('/opt/ocrun-center/0.2.2').exists()
     passed('published 0.2.2 upgrades after detach; modified old files and unmanaged new paths are retained and refused')

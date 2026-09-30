@@ -1,0 +1,45 @@
+name: Supplemental monitoring and report regression
+on:
+  push:
+    branches: [codex/monitor-details]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: monitor-details-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {name: rocky8, image: 'rockylinux/rockylinux:8'}
+          - {name: ubuntu26, image: 'ubuntu:26.04'}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false}
+      - name: API, collector and report tests in disposable Linux
+        env: {BASE_IMAGE: '${{ matrix.image }}'}
+        run: |
+          mkdir -p .details-results
+          docker build --build-arg BASE_IMAGE="$BASE_IMAGE" -t monitor-details -f ci/api-security.Dockerfile .
+          docker image inspect monitor-details --format '{{.Id}}' > .details-results/image.txt
+          docker run --rm --network none --cpus 2 --memory 2g --pids-limit 512 \
+            -e GITHUB_ACTIONS=true -e GITHUB_SHA="$GITHUB_SHA" -e PYTHONDONTWRITEBYTECODE=1 \
+            -v "$PWD:/src:ro" -v "$PWD/.details-results:/results" monitor-details \
+            bash -c 'p=/usr/libexec/platform-python; [ -x "$p" ] || p=/usr/bin/python3; "$p" -I -B /src/ci/monitor_details_test.py' \
+            2>&1 | tee .details-results/tests.txt
+      - name: Offline report browser and print checks
+        if: matrix.name == 'ubuntu26'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y fonts-noto-cjk poppler-utils
+          python3 -m pip install playwright==1.55.0
+          python3 finish_addon/visual_check.py .details-results
+          pdftoppm -scale-to 1600 -png .details-results/report-print-preview.pdf .details-results/page
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with: {name: 'monitor-details-${{ matrix.name }}-${{ github.run_id }}', path: .details-results/, include-hidden-files: true, retention-days: 30}

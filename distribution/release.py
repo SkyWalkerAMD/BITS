@@ -54,7 +54,7 @@ def main():
     bridge = inputs / ('workload-bridge-' + component_run)
     for relative in ('dist/sckocp-api-' + PUBLIC_API_VERSION + '.run',
                      'dist/mon-sensors-plugin-' + PLUGIN_VERSION + '.run',
-                     'finish-dist/mon-sensors-finish-0.2.5.run'):
+                     'finish-dist/mon-sensors-finish-0.2.6.run'):
         copy(bridge / relative, target / 'standalone' / Path(relative).name)
     regression = inputs / ('workload-regression-' + component_run)
     copy(regression / 'mon-sensors-report-py36-0.2.0.run', target / 'standalone/mon-sensors-report-py36-0.2.0.run')

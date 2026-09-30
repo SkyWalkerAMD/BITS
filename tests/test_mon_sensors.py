@@ -121,7 +121,7 @@ class MonSensorsCommandTests(unittest.TestCase):
         with mock.patch.object(sckocp_api, "collect", return_value=result or envelope()) as collect, \
                 mock.patch.object(mon_sensors, "os_context", return_value=CONTEXT), \
                 mock.patch("sys.stdout", output), mock.patch("sys.stderr", error):
-            code = mon_sensors.main(args + ["--format", "v2"])
+            code = mon_sensors.main(args + ["--format", "v2", "--details-interval", "0"])
         return code, output.getvalue(), error.getvalue(), collect
 
     def invoke_sequence(self, args, results, sleep_effect=None):
@@ -130,7 +130,7 @@ class MonSensorsCommandTests(unittest.TestCase):
                 mock.patch.object(mon_sensors, "os_context", return_value=CONTEXT), \
                 mock.patch.object(mon_sensors.time, "sleep", side_effect=sleep_effect) as sleep, \
                 mock.patch("sys.stdout", output), mock.patch("sys.stderr", error):
-            code = mon_sensors.main(args + ["--format", "v2"])
+            code = mon_sensors.main(args + ["--format", "v2", "--details-interval", "0"])
         return code, output.getvalue(), error.getvalue(), collect, sleep
 
     def test_log_has_exactly_two_headers_append_and_complete_sidecar(self):

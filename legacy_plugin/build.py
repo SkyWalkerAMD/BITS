@@ -124,7 +124,7 @@ def build(baseline, output):
                     put(root / 'components/collector/install-plugin-entry.py',
                         'import sys\nfrom pathlib import Path\nsys.path.insert(0,str(Path(__file__).absolute().parent))\n'
                         'from mon_sensors_plugin.install import main\nraise SystemExit(main())\n')
-                    extract_own(SOURCE / 'finish-dist/mon-sensors-finish-0.2.5.tar.gz', root / 'components/finish')
+                    extract_own(SOURCE / 'finish-dist/mon-sensors-finish-0.2.6.tar.gz', root / 'components/finish')
                     for child in ('vendor', 'report-engine'):
                         shutil.copytree(str(native / child), str(root / child))
                     report = (SOURCE / 'distribution/report.py').read_text().replace('import common as native', 'from legacy_plugin import common as native')
@@ -147,7 +147,7 @@ def build(baseline, output):
                 put(root / 'PACKAGE.json', json.dumps({'role': role, 'version': VERSION, 'files': files,
                     'source_commit': os.environ['GITHUB_SHA'], 'reused_workloads_source': BASELINE_COMMIT,
                     'component_versions': {'sckocp-api': component_builder.PUBLIC_API_VERSION,
-                        'collector': component_builder.PLUGIN_VERSION, 'finish': '0.2.5', 'report': '0.2.0', 'workloads': '0.1.0-3'},
+                        'collector': component_builder.PLUGIN_VERSION, 'finish': '0.2.6', 'report': '0.2.0', 'workloads': '0.1.0-3'},
                     'services_started_by_install': False}, sort_keys=True, indent=2))
                 if role == 'node' and kind == 'deb':
                     # Same hash-inventoried Python payload, for the first

@@ -311,6 +311,8 @@ def _arguments(argv):
     parser.add_argument("--timeout", type=float, default=20)
     parser.add_argument("--sample-window", type=float, default=1)
     parser.add_argument("--max-age", type=float, default=30)
+    parser.add_argument("--details-interval", type=float, default=10,
+                        help="Seconds between bounded mon/info supplements (10-3600; 0 disables)")
     parser.add_argument("--retries", type=int, default=2,
                         help="Retry at most this many consecutive transient collection failures (0-5)")
     parser.add_argument("--retry-delay", type=float, default=1,
@@ -330,6 +332,8 @@ def _arguments(argv):
             parser.error("{} must be finite and between {} and {}".format(name, low, high))
     if not 0 <= args.retries <= 5:
         parser.error("retries must be between 0 and 5")
+    if not math.isfinite(args.details_interval) or (args.details_interval != 0 and not 10 <= args.details_interval <= 3600):
+        parser.error("details-interval must be 0 or between 10 and 3600")
     if args.timeout <= args.sample_window:
         parser.error("timeout must exceed sample-window")
     if not os.path.isabs(args.binary) or "\0" in args.binary:
@@ -368,6 +372,8 @@ def main(argv=None):
                 print(" | ".join(HEADERS))
             last_status = None
             consecutive_failures = 0
+            next_details = 0
+            last_detail_status = None
             while True:
                 started = time.monotonic()
                 envelope = sckocp_api.collect(args.binary, args.sample_window, args.timeout,
@@ -382,10 +388,25 @@ def main(argv=None):
                 context = os_context(args.task)
                 row = make_row(envelope, context, args.max_age, time.monotonic() - received,
                                native_format=args.format)
+                supplemental = None
+                if status == "ok" and args.details_interval and received >= next_details:
+                    # Each source carries its own time. Never copy a previous
+                    # supplement into a later row or imply synchronized sampling.
+                    supplemental = sckocp_api.provider.collect_details(
+                        args.binary, args.sample_window, min(args.timeout, 10))
+                    next_details = time.monotonic() + args.details_interval
+                    detail_status = tuple(supplemental["parts"][k]["status"] for k in ("overview", "info"))
+                    if detail_status != last_detail_status:
+                        print("mon-sensors-plugin: supplementary mon/info status=" + "/".join(detail_status), file=sys.stderr, flush=True)
+                        last_detail_status = detail_status
                 if sidecar is not None:
-                    sidecar.write(json.dumps({"schema": "mon-sensors-sckocp-v1", "os": context,
-                                              "reading_quality": FORMATS[args.format][2],
-                                              "provider": envelope}, ensure_ascii=False,
+                    record = {"schema": "mon-sensors-sckocp-v1", "os": context,
+                              "reading_quality": FORMATS[args.format][2], "provider": envelope}
+                    if args.details_interval:
+                        record["details_interval_s"] = args.details_interval
+                    if supplemental is not None:
+                        record["details"] = supplemental
+                    sidecar.write(json.dumps(record, ensure_ascii=False,
                                              allow_nan=False, separators=(",", ":")) + "\n")
                     sidecar.flush()
                     writer.writerow(row)

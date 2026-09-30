@@ -269,6 +269,12 @@ def validate_logs(mon, sidecar, validator, statistics=None):
                 check_summaries(row, provider["data"])
             elif provider.get("data") is not None or any(row[5:]):
                 raise ValueError("Failed samples must not contain stale measurements")
+            if "details" in detail:
+                if status != "ok":
+                    raise ValueError("Failed base sample contains supplemental data")
+                validator.validate_details(detail["details"])
+            if "details_interval_s" in detail:
+                validator._number(detail["details_interval_s"], 10, 3600)
             for index, key in ((3, "uptime_seconds"), (4, "load1")):
                 expected = detail["os"].get(key)
                 if (expected is None and row[index]) or (expected is not None and (

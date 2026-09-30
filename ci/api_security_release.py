@@ -45,10 +45,10 @@ def main():
     manifest = json.loads((packages / 'manifest.json').read_text())
     artifacts = {}
     names = {
-        'public_api': 'sckocp-api-0.3.2.tar.gz',
-        'public_api_installer': 'sckocp-api-0.3.2.run',
-        'mon_sensors_plugin': 'mon-sensors-plugin-0.12.12.tar.gz',
-        'mon_sensors_installer': 'mon-sensors-plugin-0.12.12.run',
+        'public_api': 'sckocp-api-0.4.0.tar.gz',
+        'public_api_installer': 'sckocp-api-0.4.0.run',
+        'mon_sensors_plugin': 'mon-sensors-plugin-0.13.0.tar.gz',
+        'mon_sensors_installer': 'mon-sensors-plugin-0.13.0.run',
     }
     for kind, name in names.items():
         item = manifest[kind]
@@ -65,7 +65,7 @@ def main():
         'scope': 'Isolated synthetic API/plugin regressions and actual old/new installer transitions',
         'production_hardware_tested': False})
     write_json(release / 'RELEASE.json', {'schema': 'sckocp-api-security-release-v1',
-        'source_commit': commit, 'versions': {'sckocp-api': '0.3.2', 'mon-sensors-plugin': '0.12.12'},
+        'source_commit': commit, 'versions': {'sckocp-api': '0.4.0', 'mon-sensors-plugin': '0.13.0'},
         'artifacts': artifacts, 'workflow': url,
         'protocol': 'sckocp-api-v1, original v1 default',
         'standalone_managed_cli_integrity': True,

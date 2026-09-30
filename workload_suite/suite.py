@@ -149,7 +149,7 @@ def bind(app, dry_run=False, undo=False):
         spec = check()
         # Binding an old finalizer would misleadingly leave legacy programs active.
         installed = read_json(app / '.mon-sensors-finish-install.json')
-        if installed.get('version') not in ('0.2.4', '0.2.5'):
+        if installed.get('version') not in ('0.2.4', '0.2.5', '0.2.6'):
             raise ValueError('Install mon-sensors-finish 0.2.4+ before binding the suite with bundled MLC')
         value = {'schema': 'ocrun-workload-binding-v1', 'version': VERSION, 'prefix': str(PREFIX),
                  'manifest': metadata(PREFIX / 'MANIFEST.json')}

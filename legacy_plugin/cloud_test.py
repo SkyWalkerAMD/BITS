@@ -16,7 +16,7 @@ if os.environ.get('GITHUB_ACTIONS') != 'true' or os.geteuid() != 0:
     raise SystemExit('Isolated cloud Linux root only')
 
 SRC = Path('/src')
-PREFIX = Path('/opt/ocrun-plugin/0.1.1')
+PREFIX = Path('/opt/ocrun-plugin/0.1.2')
 APP = Path('/root/ocrun')
 CONFIG = Path('/etc/ocrun-plugin/config.json')
 checks = []
@@ -217,7 +217,7 @@ def main():
     # Simulate process death after the collector atomically installed, before
     # the suite marked that step complete. No production fault injection flag.
     failure = '''import sys
-sys.path.insert(0, '/opt/ocrun-plugin/0.1.1')
+sys.path.insert(0, '/opt/ocrun-plugin/0.1.2')
 from legacy_plugin import attach, common
 original = common.run
 def interrupted(argv, *args, **kwargs):
@@ -283,10 +283,10 @@ attach.apply(common.config())
     portable = Path('/root/portable-plugin')
     portable.mkdir()
     # Our own cloud-built archive; exact bytes are part of SHA256SUMS.
-    with tarfile.open('/root/plugin-packages/ocrun-plugin-node-0.1.1-portable.tar.gz') as bundle:
+    with tarfile.open('/root/plugin-packages/ocrun-plugin-node-0.1.2-portable.tar.gz') as bundle:
         bundle.extractall(str(portable))
     unrelated = subprocess.Popen(['sleep', '300'])
-    run(sys.executable, '-I', '-B', portable / 'ocrun-plugin-node-0.1.1/entry.py', 'maintenance-stop')
+    run(sys.executable, '-I', '-B', portable / 'ocrun-plugin-node-0.1.2/entry.py', 'maintenance-stop')
     assert unrelated.poll() is None
     unrelated.terminate(); unrelated.wait(timeout=5)
     run('flock', '-n', APP / '.mon-sensors-finish/launch.lock', '/bin/true')
@@ -300,7 +300,7 @@ attach.apply(common.config())
     hook.write_bytes(original)
     run('ocrun-plugin', 'rollback', '--check')
     failure = '''import sys, os
-sys.path.insert(0, '/opt/ocrun-plugin/0.1.1')
+sys.path.insert(0, '/opt/ocrun-plugin/0.1.2')
 from legacy_plugin import attach, common
 original = os.rename
 def interrupted(source, target):

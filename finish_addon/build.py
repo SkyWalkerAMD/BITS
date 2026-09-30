@@ -12,7 +12,7 @@ import tarfile
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.2.5"
+VERSION = "0.2.6"
 NAME = "mon-sensors-finish-" + VERSION
 
 
@@ -88,6 +88,12 @@ def main():
                       'workload_suite/suite.py' if name == 'suite.py' else 'finish_addon/' + name)
             data = subprocess.check_output(['git', 'show', 'de94f341a2fd4f085ad9d85a71992bc394f5b4c6:' + origin], cwd=str(ROOT))
             spec['previous_releases']['0.2.4'][name] = hashlib.sha256(data).hexdigest()
+        spec['previous_releases']['0.2.5'] = {}
+        for name in spec['files']:
+            origin = ('sckocp_api/security.py' if name == 'security.py' else
+                      'workload_suite/suite.py' if name == 'suite.py' else 'finish_addon/' + name)
+            data = subprocess.check_output(['git', 'show', 'f56965cb22eb592a934b74e13fae7637fb5c2783:' + origin], cwd=str(ROOT))
+            spec['previous_releases']['0.2.5'][name] = hashlib.sha256(data).hexdigest()
         (payload / "MANIFEST.json").write_text(json.dumps(spec, sort_keys=True, indent=2) + "\n")
         archive = out / (NAME + ".tar.gz")
         with tarfile.open(str(archive), "w:gz") as bundle:

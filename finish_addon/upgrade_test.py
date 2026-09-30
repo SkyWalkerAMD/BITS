@@ -35,7 +35,7 @@ def main():
     authenticated_finish = SRC / '.previous022/finish-dist/mon-sensors-finish-0.2.2.run'
     suite_finish = SRC / '.previous023/finish-dist/mon-sensors-finish-0.2.3.run'
     mlc_finish = SRC / '.previous024/finish-dist/mon-sensors-finish-0.2.4.run'
-    report_finish = SRC / 'finish-dist/mon-sensors-finish-0.2.5.run'
+    report_finish = SRC / 'finish-dist/mon-sensors-finish-0.2.6.run'
     command('/bin/bash', old_report, '--app', app)
     command('/bin/bash', old_finish, '--app', app)
     original = {n: (app / n).read_bytes() for n in ('ocb', 'oct', 'mon-sensors-finish')}
@@ -112,7 +112,7 @@ def main():
     command('/bin/bash', report_finish, '--app', app, '--check')
     assert all((app / name).read_bytes() == data for name, data in previous_024.items())
     command('/bin/bash', report_finish, '--app', app)
-    assert b'0.2.5' in command(app / 'mon-sensors-finish', '--version').stdout
+    assert b'0.2.6' in command(app / 'mon-sensors-finish', '--version').stdout
     command(app / 'mon-sensors-finish', 'check', '--scheduler')
     command('/bin/bash', report_finish, '--app', app, '--rollback')
     assert all((app / name).read_bytes() == data for name, data in previous_024.items())

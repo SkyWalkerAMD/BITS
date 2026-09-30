@@ -110,7 +110,7 @@ class FinishChecks(unittest.TestCase):
         assert sha(plugin) == artifact['sha256']
         command(["/bin/bash", plugin, "--app", self.app, "--backend", "sckocp"])
         self.original = (self.app / "ocb").read_bytes()
-        self.installer = SRC / "finish-dist/mon-sensors-finish-0.2.5.run"
+        self.installer = SRC / "finish-dist/mon-sensors-finish-0.2.6.run"
         self.logs = self.work / "log"
         self.logs.mkdir()
         self.remote_node = "node-" + self.work.name

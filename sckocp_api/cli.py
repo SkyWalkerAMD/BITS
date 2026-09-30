@@ -15,6 +15,7 @@ def main(argv=None):
                         help="Native output format; v1 works with original sckocp 1.1.0 and 1.2.0")
     parser.add_argument("--interval", type=float, default=1.0, help="Sampling window in seconds (0.05-60)")
     parser.add_argument("--timeout", type=float, default=20.0, help="Total collection deadline in seconds (0.1-120)")
+    parser.add_argument("--details", action="store_true", help="Include licensed mon/info console supplements within the same deadline")
     args = parser.parse_args(argv)
     interrupted = [130]
 
@@ -24,11 +25,17 @@ def main(argv=None):
 
     previous = {sig: signal.signal(sig, stop) for sig in (signal.SIGINT, signal.SIGTERM)}
     try:
-        result = collect(args.binary, args.interval, args.timeout, native_format=args.format)
+        options = {"native_format": args.format}
+        if args.details:
+            options["details"] = True
+        result = collect(args.binary, args.interval, args.timeout, **options)
     except KeyboardInterrupt:
         return interrupted[0]
     finally:
         for sig, handler in previous.items():
             signal.signal(sig, handler)
     print(json.dumps(result, ensure_ascii=False, allow_nan=False, separators=(",", ":")))
-    return 0 if result["status"] == "ok" else 1
+    complete = result["status"] == "ok"
+    if args.details:
+        complete = complete and all(p["status"] == "ok" for p in result.get("details", {}).get("parts", {}).values())
+    return 0 if complete else 1

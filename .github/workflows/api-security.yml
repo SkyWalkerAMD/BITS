@@ -26,7 +26,7 @@ jobs:
           git archive 78df4a4925f11970c0116a82c97d2716a0089faa | tar -xf - -C previous-source
           (cd previous-source && python3 build.py)
           cp previous-source/dist/sckocp-api-0.3.1.run api-security-input/old-sckocp-api-0.3.1.run
-          cp dist/sckocp-api-0.3.2.* dist/mon-sensors-plugin-0.12.12.* dist/manifest.json api-security-input/
+          cp dist/sckocp-api-0.4.0.* dist/mon-sensors-plugin-0.13.0.* dist/manifest.json api-security-input/
           cp docs/monitoring/SCKOCP-API.md docs/monitoring/MON-SENSORS.md docs/security/API-SECURITY.md api-security-input/
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with: {name: 'api-security-packages-${{ github.run_id }}', path: api-security-input/, retention-days: 30}
@@ -87,4 +87,4 @@ jobs:
       - name: Assemble only verified independent packages and evidence
         run: python3 -I -S -B ci/api_security_release.py
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with: {name: 'sckocp-api-security-0.3.2-${{ github.run_id }}', path: .api-security-results/release/, retention-days: 90, include-hidden-files: true, if-no-files-found: error}
+        with: {name: 'sckocp-api-security-0.4.0-${{ github.run_id }}', path: .api-security-results/release/, retention-days: 90, include-hidden-files: true, if-no-files-found: error}

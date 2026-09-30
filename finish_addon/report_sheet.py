@@ -18,6 +18,25 @@ MAX_CORES = 4096
 MAX_REPORT_BYTES = 16 * 1024 ** 2
 
 
+def natural_key(value):
+    """Numeric CPU/socket order also survives a sorted-key JSON round trip."""
+    return tuple((1, int(part)) if part.isdigit() else (0, part.casefold())
+                 for part in re.split(r'(\d+)', str(value)))
+
+
+SOCKET_DETAILS = (('pkg_w', 'CPU Pkg', 'W'), ('dram_w', '内存 DRAM 功耗', 'W'),
+                  ('memory_temp_max_c', '内存最高温度', '°C'), ('vccin_v', 'VCCIN', 'V'),
+                  ('vid_v', 'VID', 'V'), ('tjmax_c', 'TjMax', '°C'),
+                  ('temp_max_c', 'CPU最高温度', '°C'), ('core_mhz', 'Core', 'MHz'),
+                  ('mesh_mhz', 'Mesh', 'MHz'))
+INFO_TITLES = (('Platform', '平台 Platform'), ('CPU', 'CPU 型号、步进与微码'),
+               ('Turbo Ratio Limits', 'Turbo 倍频限制'), ('Thermal', '温控配置'),
+               ('Power Limits', '功耗限制'), ('Power Supplies', '电源配置与快照'),
+               ('Memory', '内存条配置与快照'), ('Memory Timings', '完整内存时序'),
+               ('Cache', '缓存'), ('Per-CCD Temperature', 'CCD 温度（平台相关）'),
+               ('SVI Rails', 'SVI 电源轨（平台相关）'))
+
+
 def utc():
     return datetime.datetime.utcnow().isoformat(timespec='seconds') + 'Z'
 
@@ -85,7 +104,7 @@ def machine_snapshot():
             'logical_cpus': len(processors) or None, 'physical_cores': len(cores) or None,
             'sockets': len(sockets) or None, 'allowed_logical_cpus': len(os.sched_getaffinity(0)),
             'memory_bytes': int(match.group(1)) * 1024 if match else None, 'dmi': dmi, 'disks': disks,
-            'dimm_details': '未采集内存条型号、槽位与频率；总内存来自操作系统可见容量',
+            'dimm_details': '本表总内存来自操作系统可见容量；内存条、CPU步进与时序另见本批次 sckocp info 快照',
             'warnings': warnings[:128], 'source': 'local_proc_sys_and_os_release',
             'hardware_identity_independently_verified': False}
 
@@ -113,6 +132,82 @@ class Metric:
                 'min': self.minimum, 'mean': self.mean, 'max': self.maximum}
 
 
+class DetailsStatistics:
+    """Constant memory per bounded topology, never resample or carry readings forward."""
+    def __init__(self):
+        self.statuses = {'overview': {}, 'info': {}}
+        self.first = self.last = None
+        self.first_info = self.last_info = None
+        self.configuration_changes = 0
+        self.previous_configuration = None
+        self.sockets, self.dimms, self.supplies = {}, {}, {}
+        self.system = {'overview_psu_w': Metric(), 'info_psu_w': Metric(), 'info_partial_psu_w': Metric()}
+        self.intervals = set()
+        self.rows = 0
+
+    def add(self, record):
+        if 'details_interval_s' in record:
+            self.intervals.add(record['details_interval_s'])
+            if len(self.intervals) > 32:
+                raise ValueError('Too many supplemental sampling configurations')
+        supplement = record.get('details')
+        if supplement is None:
+            return
+        self.rows += 1
+        for operation, part in supplement['parts'].items():
+            status = part['status']
+            self.statuses[operation][status] = self.statuses[operation].get(status, 0) + 1
+            self.first = self.first or part['started_at']
+            self.last = part['observed_at']
+            if status != 'ok':
+                continue
+            data = part['data']
+            if operation == 'overview':
+                for socket in data['sockets']:
+                    sid = str(socket['id'])
+                    if sid not in self.sockets:
+                        if len(self.sockets) >= 128:
+                            raise ValueError('Supplemental socket limit')
+                        self.sockets[sid] = {f: Metric() for f, unused, unit in SOCKET_DETAILS}
+                    for field in self.sockets[sid]:
+                        self.sockets[sid][field].add(socket[field])
+                # Global PSU is a single source reading, never a socket sum.
+                self.system['overview_psu_w'].add(data['system']['psu_input_w_reported'])
+            else:
+                self.first_info = self.first_info or part
+                self.last_info = part
+                configuration = [s for s in data['sections'] if s['name'] not in
+                                 ('Power Supplies', 'Memory', 'Per-CCD Temperature', 'SVI Rails')]
+                configuration += [{k: v for k, v in d['fields'].items() if k != 'Temp'} for d in data['dimms']]
+                if self.previous_configuration is not None and configuration != self.previous_configuration:
+                    self.configuration_changes += 1
+                self.previous_configuration = configuration
+                partial = data['system']['coverage'] == 'partial'
+                self.system['info_partial_psu_w' if partial else 'info_psu_w'].add(data['system']['psu_input_w_reported'])
+                for kind, key, field, limit in (('dimms', 'slot', 'temp_c', 512), ('power_supplies', 'name', 'watts', 32)):
+                    target = self.dimms if kind == 'dimms' else self.supplies
+                    for item in data[kind]:
+                        if item[key] not in target:
+                            if len(target) >= limit:
+                                raise ValueError('Supplemental topology limit')
+                            target[item[key]] = Metric()
+                        target[item[key]].add(item[field])
+
+    def value(self):
+        return {'schema': 'ocrun-report-details-v1', 'snapshots': self.rows,
+                'configured_interval_s': sorted(self.intervals), 'status_counts': self.statuses,
+                'first_capture_at': self.first, 'last_capture_at': self.last,
+                'first_info': self.first_info, 'last_info': self.last_info,
+                'configuration_changes_observed': self.configuration_changes,
+                'sockets': {sid: {f: m.value() for f, m in metrics.items()} for sid, metrics in self.sockets.items()},
+                'dimms': {name: m.value() for name, m in self.dimms.items()},
+                'power_supplies': {name: m.value() for name, m in self.supplies.items()},
+                'system': {name: m.value() for name, m in self.system.items()},
+                'quality': 'reported_validity_unknown',
+                'sampling': 'separate licensed mon/info calls; own capture times; no carry-forward; not synchronized with base JSON',
+                'timings_scope': 'all timing lines emitted by original info; unsupported or gated fields remain unavailable'}
+
+
 class Statistics:
     def __init__(self):
         self.metrics = {name: Metric() for name, unused, unit, column in METRICS}
@@ -121,9 +216,11 @@ class Statistics:
         self.rows = self.gaps = self.clock_reversals = 0
         self.first_uptime = self.last_uptime = self.max_gap = None
         self.trend, self.bucket_size = [], 1
+        self.details = DetailsStatistics()
 
     def consume(self, row, detail):
         self.rows += 1
+        self.details.add(detail)
         group = row[2]
         if group not in self.groups:
             if len(self.groups) >= MAX_GROUPS:
@@ -179,8 +276,8 @@ class Statistics:
             raise ValueError('Too many provider versions in one report')
         self.versions.add(version)
         v1 = schema == 'sckocp-mon-v1'
-        for kind, key, fields in (('cores', 'cpu', ('mhz', 'temp_c', 'c0_pct')),
-                                  ('sockets', 'id', ('temp_max_c', 'pkg_w', 'core_mhz'))):
+        for kind, key, fields in (('cores', 'cpu', ('mhz', 'temp_c', 'c0_pct', 'vid_v', 'c6_pct')),
+                                  ('sockets', 'id', ('temp_max_c', 'pkg_w', 'core_mhz', 'vid_v', 'tjmax_c'))):
             target = self.cores if kind == 'cores' else self.sockets
             for record in data.get(kind, []):
                 identifier = str(record.get(key, 'unknown'))
@@ -190,18 +287,20 @@ class Statistics:
                     target[identifier] = {f: Metric() for f in fields}
                 for field in fields:
                     mapping = {'mhz': 'active_mhz', 'temp_c': 'temperature_c', 'temp_max_c': 'temperature_c',
-                               'pkg_w': 'package_watts', 'core_mhz': 'active_mhz', 'c0_pct': 'c0_percent'}
+                               'pkg_w': 'package_watts', 'core_mhz': 'active_mhz', 'c0_pct': 'c0_percent',
+                               'vid_v': 'vid_volts', 'tjmax_c': 'tjmax_c', 'c6_pct': 'c6_percent'}
                     metric = record.get('metrics', {}).get(mapping.get(field, field), {}) if not v1 else {}
                     value = record.get(field) if v1 else metric.get('value') if metric.get('status') == 'ok' else None
                     target[identifier][field].add(value)
 
     def value(self):
         topology = lambda values: {key: {name: metric.value() for name, metric in fields.items()}
-                                   for key, fields in sorted(values.items())}
+                                   for key, fields in sorted(values.items(), key=lambda item: natural_key(item[0]))}
         return {'rows': self.rows, 'metrics': {name: value.value() for name, value in self.metrics.items()},
                 'by_task_label': topology(self.groups), 'cores': topology(self.cores), 'sockets': topology(self.sockets),
                 'provider_status_counts': self.statuses, 'provider_schema_counts': self.schemas,
                 'provider_versions': sorted(self.versions), 'gap_observation_threshold_s': 6,
+                'details': self.details.value(),
                 'gaps_above_threshold': self.gaps, 'uptime_reversals': self.clock_reversals,
                 'max_gap_s': self.max_gap, 'first_uptime_s': self.first_uptime, 'last_uptime_s': self.last_uptime,
                 'trend': [{'time': b['time'], 'rows': b['rows'], 'metrics': {
@@ -213,6 +312,15 @@ class Statistics:
 def make_record(state, statistics):
     metrics = statistics.value()
     issues = []
+    extra = metrics['details']
+    if not extra['last_info']:
+        issues.append('未取得本批次 sckocp info 扩展配置；CPU步进、平台、内存条及完整时序标为未提供。历史数据不以当前配置补填。')
+    for source, counts in extra['status_counts'].items():
+        failures = {k: v for k, v in counts.items() if k != 'ok'}
+        if failures:
+            issues.append('扩展采集 {} 存在失败: {}；对应数据未补零或沿用旧值。'.format(source, json.dumps(failures, sort_keys=True)))
+    if extra['configuration_changes_observed']:
+        issues.append('本批次观察到 {} 次 info 配置变化；报告保留首次和最后快照，全部中间快照见 JSONL。'.format(extra['configuration_changes_observed']))
     execution = state.get('execution_result', 'legacy_launch_status_only')
     if execution != 'completed':
         issues.append('任务执行结果为 {}，不能视为完整通过。'.format(execution))
@@ -257,6 +365,71 @@ def number(value):
 def table(headers, rows):
     return '<div class="table-wrap"><table><thead><tr>' + ''.join('<th>' + esc(h) + '</th>' for h in headers) + \
         '</tr></thead><tbody>' + ''.join('<tr>' + ''.join('<td>' + esc(c) + '</td>' for c in row) + '</tr>' for row in rows) + '</tbody></table></div>'
+
+
+def details_configuration(extra):
+    parts = ['<h3>sckocp 平台、CPU 与内存配置</h3><p class="subtle">以下来自本批次内的原版 info 调用。'
+             '全部已输出时序原样收录；未输出的参数标为未提供，不声称覆盖 BIOS 的所有时序。'
+             '不会切换读写模式或解锁隐藏功能。各次原始快照保存在 JSONL。</p>']
+    latest = extra.get('last_info')
+    if latest:
+        parts.append(table(['配置快照', 'UTC 时间'], [('首次 info', extra['first_info']['observed_at']),
+                     ('本节展示的最后 info', latest['observed_at'])]))
+    snapshots = [('最后采集配置', latest)]
+    if extra.get('configuration_changes_observed'):
+        snapshots.insert(0, ('首次采集配置（批次内配置有变化）', extra.get('first_info')))
+    for label, snapshot in snapshots:
+        if snapshot and len(snapshots) > 1:
+            parts.append('<h3>' + esc(label) + '</h3>')
+        data = snapshot['data'] if snapshot else {}
+        cpus = data.get('cpus', [])
+        if cpus:
+            parts.append(table(['插槽', 'CPU（含 Step）', '核 / 线程', '微码'], [
+                [c['id'], '{} · Family {} / Model {} / Step {}'.format(c['model'], c['family'], c['model_id'], c['stepping']),
+                 '{}C / {}T'.format(c['cores'], c['threads']), c['microcode']]
+                for c in sorted(cpus, key=lambda c: c['id'])]))
+        sections = {s['name']: s for s in data.get('sections', [])}
+        for name, title in INFO_TITLES:
+            if name in ('Per-CCD Temperature', 'SVI Rails') and name not in sections:
+                continue
+            section = sections.get(name)
+            content = '\n'.join(section['lines']) if section else ''
+            parts.append('<h3>' + esc(title) + '</h3>')
+            if section:
+                parts.append('<p class="subtle">' + esc(section['title']) + '</p>')
+            parts.append('<pre class="native-info">' + esc(content or '未提供（原版未输出、采集失败或历史未采集）') + '</pre>')
+            if name == 'Memory Timings':
+                parts.append(table(['时序组', '收录情况'], [[group, '完整原文见上方' if re.search(r'\b' + group + r'\b', content) else '未提供']
+                             for group in ('Primary', 'Refresh', 'Secondary', 'Turnaround', 'Write')]))
+                parts.append('<p class="subtle">其他未出现在本快照中的时序项目：原版未提供。未提供值不补零。</p>')
+    return ''.join(parts)
+
+
+def details_metrics(extra):
+    rows = []
+    def append(label, unit, metric):
+        rows.append([label, unit, metric.get('count', 0), metric.get('missing', 0),
+                     number(metric.get('min')), number(metric.get('mean')), number(metric.get('max'))])
+    for key, title in (('overview_psu_w', '整机 PSU In 报告合计（mon，覆盖范围未知）'),
+                       ('info_psu_w', '整机 Wall 报告合计（info，未声明部分缺失）'),
+                       ('info_partial_psu_w', 'PSU 已响应部分合计（info，非完整整机功耗）')):
+        append(title, 'W', extra.get('system', {}).get(key, {}))
+    sockets = extra.get('sockets') or {'未提供': {}}
+    for sid in sorted(sockets, key=natural_key):
+        for field, title, unit in SOCKET_DETAILS:
+            append('S{} / {}'.format(sid, title), unit, sockets[sid].get(field, {}))
+    for kind, title, unit in (('dimms', 'DIMM 温度', '°C'), ('power_supplies', '单电源输入功耗', 'W')):
+        for identity in sorted(extra.get(kind) or {'未提供': {}}, key=natural_key):
+            append('{} / {}'.format(title, identity), unit, extra.get(kind, {}).get(identity, {}))
+    return ('<h3>扩展功耗、电压与内存温度</h3><p class="subtle">' + esc(
+            '扩展采集 {} 次；配置周期 {} 秒（每次完成后等待该周期再采集）；首次 {}，最后 {}。'.format(
+                extra.get('snapshots', 0), extra.get('configured_interval_s', []),
+                extra.get('first_capture_at') or '未提供', extra.get('last_capture_at') or '未提供')) +
+            'mon、info 和基础 JSON 分别采集，时间不完全相同。统计只使用实际取得的读数，不把旧读数填入后续样本；'
+            '平均值为已报告读数的算术平均，不是时间加权功耗或能耗。PSU 全机合计只计一次，不按插槽重复相加。'
+            '原版未声明的有效性、覆盖范围及读数年龄仍为未知；已声明的年龄和电源覆盖情况见配置快照与 JSONL。'
+            '“缺值”只计已出现实体中的空值，整次调用失败另见异常说明。</p>' +
+            table(['指标 / 来源', '单位', '已报告次数', '缺值', '最小', '平均', '最大'], rows))
 
 
 def chart(trend, key, title, unit):
@@ -318,10 +491,12 @@ def render(record):
         by_task.append([label, metrics['load1']['count'], number(metrics['cpu_temp_c']['max']),
                         number(metrics['cpu_power_w']['mean']), number(metrics['cpu_power_w']['max']),
                         number(metrics['frequency_mhz']['mean'])])
-    cores = [[identifier, number(m['mhz']['mean']), number(m['temp_c']['max']), number(m['c0_pct']['mean'])]
-             for identifier, m in stats['cores'].items()]
-    sockets = [[identifier, number(m['temp_max_c']['max']), number(m['pkg_w']['mean']), number(m['pkg_w']['max'])]
-               for identifier, m in stats['sockets'].items()]
+    cores = [[identifier, number(m['mhz']['mean']), number(m['temp_c']['max']), number(m['c0_pct']['mean']),
+              number(m.get('vid_v', {}).get('mean'))]
+             for identifier, m in sorted(stats['cores'].items(), key=lambda item: natural_key(item[0]))]
+    sockets = [[identifier, number(m['temp_max_c']['max']), number(m['pkg_w']['mean']), number(m['pkg_w']['max']),
+                number(m.get('vid_v', {}).get('mean')), number(m.get('tjmax_c', {}).get('max'))]
+               for identifier, m in sorted(stats['sockets'].items(), key=lambda item: natural_key(item[0]))]
     binaries = [[i, s['name'], s.get('binary'), s.get('binary_sha256'), s.get('tool_version', '未知')]
                 for i, s in enumerate(record['steps'], 1)]
     files = [[name, item['bytes'], item['sha256']] for name, item in sorted(record['source_artifacts'].items())]
@@ -338,6 +513,7 @@ header{border-top:7px solid #087f8c;padding:26px 0 22px;border-bottom:1px solid 
 h1{margin:8px 0;font-size:32px;color:#163944}h2{margin:30px 0 14px;font-size:20px;border-left:4px solid #087f8c;padding-left:12px}h3{font-size:15px;margin:10px 0}p{margin:8px 0}
 .subtle,small{color:#59717a}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:22px 0}.card{background:#eff7f7;padding:16px;border-radius:5px}.card strong{display:block;font-size:18px;color:#095c66;margin-top:6px}
 .notice{background:#fff7e9;border-left:4px solid #c98720;padding:13px 17px;margin:18px 0}.table-wrap{overflow-wrap:anywhere}table{width:100%;border-collapse:collapse;font-size:12px;margin:10px 0}th{text-align:left;background:#eaf1f3;font-weight:600}th,td{padding:8px 9px;border-bottom:1px solid #dfe7ea;vertical-align:top;overflow-wrap:anywhere}tr:nth-child(even){background:#f8fafb}
+.native-info{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.7 "Noto Sans Mono",monospace;background:#f5f8fa;border:1px solid #dce7eb;padding:12px;max-width:100%}
 .charts{display:grid;grid-template-columns:1fr 1fr;gap:16px}.chart{border:1px solid #dce7eb;padding:10px}.chart svg{width:100%;height:auto}.chart text{font:10px sans-serif;fill:#59717a}footer{margin-top:32px;border-top:2px solid #087f8c;padding-top:14px;color:#59717a;font-size:11px}
 @media(max-width:800px){main{margin:0;padding:18px}.cards,.charts{grid-template-columns:1fr 1fr}table{font-size:11px}th,td{padding:5px}}
 @page{size:A4 landscape;margin:12mm}@media print{body{background:white;font-size:11px}main{margin:0;padding:0;max-width:none;box-shadow:none}.cards{grid-template-columns:repeat(4,1fr)}h1{font-size:25px}h2{break-after:avoid;margin-top:20px}thead{display:table-header-group}tr,.card,.chart,.notice{break-inside:avoid}table{font-size:9px}th,td{padding:5px}.charts{grid-template-columns:repeat(3,1fr)}a{color:inherit}}
@@ -349,6 +525,7 @@ h1{margin:8px 0;font-size:32px;color:#163944}h2{margin:30px 0 14px;font-size:20p
         '<h2>01 / 批次与证据范围</h2>' + table(['项目', '记录'], metadata),
         '<h2>02 / 机器配置快照</h2>' + table(['项目', '记录'], configuration) + '<p class="subtle">' + esc(machine.get('dimm_details')) + '。快照来自任务开始时的系统可见信息，不等同于独立硬件资产认证。</p>',
         table(['块设备', '型号', '容量 GiB'], [[d['name'], d['model'], number(d['bytes'] / 1024 ** 3) if d['bytes'] is not None else None] for d in machine.get('disks', [])]),
+        details_configuration(stats.get('details', {})),
         '<h2>03 / 压测执行过程</h2>' + table(['序号', '项目', '配置秒', '实际秒', '开始 UTC', '结束 UTC', '结束原因', '退出码', '清理确认', '工具版本'], steps),
         '<p class="subtle">达到配置时长后由执行器正常停止可能产生负的信号退出码；结合结束原因和清理确认判断。启动命令返回0不单独作为压测成功依据。上述记录不解析各工具内部自检日志，不能证明没有计算错误。</p>',
         '<h2>04 / 监控汇总</h2>' + table(['指标', '单位', '有值', '缺失', '零值', '最小', '均值', '最大'], metric_rows),
@@ -357,7 +534,8 @@ h1{margin:8px 0;font-size:32px;color:#163944}h2{margin:30px 0 14px;font-size:20p
         '<p class="subtle">按采集标签汇总；同名重复任务合并统计，独立执行步骤仍在任务表逐项保留。</p>',
         '<div class="charts">' + ''.join(chart(stats['trend'], key, title, unit) for key, title, unit in
           [('cpu_temp_c', 'CPU 温度趋势', '°C'), ('cpu_power_w', 'CPU 功耗趋势', 'W'), ('frequency_mhz', '核心报告频率趋势', 'MHz')]) + '</div><p class="subtle">横轴按样本顺序等距；长任务按连续样本分桶取均值（最多240点），间隔异常见下节，峰值请看汇总表。</p>',
-        '<h2>05 / 插槽与核心统计</h2>' + table(['插槽', '最高温度°C', '平均功耗W', '最高功耗W'], sockets) + table(['CPU编号', '报告频率均值MHz', '最高温度°C', 'C0均值%'], cores),
+        details_metrics(stats.get('details', {})),
+        '<h2>05 / 插槽与核心统计</h2>' + table(['插槽', '最高温度°C', '平均 Pkg W', '最高 Pkg W', 'VID均值V', 'TjMax最高°C'], sockets) + table(['CPU编号', '报告频率均值MHz', '最高温度°C', 'C0均值%', 'VID均值V'], cores),
         '<h2>06 / 异常与待确认事项</h2><ul>' + warnings + '</ul>',
         '<h2>07 / 工具与文件追溯</h2>' + table(['序号', '任务', '实际执行程序', '程序 SHA-256', '版本'], binaries) + table(['原始结果文件', '字节数', 'SHA-256'], files),
         '<p class="subtle">完整明细见 Excel、MON 与 JSONL。本 HTML 及结构化报告 JSON 的哈希在另行发布的 .finish.json 中，避免自引用哈希。此文档先生成后上传，本页不预先宣称远端已交付。</p>',

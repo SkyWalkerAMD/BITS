@@ -11,7 +11,7 @@ import tarfile
 import tempfile
 
 SOURCE = Path(__file__).resolve().parents[1]
-VERSION = '0.2.3'
+VERSION = '0.2.4'
 NODE = '/opt/ocrun-node/' + VERSION
 CENTER = '/opt/ocrun-center/' + VERSION
 APP = '/var/lib/ocrun-node/app'
@@ -75,7 +75,7 @@ def template(root):
         APP + '/mon-sensors-finish.d/finish.py --app ' + APP), True)
     put(app / 'mon-sensors', '#!/bin/sh\nexec ' + APP + '/mon-sensors-plugin "$@"\n', True)
     managed = {p.relative_to(app).as_posix(): sha(p) for p in app.rglob('*') if p.is_file()}
-    put(app / '.mon-sensors-finish-install.json', json.dumps({'version': '0.2.5',
+    put(app / '.mon-sensors-finish-install.json', json.dumps({'version': '0.2.6',
         'app': APP, 'distribution': VERSION, 'managed_files': managed, 'detached': False}))
 
 

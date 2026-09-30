@@ -13,8 +13,8 @@ from urllib.parse import quote, unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parent
 VERSION = "0.12.8"
-PLUGIN_VERSION = "0.12.12"
-PUBLIC_API_VERSION = "0.3.2"
+PLUGIN_VERSION = "0.13.0"
+PUBLIC_API_VERSION = "0.4.0"
 API_CORE_FILES = ("sckocp_api/__init__.py", "sckocp_api/interface.py", "sckocp_api/provider.py",
                   "sckocp_api/security.py")
 API_FILES = API_CORE_FILES + ("sckocp_api/__main__.py", "sckocp_api/cli.py", "sckocp_api/install.py",

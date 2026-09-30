@@ -9,6 +9,7 @@ import datetime
 import json
 import math
 import os
+import re
 import selectors
 import signal
 import subprocess
@@ -296,11 +297,14 @@ def _capture(binary, interval, timeout, native_format="v2"):
     deadline = time.monotonic() + timeout
     selector = selectors.DefaultSelector()
     try:
-        option = "--json" if native_format == "v1" else "--json=v2"
+        commands = {"v1": ["mon", "--json"], "v2": ["mon", "--json=v2"],
+                    "overview": ["mon", "--cols=1"], "info": ["info"]}
+        if native_format not in commands:
+            raise ValueError("Unsupported native operation")
         # Pin the checked inode until exec; never re-resolve a replaceable path
         # after checking it. Do not use preexec_fn: SDK users may have threads.
         with trusted_executable(binary) as (descriptor, executable):
-            process = subprocess.Popen([binary, "mon", option], executable=executable,
+            process = subprocess.Popen([binary] + commands[native_format], executable=executable,
                                        stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                        stderr=subprocess.PIPE, env=environment, cwd="/",
                                        pass_fds=(descriptor,), start_new_session=True,
@@ -456,6 +460,239 @@ def collect(binary="/usr/bin/sckocp", interval=1.0, timeout=20.0, native_format=
     except (ValueError, TypeError, RecursionError, OverflowError):
         return _envelope("invalid_data")
     return _envelope("ok", payload)
+
+
+# Console supplements are an additive contract. They contain only documented
+# monitoring/configuration sections, never activation files or diagnostic output.
+DETAILS_SCHEMA = "sckocp-details-v1"
+DETAILS_LIMIT = 256 * 1024
+INFO_SECTIONS = ("Platform", "CPU", "Turbo Ratio Limits", "Thermal", "Power Limits",
+                 "Power Supplies", "Memory", "Memory Timings", "Cache",
+                 "Per-CCD Temperature", "SVI Rails")
+SOCKET_FIELDS = {"temp_max_c": r"Temp Max", "tjmax_c": r"TjMax",
+                 "vccin_v": r"VCCIN", "vid_v": r"VID", "core_mhz": r"Core",
+                 "mesh_mhz": r"Mesh", "memory_temp_max_c": r"Mem Max",
+                 "pkg_w": r"Pkg", "dram_w": r"DRAM"}
+SOCKET_UNITS = {"temp_max_c": "°C", "tjmax_c": "°C", "vccin_v": "V", "vid_v": "V",
+                "core_mhz": "MHz", "mesh_mhz": "MHz", "memory_temp_max_c": "°C",
+                "pkg_w": "W", "dram_w": "W"}
+
+
+def _console_sections(output, operation):
+    if len(output) > DETAILS_LIMIT:
+        raise _OutputLimit()
+    text = output.decode("utf-8")
+    if any(unicodedata.category(c) in ("Cc", "Cf", "Cs") and c not in "\n\r\t" for c in text):
+        raise ValueError("Console output contains control characters")
+    sections, current = [], None
+    for line in text.splitlines():
+        if len(line) > 2048:
+            raise ValueError("Console line exceeds limit")
+        header = re.fullmatch(r"== (.+) ==", line.strip())
+        if header:
+            title = header.group(1)
+            name = title.split(":", 1)[0]
+            if operation == "overview" and re.fullmatch(r"(?:GenuineIntel|AuthenticAMD) fam\d+\s+Per-socket Overview", title):
+                name = "Per-socket Overview"
+            allowed = INFO_SECTIONS if operation == "info" else ("Per-socket Overview", "CPU")
+            current = None
+            if name in allowed:
+                if any(s["name"] == name for s in sections):
+                    raise ValueError("Duplicate console section")
+                current = {"name": name, "title": title, "lines": []}
+                sections.append(current)
+        elif current is not None and line.strip():
+            if len(current["lines"]) >= 512:
+                raise ValueError("Console section exceeds limit")
+            current["lines"].append(line.expandtabs(8).rstrip())
+    required = {"Platform", "CPU"} if operation == "info" else {"Per-socket Overview"}
+    if not required.issubset({s["name"] for s in sections}):
+        raise ValueError("Missing console sections")
+    return sections
+
+
+def _reading(text, label, unit):
+    match = re.search(r"(?<!\w)" + label + r"\s+(-?\d+(?:\.\d+)?)\s*" + re.escape(unit) + r"(?!\w)", text)
+    if not match:
+        return None
+    return _number(float(match.group(1)), -273.15 if unit == "°C" else 0, 1e9)
+
+
+def _identity_add(rows, item, key, limit=128):
+    if len(rows) >= limit or any(r[key] == item[key] for r in rows):
+        raise ValueError("Duplicate or excessive console identities")
+    rows.append(item)
+
+
+def parse_console(output, operation):
+    """Parse bounded native text; retain every line of known info sections.
+
+    Native absence is null, not zero. Source text is retained to preserve timing
+    groups and platform-dependent fields without guessing undocumented registers.
+    """
+    if operation not in ("overview", "info"):
+        raise ValueError("Unsupported console operation")
+    sections = _console_sections(output, operation)
+    by_name = {s["name"]: s for s in sections}
+    lines = lambda name: by_name.get(name, {}).get("lines", [])
+    if operation == "overview":
+        sockets, current = [], None
+        for line in lines("Per-socket Overview"):
+            # Multi-socket power summaries may place S0 and S1 on one line.
+            for segment in re.split(r"(?=\bS\d+\s)", line):
+                identity = re.match(r"\s*S(\d+)\s", segment)
+                if identity:
+                    sid = _integer(int(identity.group(1)), maximum=4095)
+                    current = next((r for r in sockets if r["id"] == sid), None)
+                    if current is None:
+                        current = dict((f, None) for f in SOCKET_FIELDS)
+                        current["id"] = sid
+                        _identity_add(sockets, current, "id")
+                if current is not None:
+                    for field, label in SOCKET_FIELDS.items():
+                        value = _reading(segment, label, SOCKET_UNITS[field])
+                        if value is not None:
+                            if current[field] is not None and current[field] != value:
+                                raise ValueError("Conflicting socket readings")
+                            current[field] = value
+        if not sockets:
+            raise ValueError("No socket overview")
+        whole = "\n".join(lines("Per-socket Overview"))
+        power = re.findall(r"PSU In\s+(\d+(?:\.\d+)?)\s+W", whole)
+        if len(set(power)) > 1:
+            raise ValueError("Conflicting system power totals")
+        age = re.search(r"\b(\d+)s old\b", whole)
+        system = {"psu_input_w_reported": _number(float(power[0]), 0, 1e9) if power else None,
+                  "age_s_reported": int(age.group(1)) if age else None,
+                  "coverage": "not_reported"}
+        return {"sections": sections, "sockets": sorted(sockets, key=lambda r: r["id"]), "system": system}
+    cpus = []
+    for line in lines("CPU"):
+        match = re.match(r"\s*S(\d+)\s+(.+?)\s+(\d+)C/(\d+)T\s+fam(\d+) model (\d+) stepping (\d+)\s+ucode (\S+)", line)
+        if match:
+            sid, model, cores, threads, family, model_id, stepping, ucode = match.groups()
+            _identity_add(cpus, {"id": int(sid), "model": model, "cores": int(cores),
+                                "threads": int(threads), "family": int(family), "model_id": int(model_id),
+                                "stepping": int(stepping), "microcode": ucode}, "id")
+    memory, dimms = lines("Memory"), []
+    if memory and memory[0].lstrip().startswith("DIMM"):
+        columns = [(m.group(), m.start()) for m in re.finditer(r"DIMM|Part Number|Speed|JEDEC|VDDQ|Size|Temp", memory[0])]
+        for line in memory[1:]:
+            if not line.strip():
+                continue
+            values = {name: line[start:columns[i + 1][1] if i + 1 < len(columns) else len(line)].strip()
+                      for i, (name, start) in enumerate(columns)}
+            slot = values.get("DIMM")
+            if not slot:
+                raise ValueError("Missing DIMM identity")
+            # Fixed-width columns come from the same native header; keep their
+            # text too (including dual VDDQ rails), rather than invent a scalar.
+            temp = _reading("Temp " + values.get("Temp", ""), "Temp", "°C")
+            _identity_add(dimms, {"slot": slot, "fields": values, "temp_c": temp}, "slot", 512)
+    supplies = []
+    psu = "\n".join(lines("Power Supplies"))
+    for line in lines("Power Supplies"):
+        match = re.fullmatch(r"\s*(\S+)\s+(\d+(?:\.\d+)?)\s+W", line)
+        if match and match.group(1) != "Wall":
+            _identity_add(supplies, {"name": match.group(1), "watts": _number(float(match.group(2)), 0, 1e9)}, "name", 32)
+    coverage = re.search(r"(\d+) of (\d+) supplies reporting", psu)
+    age = re.search(r"Readings (\d+) s old", psu)
+    arrangement = re.search(r"Arrangement (.+)", psu)
+    system = {"psu_input_w_reported": _reading(psu, "Wall", "W"),
+              "supplies_reporting": int(coverage.group(1)) if coverage else None,
+              "supplies_present": int(coverage.group(2)) if coverage else None,
+              "coverage": "partial" if coverage and int(coverage.group(1)) < int(coverage.group(2)) else "not_reported",
+              "age_s_reported": int(age.group(1)) if age else None,
+              "arrangement": arrangement.group(1) if arrangement else None}
+    return {"sections": sections, "cpus": cpus, "dimms": dimms, "power_supplies": supplies, "system": system}
+
+
+def collect_details(binary="/usr/bin/sckocp", interval=1.0, timeout=20.0):
+    """Two fixed licensed read-only commands, sharing one bounded deadline.
+
+    No previous sample is cached. One failed source does not make the other
+    source current or valid. An authorization failure prevents further commands.
+    """
+    started = time.monotonic()
+    result = {"schema": DETAILS_SCHEMA, "parts": {}, "quality": "reported_validity_unknown"}
+    for operation in ("overview", "info"):
+        part = _envelope("invalid_configuration")
+        part["started_at"] = part["observed_at"]
+        try:
+            if (not isinstance(binary, str) or not os.path.isabs(binary) or len(binary) > 4096 or
+                    any(unicodedata.category(c) in ("Cc", "Cf", "Cs") for c in binary)):
+                raise ValueError("Invalid binary")
+            _number(interval, .05, 60)
+            _number(timeout, .1, 120)
+        except ValueError:
+            result["parts"][operation] = part
+            continue
+        status, data = "ok", None
+        if not sys.platform.startswith("linux"):
+            status = "unsupported_platform"
+        elif any(p["status"] in GATE_STATUS.values() for p in result["parts"].values()):
+            status = next(p["status"] for p in result["parts"].values() if p["status"] in GATE_STATUS.values())
+        else:
+            try:
+                remaining = timeout - (time.monotonic() - started)
+                if remaining <= .05:
+                    raise subprocess.TimeoutExpired(binary, timeout)
+                code, output = _capture(binary, interval, remaining, operation)
+                status = GATE_STATUS.get(code, "collection_failed") if code else "ok"
+                if not code:
+                    data = parse_console(output, operation)
+            except subprocess.TimeoutExpired:
+                status = "timeout"
+            except _OutputLimit:
+                status = "output_limit"
+            except UnsafeExecutable:
+                status = "unsafe_executable"
+            except PermissionError:
+                status = "permission_denied"
+            except OSError:
+                status = "unavailable"
+            except (ValueError, TypeError, OverflowError, RecursionError):
+                status = "invalid_data"
+        finished = _envelope(status, data if status == "ok" else None)
+        finished["started_at"] = part["started_at"]
+        result["parts"][operation] = finished
+    return result
+
+
+def validate_details(value):
+    """Re-parse allowlisted source sections; derived values cannot drift silently."""
+    _object(value, ("schema", "parts", "quality"))
+    if value["schema"] != DETAILS_SCHEMA or value["quality"] != "reported_validity_unknown":
+        raise ValueError("Invalid supplemental schema")
+    _object(value["parts"], ("overview", "info"))
+    for operation, part in value["parts"].items():
+        _object(part, ("schema", "status", "started_at", "observed_at", "data", "error"))
+        if part["schema"] != SCHEMA or part["status"] not in set(ERRORS) | {"ok"}:
+            raise ValueError("Invalid supplemental status")
+        for key in ("started_at", "observed_at"):
+            _string(part[key], 32)
+            datetime.datetime.strptime(part[key], "%Y-%m-%dT%H:%M:%S.%fZ")
+        if part["observed_at"] < part["started_at"]:
+            raise ValueError("Supplemental clock reversed")
+        if part["status"] != "ok":
+            if part["data"] is not None or part["error"] != ERRORS[part["status"]]:
+                raise ValueError("Failed supplemental reading contains data")
+            continue
+        if part["error"] is not None or not isinstance(part["data"], dict):
+            raise ValueError("Invalid supplemental payload")
+        sections = part["data"].get("sections")
+        _array(sections, len(INFO_SECTIONS), 1)
+        text = []
+        for section in sections:
+            _object(section, ("name", "title", "lines"))
+            _string(section["title"], 256)
+            _array(section["lines"], 512)
+            text.append("== " + section["title"] + " ==")
+            for line in section["lines"]:
+                _string(line, 2048)
+                text.append(line)
+        if parse_console("\n".join(text).encode("utf-8"), operation) != part["data"]:
+            raise ValueError("Supplemental source and derived fields differ")
 
 
 def main(argv=None):

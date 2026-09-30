@@ -15,7 +15,7 @@ import time
 
 from security import trusted_executable
 
-VERSION = "0.2.5"
+VERSION = "0.2.6"
 HELPER = "mon-sensors-finish.d"
 STATE = ".mon-sensors-finish"
 ENTRY = "mon-sensors-finish"

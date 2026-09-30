@@ -42,7 +42,7 @@ def main():
             prefix, bindir = path / 'api', path / 'bin'
             options = ['--prefix', prefix, '--bin-dir', bindir]
             old = Path('/packages/old-sckocp-api-0.3.1.run')
-            new = Path('/packages/sckocp-api-0.3.2.run')
+            new = Path('/packages/sckocp-api-0.4.0.run')
             run(['/bin/bash', old] + options)
             original = prefix / 'sckocp_api/__init__.py'
             before = original.read_bytes()
@@ -58,7 +58,7 @@ def main():
             assert original.read_bytes() == before
             installed = json.loads(run(['/bin/bash', new] + options, env=injected))
             assert Path(installed['backup']).is_dir() and Path(installed['command_backup']).is_file()
-            assert b'0.3.2' in run([bindir / 'sckocp-api', '--version'])
+            assert b'0.4.0' in run([bindir / 'sckocp-api', '--version'])
             summary['checks'].append('0.3.1 upgrades without native calls; archive environment options ignored; backup retained')
             current = original.read_bytes()
             original.write_text('open(' + repr(str(marker)) + ', "w").close()\n' + current.decode())
@@ -68,12 +68,12 @@ def main():
             assert json.loads(bad.stdout.decode())['status'] == 'integrity_error'
             assert not marker.exists()
             original.write_bytes(current)
-            summary['checks'].append('0.3.2 rejects replacement before package code executes')
+            summary['checks'].append('0.4.0 rejects replacement before package code executes')
             run(['/bin/bash', old] + options)
             assert b'0.3.1' in run([bindir / 'sckocp-api', '--version'])
             assert original.read_bytes() == before
             run(['/bin/bash', new] + options)
-            assert b'0.3.2' in run([bindir / 'sckocp-api', '--version'])
+            assert b'0.4.0' in run([bindir / 'sckocp-api', '--version'])
             summary['checks'].append('Trusted old installer rolls back new seven-file runtime; re-upgrade succeeds')
         summary['status'] = 'passed'
     finally:
