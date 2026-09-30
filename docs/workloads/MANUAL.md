@@ -1,4 +1,4 @@
-# OCRUN 压测工具套件 0.1.0
+# BITS 压测工具套件 0.1.0
 
 本套件用于 x86-64 新压测系统及显式绑定的测试节点。安装不启动压测、不启用服务、不修改现有 215/217/211/221，不删除原工具目录。控制端仍使用原任务协议。先在指定空闲节点验收。
 
@@ -17,62 +17,35 @@
 
 上游 URL、固定提交、SHA-256、许可与选择理由见 SOURCES.json。mprime 使用 mersenne.org/download 当前推荐的 30.19b20，不自动选镜像目录中较新的 31 系列。其他工具不进入本套件；已有旧节点未绑定本套件时保留原功能。
 
-此版本为工具套件 0.1.0 的第 2 个打包修订（RPM Release=2.el8、DEB revision=2），接口与安装目录不变。MLC 来自固定 SHA-256 的 Intel 3.13 官方归档，程序原字节、许可 PDF、Linux/redist.txt 和使用文档均保留。使用及后续分发受 Intel 原许可约束，OCRUN 不授予额外权利。SPEC 沿用用户原有授权材料。不会修改 sckocp 或激活状态。
+此版本为工具套件 0.1.0 的第 3 个打包修订（RPM Release=3.el8、DEB revision=3），以 BITS-o 包名交付，接口与安装目录不变。MLC 来自固定 SHA-256 的 Intel 3.13 官方归档，程序原字节、许可 PDF、Linux/redist.txt 和使用文档均保留。使用及后续分发受 Intel 原许可约束，OCRUN 不授予额外权利。SPEC 沿用用户原有授权材料。不会修改 sckocp 或激活状态。
 
 ## 安装与绑定（指定空闲测试节点，root）
 
 先核对交付目录的 SHA256SUMS。根据发行版选择一种：
 
 ```bash
-dnf install ./ocrun-workloads-0.1.0-2.el8.x86_64.rpm
+dnf install ./bits-o-workloads-0.1.0-3.el8.x86_64.rpm
 ```
 
 ```bash
-apt install ./ocrun-workloads_0.1.0-2_amd64.deb
+apt install ./bits-o-workloads_0.1.0-3_amd64.deb
 ```
 
 依赖由系统仓库解决；系统 Python 不替换。离线机器需同时准备发行版依赖包。程序在 /opt/ocrun-workloads/0.1.0，系统已有 stress 等命令不覆盖。EL 8 包基于 EL 8 构建；DEB 基于 Debian 11 构建。目标 EL8/9/10、Debian11/12/13、Ubuntu22.04/24.04/26.04；实际通过级别以交付验证记录为准。RHEL 需订阅及额外验收，不能据 Rocky/Alma 测试推定已验收 RHEL。
 
 ```bash
-ocrun-workloads check
+bits-o-workloads check
 ```
 
-安装交付的收尾组件 0.2.4 后绑定（原 OCRUN/插件/报表已安装）：
+完整 bits-node 已经内置工具库，无需再装独立工具包。旧系统在同一次安装中提供 bits-o-node 和 bits-o-workloads，随后 bits-o setup 自动完成采集、报表、收尾及工具绑定；不需要逐个安装 mon-sensors 组件。完整步骤见 [BITS 部署手册](../deployment/BITS.md)。
 
-```bash
-bash ./mon-sensors-finish-0.2.4.run --app /root/ocrun --check
-```
-
-```bash
-bash ./mon-sensors-finish-0.2.4.run --app /root/ocrun
-```
-
-```bash
-ocrun-workloads bind --app /root/ocrun --check
-```
-
-```bash
-ocrun-workloads bind --app /root/ocrun
-```
-
-插件 0.12.10 增加 cyclictest / UnixBench / 导入后 SPEC 的采样任务标签。已有插件 0.12.9 的节点使用下面的专用升级模式，保留既有调度、收尾和报表入口。预检不写文件；正式升级保留旧模块备份，拒绝覆盖手工修改的模块。
-
-```bash
-bash ./mon-sensors-plugin-0.12.10.run --app /root/ocrun --modules-only --check
-```
-
-```bash
-bash ./mon-sensors-plugin-0.12.10.run --app /root/ocrun --modules-only
-```
-
-全新原版 0.9.24a 节点尚未安装插件时才使用普通安装方式 `--app /root/ocrun --backend sckocp --adopt-original`，先 `--check`，再安装；之后安装报表 0.2.0、收尾 0.2.4。本交付为已有 OCRUN 节点提供工具更新，不替代完整操作系统部署或原始 OCRUN 节点安装。
-
+独立维护工具绑定时才使用 bits-o-workloads bind --app /root/ocrun --check，核对后去掉 --check。确认节点无活动任务且组件版本匹配后操作；不会启动压测。
 ## 包内 MLC 与 SPEC 导入
 
-MLC 已位于 `/opt/ocrun-workloads/0.1.0/mlc/mlc`；`ocrun-workloads list` 应显示版本 `3.13`、`delivery=included`、`package_revision=2`。不需要另行下载或导入。许可在 `licenses/mlc/`，使用文档在 `mlc/readme_mlc_v3.13.rst`。
+MLC 已位于 `/opt/ocrun-workloads/0.1.0/mlc/mlc`；`bits-o-workloads list` 应显示版本 `3.13`、`delivery=included`、`package_revision=2`。不需要另行下载或导入。许可在 `licenses/mlc/`，使用文档在 `mlc/readme_mlc_v3.13.rst`。
 
 ```bash
-ocrun-workloads list
+bits-o-workloads list
 ```
 
 ```bash
@@ -84,11 +57,11 @@ ocrun-workloads list
 SPEC：把原始 0730 文件复制到指定节点 /root/0730，预留至少 4 GiB 空间。只提取 cpu2017 子树，不执行包中脚本；内部链接转为同内容普通文件，属主规范为 root，拒绝外部链接。既有源包保持不动。
 
 ```bash
-ocrun-workloads import-spec --archive /root/0730 --check
+bits-o-workloads import-spec --archive /root/0730 --check
 ```
 
 ```bash
-ocrun-workloads import-spec --archive /root/0730
+bits-o-workloads import-spec --archive /root/0730
 ```
 
 ## 运行与结果解释
@@ -112,18 +85,18 @@ MLC 在部分机器上要求预留 2 MiB 大页；本次云端虚拟机要求每
 先结束当前批次并解决所有待收尾状态，停止该节点调度。工具安装不会替换原 bin 目录，可解除绑定回到旧工具：
 
 ```bash
-ocrun-workloads unbind --app /root/ocrun --check
+bits-o-workloads unbind --app /root/ocrun --check
 ```
 
 ```bash
-ocrun-workloads unbind --app /root/ocrun
+bits-o-workloads unbind --app /root/ocrun
 ```
 
-需要回退收尾组件时使用 0.2.4 安装器 --rollback（认证节点须先按认证连接手册回退）。RPM 使用 dnf remove ocrun-workloads，DEB 使用 apt remove ocrun-workloads。已导入的授权材料、批次输出和旧工具目录不会被卸载删除。检测到正在运行的负载时包管理脚本拒绝操作，不替用户杀进程。
+需要回退收尾组件时使用 0.2.4 安装器 --rollback（认证节点须先按认证连接手册回退）。RPM 使用 dnf remove bits-o-workloads，DEB 使用 apt remove bits-o-workloads。已导入的授权材料、批次输出和旧工具目录不会被卸载删除。检测到正在运行的负载时包管理脚本拒绝操作，不替用户杀进程。
 
 采集插件如需回到 0.12.9，在空闲节点上使用本次 0.12.10 安装器的 `--modules-only --source` 指向经校验解压的 0.12.9 包，再先预检、后安装；既有调度和报表入口保持原样。也可保留 0.12.10，其日志格式与 0.12.9 相同，仅扩展工具识别。不要用普通旧插件安装器覆盖后加的收尾或报表挂钩。
 
-从独立工具包 0.1.0-1 更新时，先在空闲节点解除旧绑定，再安装 0.1.0-2、升级收尾组件 0.2.4，最后显式重新绑定。绑定包含清单哈希，不能直接沿用旧绑定。回滚时同样先解除绑定，卸载新版并安装保留的旧包，按对应安装器回退收尾并重新绑定；不覆盖原工具和结果。完整原生节点包使用 DISTRIBUTION.md 的 detach 流程，不混装独立工具包。
+从独立工具包 0.1.0-1 更新时，先在空闲节点解除旧绑定，再安装 0.1.0-3、升级收尾组件 0.2.4，最后显式重新绑定。绑定包含清单哈希，不能直接沿用旧绑定。回滚时同样先解除绑定，卸载新版并安装保留的旧包，按对应安装器回退收尾并重新绑定；不覆盖原工具和结果。完整原生节点包使用 DISTRIBUTION.md 的 detach 流程，不混装独立工具包。
 
 原生包重装/升级会先核对包管理器记录；发现目录未受包管理或文件被修改时拒绝覆盖。包附 SHA-256 与源码/云端记录，本轮未配置 RPM/DEB 发布签名密钥。校验值用于确认交付内容一致，不能替代独立可信的下载渠道。
 
