@@ -1,5 +1,6 @@
 """Read-only publication audit, executed only in private cloud Linux."""
 import hashlib
+import gzip
 import io
 import json
 import os
@@ -133,7 +134,11 @@ def main():
     # Native MLC license is inspected, not executed.
     with tarfile.open(str(ROOT / 'workload_suite/vendor/mlc.tar.gz')) as bundle:
         pdf = OUT / 'MLC-LICENSE.pdf'
-        pdf.write_bytes(bundle.extractfile('Intel Memory Latency Tools Outbound License Agreement.pdf').read())
+        license_bytes = bundle.extractfile('Intel Memory Latency Tools Outbound License Agreement.pdf').read()
+        # Intel's pinned archive stores this .pdf member gzip-compressed.
+        if license_bytes.startswith(b'\x1f\x8b'):
+            license_bytes = gzip.decompress(license_bytes)
+        pdf.write_bytes(license_bytes)
         (OUT / 'MLC-REDIST.txt').write_bytes(bundle.extractfile('Linux/redist.txt').read())
     subprocess.run(['pdftotext', '-layout', str(pdf), str(OUT / 'MLC-LICENSE.txt')], check=True)
     tracked = subprocess.check_output(['git', 'ls-files', '-z']).decode().rstrip('\0').split('\0')
