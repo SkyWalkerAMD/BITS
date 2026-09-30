@@ -7,7 +7,7 @@ on:
         required: true
         type: string
       tag:
-        description: 'Existing version tag pinned to the tested source, e.g. v0.2.2'
+        description: 'Existing version tag pinned to the tested source, e.g. v0.2.4'
         required: true
         type: string
 permissions:
@@ -51,15 +51,28 @@ jobs:
           PY
       - name: Download the tested distribution without rebuilding it
         run: |
-          gh run download "$VERIFIED_RUN" --repo "$GITHUB_REPOSITORY" \
-            --name "ocrun-system-${RELEASE_TAG#v}-$VERIFIED_RUN" --dir verified
+          python3 - <<'PY'
+          import json, os, subprocess
+          repo, run, version = os.environ['GITHUB_REPOSITORY'], os.environ['VERIFIED_RUN'], os.environ['RELEASE_TAG'][1:]
+          pages = json.loads(subprocess.check_output(['gh', 'api', '--paginate', '--slurp',
+              'repos/' + repo + '/actions/runs/' + run + '/artifacts?per_page=100']))
+          allowed = {prefix + version + '-' + run for prefix in ('bits-system-', 'ocrun-system-')}
+          found = [a for page in pages for a in page['artifacts'] if a['name'] in allowed and not a['expired']]
+          if len(found) != 1:
+              raise SystemExit('Expected exactly one retained verified system artifact')
+          name = found[0]['name']
+          with open('verified-artifact.json', 'w') as stream:
+              json.dump({'name': name, 'directory': name.rsplit('-', 1)[0]}, stream)
+          subprocess.run(['gh', 'run', 'download', run, '--repo', repo,
+                          '--name', name, '--dir', 'verified'], check=True)
+          PY
       - name: Verify every file and prepare release attachments
         run: |
           python3 - <<'PY'
           import hashlib, json, os, pathlib, shutil, subprocess
           tag = os.environ['RELEASE_TAG']
           version = tag[1:]
-          root = pathlib.Path('verified') / ('ocrun-system-' + version)
+          root = pathlib.Path('verified') / json.loads(pathlib.Path('verified-artifact.json').read_text())['directory']
           pinned = json.loads(pathlib.Path('verified-run.json').read_text())['source_commit']
           meta = json.loads((root / 'RELEASE.json').read_text())
           if meta['source_commit'] != pinned or meta['version'] != version or len(meta['matrix']) != 12:
@@ -85,7 +98,7 @@ jobs:
           found = drafts()
           if not found:
               subprocess.run(['gh', 'release', 'create', tag, '--repo', repo, '--verify-tag', '--draft',
-                  '--title', 'OCRUN ' + tag[1:] + ' — 机器压测报告单与 RPM/DEB',
+                  '--title', 'BITS ' + tag[1:] + ' — 机器压测报告单与 RPM/DEB',
                   '--notes', '已验证制品的发布草稿；说明与附件核对完成后再公开。'] +
                   [str(p) for p in sorted(pathlib.Path('release-assets').iterdir())], check=True)
               found = drafts()
@@ -106,6 +119,7 @@ jobs:
           name: 'release-metadata-${{ inputs.tag }}'
           path: |
             verified-run.json
+            verified-artifact.json
             release-assets.json
             release-api.json
             release-assets/*.md

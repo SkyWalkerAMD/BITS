@@ -45,13 +45,23 @@ class Workloads(unittest.TestCase):
         step = self.root / (self.id().split('.')[-1] + '-' + name)
         spec = suite.prepare(spec, step)
         records = []
+        labels = []
         def record(value):
             records.append(dict(value))
-            if value['execution'] == 'running' and name.startswith('p95-no_m'):
-                self.assertEqual('P95-M' + name[-1], detect_task())
-        result = workload.execute(spec, step / 'output.log', record)
+        def observe():
+            if name.startswith('p95-no_m'):
+                labels.append(detect_task())
+        result = workload.execute(spec, step / 'output.log', record, health=observe)
         self.assertTrue(result['cleanup_confirmed'])
         self.assertEqual([], workload.members(result['process']['session']))
+        if name.startswith('p95-no_m'):
+            # /proc/cmdline can be momentarily empty while exec publishes the
+            # process image. Require recognition during its supervised run,
+            # not synchronously in the spawn callback; wrong modes still fail.
+            expected = 'P95-M' + name[-1]
+            self.assertIn(expected, labels)
+            self.assertTrue(set(labels).issubset({expected, 'IDIE'}), labels)
+            result['observed_task_labels'] = labels
         self.details[name] = result
         return result, step
 
