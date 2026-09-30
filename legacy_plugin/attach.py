@@ -336,6 +336,21 @@ def rollback(cfg, check_only=False):
         meta = journal['before']['py_metadata']
         os.chown(str(py), meta['uid'], meta['gid']); py.chmod(meta['mode'])
         journal.update(status='rolled_back')
+        private_paths = [str(Path(cfg['app']) / name) for name in ('.bits-collector', '.bits-collector.d')]
+        if all(journal['before'].get(name) is None for name in private_paths):
+            # Published 0.1.1 compares the whole before-inventory on reattach.
+            # Keep the complete BITS audit, then omit only absent new paths from
+            # the compatibility baseline. No existing private worker is hidden.
+            full = (json.dumps(journal, sort_keys=True, indent=2) + '\n').encode('utf-8')
+            retained = state / ('bits-rollback.' + common.digest(full)[:16] + '.json')
+            if exists(retained):
+                if common.read(retained, limit=64 * 1024 ** 2, private=True) != full:
+                    raise ValueError('Rollback audit collision; retained for inspection')
+            else:
+                common.write(retained, full)
+            for name in private_paths:
+                journal['before'].pop(name, None)
+            journal['complete_rollback_audit'] = retained.name
         common.save(path, journal)
         return {'status': 'rolled_back', 'logs_and_history_retained': True,
                 'old_scheduler_started': False, 'backup': str(path)}

@@ -6,7 +6,10 @@ mode=${1:?build or runtime}
 if command -v dnf >/dev/null; then
     extra=()
     if [ "$mode" = build ]; then extra=(gcc gcc-c++ make autoconf automake rpm-build numactl-devel); fi
-    dnf -y --setopt=install_weak_deps=False install python3 tar gzip ca-certificates perl make which findutils util-linux gmp numactl-libs libatomic procps-ng "${extra[@]}"
+    # Mirrors can expose a newer AppStream compiler before its matching BaseOS
+    # runtime. Require a complete dependency solution, allowing the previous
+    # available version; never skip a missing build dependency or GPG checks.
+    dnf -y --nobest --setopt=install_weak_deps=False install python3 tar gzip ca-certificates perl make which findutils util-linux gmp numactl-libs libatomic procps-ng "${extra[@]}"
 else
     export DEBIAN_FRONTEND=noninteractive
     apt-get update
