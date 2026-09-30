@@ -159,7 +159,8 @@ def main():
             raise ValueError('Private parent commit: ' + commit)
     report = {'status': 'inventory_passed', 'source_commit': os.environ['GITHUB_SHA'], 'release_bytes_unchanged': True,
               'source_and_history_private_paths': 'absent', 'counts': COUNTS,
-              'public_mlc_redistribution': 'unresolved' if license_issue else 'not_assessed',
+              'vendor_license_file_issue': license_issue,
+              'public_mlc_redistribution': 'publisher confirmed separate authorization on 2026-09-30; see publication notice',
               'checked_release_archives': archives, 'attachments': additions,
               'scope': 'source/history paths and recursive package inventory; not an anti-reverse-engineering guarantee'}
     (OUT / 'AUDIT.json').write_text(json.dumps(report, indent=2) + '\n')

@@ -1,5 +1,6 @@
 """Cloud-only repository move checks, independent of package construction."""
 import json
+import hashlib
 import os
 from pathlib import Path
 import re
@@ -8,7 +9,7 @@ import sys
 from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
-BASELINE = 'f56965cb22eb592a934b74e13fae7637fb5c2783'
+BASELINE = 'ci/preserved-inputs.json'
 
 
 def git(*args):
@@ -64,21 +65,14 @@ def check():
             if not (ROOT / relative).is_file():
                 errors.append(name + ': missing fixture ' + relative)
 
-    # Directory cleanup must not quietly change native implementation, fixed
-    # tool archives or the scripts used to recognize original OCRUN installations.
+    # The public tree has a new history. Use reviewed byte hashes rather than
+    # fetching old private Git objects just to check compatibility inputs.
     preserved = []
-    originals = git('ls-tree', '-r', '--name-only', BASELINE).decode().splitlines()
-    for old in originals:
-        if old.startswith('integrations/sckocp') and not old.endswith('.md'):
-            new = old.replace('integrations/', 'research/', 1)
-        elif (old.startswith('integrations/mon-sensors/') and not old.endswith('.md') or
-              old.startswith('workload_suite/vendor/') and old.endswith('.tar.gz')):
-            new = old
-        else:
-            continue
-        if not (ROOT / new).is_file() or git('show', BASELINE + ':' + old) != (ROOT / new).read_bytes():
-            errors.append('Baseline content changed: ' + new)
-        preserved.append(new)
+    originals = json.loads((ROOT / BASELINE).read_text())['files']
+    for name, digest in originals.items():
+        if not (ROOT / name).is_file() or hashlib.sha256((ROOT / name).read_bytes()).hexdigest() != digest:
+            errors.append('Baseline content changed: ' + name)
+        preserved.append(name)
     if errors:
         raise SystemExit('\n'.join(errors))
     output = ROOT / '.layout-results'

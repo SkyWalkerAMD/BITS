@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | 新服务器部署整套系统 | [OCRUN 0.2.3：管理端与节点 RPM/DEB](https://github.com/SkyWalkerAMD/ocrun-next/releases/tag/v0.2.3) | [完整系统部署](docs/deployment/DISTRIBUTION.md) |
 | 旧 OCRUN 增加功能，保留 ws/occt | [ocrun-plugin 0.1.1：控制端与节点 RPM/DEB](https://github.com/SkyWalkerAMD/ocrun-next/releases/tag/ocrun-plugin-v0.1.1) | [旧系统增强套件](docs/plugins/OCRUN-PLUGIN.md) |
-| 第三方程序读取本机监控 | sckocp-api 0.3.2，套件内另附独立安装器 | [接口操作手册](docs/monitoring/SCKOCP-API-操作手册.md) |
+| 第三方程序读取本机监控 | [sckocp-api 0.3.2 独立安装器](https://github.com/SkyWalkerAMD/ocrun-next/releases/download/v0.2.3/sckocp-api-0.3.2.run) | [接口操作手册](docs/monitoring/SCKOCP-API-操作手册.md) |
 
 节点工具包括 stress 1.0.7、stress-ng 0.22.01、mprime 30.19b20（m1/m2/m4）、MLC 3.13、MBW 2.0、cyclictest 2.10、UnixBench 6.0.1。SPEC CPU2017 使用用户持有的原授权文件。[工具版本与命令](docs/workloads/MANUAL.md)。
 
@@ -34,7 +34,7 @@
 | `tests/`、`ci/`、`.github/workflows/` | 回归、Linux 云端夹具、自动化入口 |
 | `integrations/` | 原 OCRUN 兼容基线 |
 | `docs/` | 使用文档；历史材料在 `docs/archive/` |
-| `research/` | 私有原生参考源码与安全候选，不属于客户交付 |
+| 私有研究 | 原生 sckocp 源码和安全研究保留在独立私有仓库，不在公开历史中 |
 
 Python 导入路径和对外命令保持稳定；根目录构建、安装和命令入口用于兼容已有离线包。[目录约定与迁移对照](docs/development/REPOSITORY.md)。
 
@@ -46,6 +46,6 @@ Python 导入路径和对外命令保持稳定；根目录构建、安装和命�
 - v1 未提供的有效性和读数年龄标为未知，缺失字段为空。
 - 云端模拟传感器不等于硬件验收。构建和测试只在授权的 GitHub Actions Linux 执行。
 
-客户交付使用 Releases 上传的安装包或白名单发行归档；不要分发旧源码附件或自动生成的 Source code。私有研究、凭据和本地 `drafts/` 不进入客户包。
+优先从 [RPM/DEB 下载索引](docs/releases/DOWNLOADS.md) 选择安装包。公开仓库使用新的、经过审阅的提交历史；原仓库及旧附件留在私有归档。当前自动生成的 Source code 只含公开快照，安装请使用 Release 的 RPM/DEB。详见[公开范围与版本追溯](docs/releases/PUBLICATION.md)。
 
 [早期 Agent](docs/archive/agent-0.12.8/README.md) 使用另一套任务协议。根目录 `install-server.sh`、`install-client.sh` 是其兼容入口，不用于当前完整系统或旧系统套件部署。

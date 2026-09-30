@@ -1,6 +1,6 @@
 # API 0.3.1 / 插件 0.12.8：离线自动安装
 
-2026-09-26，代码 `f96702028a517e06ce5ac89e7066d75a2b000db5`；[执行记录](https://github.com/SkyWalkerAMD/ocrun-next/actions/runs/36232929155)。八个启用作业全部成功，发行版安装矩阵按条件跳过。
+2026-09-26，代码 `f96702028a517e06ce5ac89e7066d75a2b000db5`；[执行记录](https://github.com/SkyWalkerAMD/ocrun-next-private-archive/actions/runs/36232929155)。八个启用作业全部成功，发行版安装矩阵按条件跳过。
 
 252 项自动化测试、实际 Python 3.6 的 146 项接口及采集测试、13 项真实自动安装检查、41 项旧命令检查、35 项原生接口检查、14 项原版 1.2.0 检查和 5 项客户端安装回退检查通过。
 
@@ -13,7 +13,7 @@
 ---
 # API 0.3.0 / 插件 0.12.7：本地接口安全加固
 
-2026-09-26，代码 `83829569817ed7d58a42976e4f9ea50594ae90e1`；[执行记录](https://github.com/SkyWalkerAMD/ocrun-next/actions/runs/36231789630)。七个启用作业全部成功，发行版安装矩阵按条件跳过。
+2026-09-26，代码 `83829569817ed7d58a42976e4f9ea50594ae90e1`；[执行记录](https://github.com/SkyWalkerAMD/ocrun-next-private-archive/actions/runs/36231789630)。七个启用作业全部成功，发行版安装矩阵按条件跳过。
 
 212 项自动化测试、实际 Python 3.6 的 106 项接口及采集测试、41 项独立包/旧命令检查、原有 35 项原生检查、新增 14 项原版 1.2.0 检查及 5 项客户端安装回退检查通过。包含固定描述符执行、可写路径拒绝、路径替换竞态、JSON 解析上限、Unicode 和日志权限检查。
 
@@ -26,7 +26,7 @@
 ---
 # 0.12.6：独立插件命令与三包分发
 
-2026-09-26，代码 `8147c080443a8c73c47b4720ce7996b0749d5a45`；[执行记录](https://github.com/SkyWalkerAMD/ocrun-next/actions/runs/36229569089)。六个启用作业全部成功，发行版矩阵按条件跳过。
+2026-09-26，代码 `8147c080443a8c73c47b4720ce7996b0749d5a45`；[执行记录](https://github.com/SkyWalkerAMD/ocrun-next-private-archive/actions/runs/36229569089)。六个启用作业全部成功，发行版矩阵按条件跳过。
 
 168 项自动化测试、实际 Python 3.6 的 62 项接口及采集测试、38 项独立包/旧命令检查、35 项原生/接口检查和 5 项客户端安装回退检查通过。新命令 `mon-sensors-plugin` 使用独立模块，插件包不包含 `ocrun/`；原命令来源选择、旧接入块迁移、入口冲突保护、精确停止和安装失败恢复通过。
 
@@ -39,7 +39,7 @@
 ---
 # 0.12.5：0730 设备采集端使用独立原版接口
 
-2026-09-22，代码 `845d3aeceff47ec9d3cea316ba04202fbf381965`；[执行记录](https://github.com/SkyWalkerAMD/ocrun-next/actions/runs/35711995764)。六个启用作业全部成功，发行版矩阵按条件跳过。
+2026-09-22，代码 `845d3aeceff47ec9d3cea316ba04202fbf381965`；[执行记录](https://github.com/SkyWalkerAMD/ocrun-next-private-archive/actions/runs/35711995764)。六个启用作业全部成功，发行版矩阵按条件跳过。
 
 168 项自动化测试、实际 Python 3.6 的 62 项接口及采集测试、32 项独立包/旧命令集成检查、35 项原生/接口检查通过。原版 sckocp → 公共 API → 0730 采集端已验证；过期真实临时租约不输出旧读数。设备持久来源选择、旧接入块升级和配置写入失败恢复通过。
 
@@ -50,7 +50,7 @@
 ---
 # sckocp-api 0.2.0：原版零修改
 
-2026-09-22，代码 `d28410549a1f4d573a9b3e592b0ca369997bee2a`；[执行记录](https://github.com/SkyWalkerAMD/ocrun-next/actions/runs/35708473651)。六个启用作业全部成功，发行版矩阵按条件跳过。配套运行包版本为 OCRUN 0.12.4。
+2026-09-22，代码 `d28410549a1f4d573a9b3e592b0ca369997bee2a`；[执行记录](https://github.com/SkyWalkerAMD/ocrun-next-private-archive/actions/runs/35708473651)。六个启用作业全部成功，发行版矩阵按条件跳过。配套运行包版本为 OCRUN 0.12.4。
 
 163 项自动化测试、实际 Python 3.6.15 的 57 项接口测试、25 项独立包/旧命令检查和 33 项原生/接口检查通过。云端恢复原始监控源码后重新编译，验证默认 CLI、SDK 和示例可读取原版 v1；授权缺失或过期、平台凭证缺失均不返回数据。原生可执行文件和持久模式在调用前后保持不变。
 
@@ -61,7 +61,7 @@
 ---
 # sckocp-api 0.1.0：通用本地接口
 
-2026-09-22，代码 `d966348a6c1f1f23166ec25216ecf8773b60af8c`；[执行记录](https://github.com/SkyWalkerAMD/ocrun-next/actions/runs/35701558894)。配套 OCRUN 版本为 0.12.3。六个启用作业全部成功，发行版矩阵按条件跳过。
+2026-09-22，代码 `d966348a6c1f1f23166ec25216ecf8773b60af8c`；[执行记录](https://github.com/SkyWalkerAMD/ocrun-next-private-archive/actions/runs/35701558894)。配套 OCRUN 版本为 0.12.3。六个启用作业全部成功，发行版矩阵按条件跳过。
 
 159 项自动化测试、实际 Python 3.6.15 的 53 项接口测试、25 项独立包及原命令集成检查、28 项原生接口检查和客户端安装回退 5 项均通过。公共 CLI/Python SDK 在没有 ocrun 的环境中运行；使用真实原生激活代码验证了成功读取、租约过期后拒绝、平台凭证缺失拒绝及恢复授权后重新读取。
 
@@ -72,7 +72,7 @@
 ---
 # 0.12.2：独立接口与选择性接入
 
-2026-09-22，代码 `86db8e397f23a2bc2d606ea3b5f10fbd7e392bad`；[执行记录](https://github.com/SkyWalkerAMD/ocrun-next/actions/runs/35696871242)。六个启用作业全部成功，发行版矩阵按条件跳过。
+2026-09-22，代码 `86db8e397f23a2bc2d606ea3b5f10fbd7e392bad`；[执行记录](https://github.com/SkyWalkerAMD/ocrun-next-private-archive/actions/runs/35696871242)。六个启用作业全部成功，发行版矩阵按条件跳过。
 
 独立接口包可单独返回 JSON；原 `mon-sensors` 默认保留原采集方式，显式选择后才调用 sckocp。153 项自动化测试、实际 Python 3.6.15 的 47 项接口测试、20 项独立接口和可选接入检查、25 项原生接口检查及客户端安装回退 5 项均通过。旧适配器升级、启用后再停用、未启用时不调用已安装的 sckocp 都经过云端实际命令验证。
 
@@ -83,7 +83,7 @@
 ---
 # 0.12.1：接入原来的 mon-sensors 命令
 
-2026-09-22，代码 `767269295c5a4de7d16a9a9846cdc984a74ae39a`；[执行记录](https://github.com/SkyWalkerAMD/ocrun-next/actions/runs/35695188926)。六个启用作业全部成功，发行版矩阵按条件跳过。
+2026-09-22，代码 `767269295c5a4de7d16a9a9846cdc984a74ae39a`；[执行记录](https://github.com/SkyWalkerAMD/ocrun-next-private-archive/actions/runs/35695188926)。六个启用作业全部成功，发行版矩阵按条件跳过。
 
 - 153 项自动化测试通过，0 失败、0 错误、0 跳过；实际 Python 3.6.15 的 47 项接口和旧命令测试通过。
 - 原 `oct mon → mon-sensors → sckocp → 日志 → oct killm`、原分析器及 `oct analyse` 的 Excel 导出共 15 项检查通过。
@@ -105,7 +105,7 @@
 
 ## 2026-09-22：最终云端验证
 
-提交 `2dbfabe60f720de4deaf296d77dade93670d887f`；[执行记录](https://github.com/SkyWalkerAMD/ocrun-next/actions/runs/35682151074)。
+提交 `2dbfabe60f720de4deaf296d77dade93670d887f`；[执行记录](https://github.com/SkyWalkerAMD/ocrun-next-private-archive/actions/runs/35682151074)。
 
 - 106 项测试全部通过，0 失败、0 错误、0 跳过；6 个 Shell 脚本语法、Python 3.6 语法、运行包构建和校验通过。
 - 真实 Ubuntu 22.04 Redis/nginx/rsync/systemd 服务联调、超限预检、排队/运行取消、断网和重启恢复、日志校验回执通过。
@@ -127,7 +127,7 @@ Ubuntu 22.04.5 LTS、内核 `6.8.0-1064-azure`、Python 3.11.16。已验证提�
 - **44 项测试全部通过，0 失败，0 跳过**；Linux 文件锁和进程组测试实际执行并通过。
 - 5 个 Shell 脚本语法、运行代码的 Python 3.6 语法兼容性、运行包构建及校验通过。
 - 本次测试、依赖安装和构建都在 GitHub 托管的云端虚拟机执行，本机仅编辑、上传和读取结果。
-- [云端执行记录](https://github.com/SkyWalkerAMD/ocrun-next/actions/runs/35679181720)；环境版本、产物校验和和验证边界详见 [CLOUD-RESULTS.md](CLOUD-RESULTS.md)。
+- [云端执行记录](https://github.com/SkyWalkerAMD/ocrun-next-private-archive/actions/runs/35679181720)；环境版本、产物校验和和验证边界详见 [CLOUD-RESULTS.md](CLOUD-RESULTS.md)。
 
 仍未验证目标发行版的完整部署、真实 Redis/systemd 服务、实际主板读数及第三方工具二进制兼容性。
 

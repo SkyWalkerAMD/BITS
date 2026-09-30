@@ -4,7 +4,7 @@
 
 ## 文件归属
 
-产品代码放对应组件；使用说明放 `docs/`；历史记录放 `docs/archive/`。云端夹具放 `ci/`，自动化入口留在 `.github/workflows/`。私有原生源码放 `research/`，原 OCRUN 兼容基线放 `integrations/mon-sensors/`。第三方工具固定来源、许可和哈希留在 `workload_suite/`，不加入重复二进制。
+产品代码放对应组件；使用说明放 `docs/`；历史记录放 `docs/archive/`。云端夹具放 `ci/`，自动化入口留在 `.github/workflows/`。私有原生源码仅留在独立私有仓库，禁止合入此公开仓库；原 OCRUN 兼容基线放 `integrations/mon-sensors/`。第三方工具固定来源、许可和哈希留在 `workload_suite/`，不加入重复二进制。
 
 ## 验证
 
@@ -18,4 +18,4 @@
 
 客户源码严格按 `distribution/customer-sources.json` 导出。新生产文件需同步审阅；禁止整仓库归档、通配目录、链接、凭据及 `research/`、`ci/`、`drafts/` 进入客户包。调整文档位置时保留包内兼容文件名。
 
-`ci/archive/` 是停用发布流程的追溯材料，不恢复成新的客户发行入口。
+依赖旧提交的完整矩阵、历史兼容夹具和原生安全研究继续在私有归档执行；公开镜像的 Actions 默认关闭。不得通过合并旧分支把原生实现重新带入公开历史。发布前运行附件清单检查，完整系统的七个独立组件都必须出现在 Release 下载列表。

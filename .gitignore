@@ -55,3 +55,8 @@ release-assets/
 .layout-results/
 layout-input/
 legacy-release-input/
+
+research/
+audit-input/
+audit-assets/
+.public-audit/

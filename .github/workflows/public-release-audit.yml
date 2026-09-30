@@ -22,6 +22,8 @@ jobs:
           gh release download v0.2.3 --repo "$GITHUB_REPOSITORY" --pattern 'ocrun-system-0.2.3.tar.gz*' --dir audit-input
           gh release download ocrun-plugin-v0.1.1 --repo "$GITHUB_REPOSITORY" --pattern 'ocrun-plugin-0.1.1.tar.gz*' --dir audit-input
           python3 ci/public_release_audit.py
+          python3 -m unittest ci.test_release_assets distribution.test_source_export -v
+          python3 ci/repository_layout.py
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with: {name: 'public-release-audit-${{ github.run_id }}', path: .public-audit/, include-hidden-files: true, retention-days: 90}

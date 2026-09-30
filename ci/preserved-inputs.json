@@ -1,0 +1,21 @@
+{
+  "schema": "ocrun-public-preserved-inputs-v1",
+  "original_commit": "f56965cb22eb592a934b74e13fae7637fb5c2783",
+  "files": {
+    "integrations/mon-sensors/upstream-0.9.24a/mon-analyse-log.py": "f7cd72229232d9b30098e3a343997d0c302ede48d59cd46afa66490a94473d0f",
+    "integrations/mon-sensors/upstream-0.9.24a/mon-sensors": "0b3d54dad2b0349e0f9a7532fac78880771b7f90eb3cdafd759ab5c5feac6b2b",
+    "integrations/mon-sensors/upstream-0.9.24a/ocb": "f5e9e73e84028f4b9afd7dcf6db93995ffb083f7cc4735f73e50ebd011f452e4",
+    "integrations/mon-sensors/upstream-0.9.24a/oct": "badee4536510e3da547440068c1b4ced0e970c63f1b5679df1d43c7c6e271c15",
+    "integrations/mon-sensors/upstream/mon-analyse-log.py": "f7cd72229232d9b30098e3a343997d0c302ede48d59cd46afa66490a94473d0f",
+    "integrations/mon-sensors/upstream/mon-sensors": "b5edf8aa6968cf651361b239d766f6fc4d1e54b558873debe2d2f19fac14de0a",
+    "integrations/mon-sensors/upstream/ocb": "be66b5178081f700534da8724fc0a00960338353c5a269046469bdb36b221e93",
+    "integrations/mon-sensors/upstream/oct": "15dbbcd950b1d4b2eec15639f63187a32f87714f10fbd9aaf9ada5f899331f99",
+    "workload_suite/vendor/cyclictest.tar.gz": "7a82b7234f42a74fcbcfe4fe7e339cc9a7e01b3bf821281dc6e67db22202514b",
+    "workload_suite/vendor/mbw.tar.gz": "798a77ef9a9198841efe27542f5604341a4c634980e12157921e1c83c66798ad",
+    "workload_suite/vendor/mlc.tar.gz": "a8537e8ff3fad626d75a383fabc224ccc4cc98a0111c9989f7fb26b639f12019",
+    "workload_suite/vendor/mprime.tar.gz": "4ce2377e03deb4cf189523136e26401ba08f67857a128e420dd030d00cdca601",
+    "workload_suite/vendor/stress-ng.tar.gz": "dedd6c8b38f74f007718851503fd27e84ebdd90b811812393ab77d4fe5c0a7dd",
+    "workload_suite/vendor/stress.tar.gz": "80d966622c4e8d0981f64f56c06a191ef7c9a32c2660b3b957ef7f014dfd78cd",
+    "workload_suite/vendor/unixbench.tar.gz": "6ecd90666e88fa475b05ac9d2bf761bd70833871ba6cf0b21a94739fd6944ebb"
+  }
+}
