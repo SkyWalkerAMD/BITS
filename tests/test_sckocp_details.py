@@ -101,14 +101,16 @@ class DetailsTests(unittest.TestCase):
         self.assertEqual(490, result['parts']['overview']['data']['system']['psu_input_w_reported'])
         self.assertIsNone(result['parts']['overview']['data']['system']['age_s_reported'])
 
-    def test_every_info_timing_and_platform_line_retained(self):
+    def test_primary_only_and_all_other_platform_configuration_retained(self):
         data = supplement()['parts']['info']['data']
         self.assertEqual(8, data['cpus'][0]['stepping'])
         self.assertEqual([30, 31, 32, 33], [d['temp_c'] for d in data['dimms']])
         content = '\n'.join(line for section in data['sections'] for line in section['lines'])
         for line in INFO.splitlines():
-            if not line.startswith('=='):
+            if not line.startswith('==') and not any(group in line for group in ('Refresh', 'Secondary')):
                 self.assertIn(line, content)
+        for forbidden in ('tRFC', 'tREFI', 'tFAW', 'tRAStoCAS'):
+            self.assertNotIn(forbidden, json.dumps(data))
         self.assertEqual([260, 240], [s['watts'] for s in data['power_supplies']])
 
     def test_multi_socket_shared_power_is_not_summed(self):
@@ -136,7 +138,7 @@ class DetailsTests(unittest.TestCase):
         self.assertEqual([], result['parts']['info']['data']['dimms'])
         rendered = report_sheet.details_configuration({'last_info': result['parts']['info'], 'first_info': result['parts']['info']})
         self.assertIn('未提供', rendered)
-        self.assertIn('needs sckocp mode rw', rendered)
+        self.assertIn('Primary only', rendered)
 
     def test_license_failure_does_not_run_info_or_leak_diagnostics(self):
         with mock.patch.object(provider, '_capture', return_value=(10, b'private diagnostic')) as capture:
@@ -193,8 +195,9 @@ class DetailsTests(unittest.TestCase):
         table = rendered.split('CPU编号')[1].split('</table>')[0]
         positions = [table.index('<td>' + str(i) + '</td>') for i in (0, 1, 2, 3, 9, 10, 11, 23)]
         self.assertEqual(sorted(positions), positions)
-        for value in ('Step 8', 'VCCIN', 'TjMax', 'PSU In', '内存 DRAM', 'tRAStoCAS 96', 'IOMMU VT-d off', 'CPU0_DIMM_F1'):
+        for value in ('Step 8', 'VCCIN', 'TjMax', 'PSU In', '内存 DRAM', '32-32-31-65', 'IOMMU VT-d off', 'CPU0_DIMM_F1'):
             self.assertIn(value, rendered)
+        self.assertNotIn('tRAStoCAS', rendered)
         self.assertNotIn('<script', rendered)
 
     def test_config_changes_retained_and_html_escaped(self):
@@ -216,6 +219,21 @@ class DetailsTests(unittest.TestCase):
         result = state.value()
         self.assertEqual(10000, result['system']['overview_psu_w']['count'])
         self.assertLess(len(json.dumps(result)), 40000)
+
+    def test_timing_filter_discards_unlocked_groups_before_output_buffer(self):
+        expected = provider.parse_console(INFO.encode(), 'info')
+        for size in (1, 3, 100, 65536):
+            stream = provider._PrimaryInfoFilter()
+            raw = INFO.encode()
+            result = b''.join(stream.feed(raw[i:i + size]) for i in range(0, len(raw), size)) + stream.feed(b'', final=True)
+            for forbidden in (b'tRFC', b'tREFI', b'tFAW', b'tRAStoCAS'):
+                self.assertNotIn(forbidden, result)
+            self.assertEqual(expected, provider.parse_console(result, 'info'))
+        poisoned = supplement()
+        section = next(s for s in poisoned['parts']['info']['data']['sections'] if s['name'] == 'Memory Timings')
+        section['lines'].append('      Refresh tRFC 123')
+        with self.assertRaises(ValueError):
+            provider.validate_details(poisoned)
 
 
 if __name__ == '__main__':

@@ -32,7 +32,7 @@ SOCKET_DETAILS = (('pkg_w', 'CPU Pkg', 'W'), ('dram_w', '内存 DRAM 功耗', 'W
 INFO_TITLES = (('Platform', '平台 Platform'), ('CPU', 'CPU 型号、步进与微码'),
                ('Turbo Ratio Limits', 'Turbo 倍频限制'), ('Thermal', '温控配置'),
                ('Power Limits', '功耗限制'), ('Power Supplies', '电源配置与快照'),
-               ('Memory', '内存条配置与快照'), ('Memory Timings', '完整内存时序'),
+               ('Memory', '内存条配置与快照'), ('Memory Timings', '内存 Primary 时序'),
                ('Cache', '缓存'), ('Per-CCD Temperature', 'CCD 温度（平台相关）'),
                ('SVI Rails', 'SVI 电源轨（平台相关）'))
 
@@ -205,7 +205,7 @@ class DetailsStatistics:
                 'system': {name: m.value() for name, m in self.system.items()},
                 'quality': 'reported_validity_unknown',
                 'sampling': 'separate licensed mon/info calls; own capture times; no carry-forward; not synchronized with base JSON',
-                'timings_scope': 'all timing lines emitted by original info; unsupported or gated fields remain unavailable'}
+                'timings_scope': 'primary_only; other timing groups are never exported, including on an rmal-unlocked host'}
 
 
 class Statistics:
@@ -314,7 +314,7 @@ def make_record(state, statistics):
     issues = []
     extra = metrics['details']
     if not extra['last_info']:
-        issues.append('未取得本批次 sckocp info 扩展配置；CPU步进、平台、内存条及完整时序标为未提供。历史数据不以当前配置补填。')
+        issues.append('未取得本批次 sckocp info 扩展配置；CPU步进、平台、内存条及 Primary 时序标为未提供。历史数据不以当前配置补填。')
     for source, counts in extra['status_counts'].items():
         failures = {k: v for k, v in counts.items() if k != 'ok'}
         if failures:
@@ -369,7 +369,7 @@ def table(headers, rows):
 
 def details_configuration(extra):
     parts = ['<h3>sckocp 平台、CPU 与内存配置</h3><p class="subtle">以下来自本批次内的原版 info 调用。'
-             '全部已输出时序原样收录；未输出的参数标为未提供，不声称覆盖 BIOS 的所有时序。'
+             '时序固定仅收录 Primary 组；其他时序受接口策略限制，不因本机 rmal 解锁而开放。'
              '不会切换读写模式或解锁隐藏功能。各次原始快照保存在 JSONL。</p>']
     latest = extra.get('last_info')
     if latest:
@@ -399,9 +399,7 @@ def details_configuration(extra):
                 parts.append('<p class="subtle">' + esc(section['title']) + '</p>')
             parts.append('<pre class="native-info">' + esc(content or '未提供（原版未输出、采集失败或历史未采集）') + '</pre>')
             if name == 'Memory Timings':
-                parts.append(table(['时序组', '收录情况'], [[group, '完整原文见上方' if re.search(r'\b' + group + r'\b', content) else '未提供']
-                             for group in ('Primary', 'Refresh', 'Secondary', 'Turnaround', 'Write')]))
-                parts.append('<p class="subtle">其他未出现在本快照中的时序项目：原版未提供。未提供值不补零。</p>')
+                parts.append('<p class="subtle">Primary 包含原版在该组输出的主时序及 tCWL / tRC（若有）。其他组禁止通过接口导出；未提供值不补零。</p>')
     return ''.join(parts)
 
 

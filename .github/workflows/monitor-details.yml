@@ -24,6 +24,7 @@ jobs:
       - name: API, collector and report tests in disposable Linux
         env: {BASE_IMAGE: '${{ matrix.image }}'}
         run: |
+          set -euo pipefail
           mkdir -p .details-results
           docker build --build-arg BASE_IMAGE="$BASE_IMAGE" -t monitor-details -f ci/api-security.Dockerfile .
           docker image inspect monitor-details --format '{{.Id}}' > .details-results/image.txt

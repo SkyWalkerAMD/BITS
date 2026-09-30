@@ -313,6 +313,7 @@ def _capture(binary, interval, timeout, native_format="v2"):
         selector.close()
         raise
     output = bytearray()
+    info_filter = _PrimaryInfoFilter() if native_format == "info" else None
     counts = {"stdout": 0, "stderr": 0}
     completed = False
     try:
@@ -325,6 +326,8 @@ def _capture(binary, interval, timeout, native_format="v2"):
             for key, _ in selector.select(remaining):
                 chunk = os.read(key.fileobj.fileno(), 65536)
                 if not chunk:
+                    if key.data == "stdout" and info_filter is not None:
+                        output.extend(info_filter.feed(b"", final=True))
                     selector.unregister(key.fileobj)
                     continue
                 stream = key.data
@@ -332,7 +335,7 @@ def _capture(binary, interval, timeout, native_format="v2"):
                 if counts[stream] > (STDOUT_LIMIT if stream == "stdout" else STDERR_LIMIT):
                     raise _OutputLimit()
                 if stream == "stdout":
-                    output.extend(chunk)
+                    output.extend(info_filter.feed(chunk) if info_filter is not None else chunk)
         # Observe exit without reaping. Keeping this child (even as a zombie)
         # pins its PID/session ID until all native helper groups are cleaned;
         # an unrelated process cannot acquire that ID before cleanup signals.
@@ -476,6 +479,38 @@ SOCKET_FIELDS = {"temp_max_c": r"Temp Max", "tjmax_c": r"TjMax",
 SOCKET_UNITS = {"temp_max_c": "°C", "tjmax_c": "°C", "vccin_v": "V", "vid_v": "V",
                 "core_mhz": "MHz", "mesh_mhz": "MHz", "memory_temp_max_c": "°C",
                 "pkg_w": "W", "dram_w": "W"}
+PRIMARY_LINE = re.compile(r"\s*S\d+\s+Primary\s+[0-9?]+-[0-9?]+-[0-9?]+-[0-9?]+(?:\s+(?:tCWL|tRC)\s+[0-9?]+)*\s*\Z")
+
+
+class _PrimaryInfoFilter:
+    """Discard restricted timing lines before retaining native stdout.
+
+    This is export minimization, not a security boundary against host root.
+    Original info remains responsible for its native authorization checks.
+    """
+    def __init__(self):
+        self.pending = b""
+        self.timings = False
+
+    def feed(self, chunk, final=False):
+        data = self.pending + chunk
+        rows = data.split(b"\n")
+        self.pending = b"" if final else rows.pop()
+        if len(self.pending) > 8192:
+            raise _OutputLimit()
+        output = []
+        for raw in rows:
+            if len(raw) > 8192:
+                raise _OutputLimit()
+            line = raw.decode("utf-8").rstrip("\r")
+            header = re.fullmatch(r"== (.+) ==", line.strip())
+            if header:
+                self.timings = header.group(1).split(":", 1)[0] == "Memory Timings"
+                if self.timings:
+                    line = "== Memory Timings: Primary only =="
+            if header or not self.timings or PRIMARY_LINE.fullmatch(line):
+                output.append(line.encode("utf-8") + b"\n")
+        return b"".join(output)
 
 
 def _console_sections(output, operation):
@@ -499,9 +534,11 @@ def _console_sections(output, operation):
             if name in allowed:
                 if any(s["name"] == name for s in sections):
                     raise ValueError("Duplicate console section")
-                current = {"name": name, "title": title, "lines": []}
+                current = {"name": name, "title": "Memory Timings: Primary only" if name == "Memory Timings" else title, "lines": []}
                 sections.append(current)
         elif current is not None and line.strip():
+            if current["name"] == "Memory Timings" and not PRIMARY_LINE.fullmatch(line):
+                continue
             if len(current["lines"]) >= 512:
                 raise ValueError("Console section exceeds limit")
             current["lines"].append(line.expandtabs(8).rstrip())
@@ -525,7 +562,7 @@ def _identity_add(rows, item, key, limit=128):
 
 
 def parse_console(output, operation):
-    """Parse bounded native text; retain every line of known info sections.
+    """Parse bounded native text; export only the Primary timing group.
 
     Native absence is null, not zero. Source text is retained to preserve timing
     groups and platform-dependent fields without guessing undocumented registers.
@@ -539,7 +576,9 @@ def parse_console(output, operation):
         sockets, current = [], None
         for line in lines("Per-socket Overview"):
             # Multi-socket power summaries may place S0 and S1 on one line.
-            for segment in re.split(r"(?=\bS\d+\s)", line):
+            boundaries = [m.start() for m in re.finditer(r"\bS\d+\s", line)]
+            boundaries = sorted(set([0] + boundaries + [len(line)]))
+            for segment in (line[a:b] for a, b in zip(boundaries, boundaries[1:])):
                 identity = re.match(r"\s*S(\d+)\s", segment)
                 if identity:
                     sid = _integer(int(identity.group(1)), maximum=4095)
