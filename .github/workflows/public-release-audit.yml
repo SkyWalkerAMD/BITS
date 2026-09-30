@@ -1,6 +1,8 @@
 name: Public source and release audit
 on:
   workflow_dispatch:
+  push:
+    branches: [codex/public-release]
 permissions:
   contents: read
   actions: read
