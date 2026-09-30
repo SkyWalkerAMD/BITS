@@ -135,12 +135,20 @@ def main():
     with tarfile.open(str(ROOT / 'workload_suite/vendor/mlc.tar.gz')) as bundle:
         pdf = OUT / 'MLC-LICENSE.pdf'
         license_bytes = bundle.extractfile('Intel Memory Latency Tools Outbound License Agreement.pdf').read()
-        # Intel's pinned archive stores this .pdf member gzip-compressed.
-        if license_bytes.startswith(b'\x1f\x8b'):
-            license_bytes = gzip.decompress(license_bytes)
         pdf.write_bytes(license_bytes)
         (OUT / 'MLC-REDIST.txt').write_bytes(bundle.extractfile('Linux/redist.txt').read())
-    subprocess.run(['pdftotext', '-layout', str(pdf), str(OUT / 'MLC-LICENSE.txt')], check=True)
+    license_issue = None
+    if license_bytes.startswith(b'%PDF-'):
+        subprocess.run(['pdftotext', '-layout', str(pdf), str(OUT / 'MLC-LICENSE.txt')], check=True)
+    else:
+        license_issue = 'Vendor .pdf member is not a PDF; public MLC redistribution requires separate review'
+        details = {'status': 'needs_review', 'issue': license_issue,
+                   'official_terms': 'https://www.intel.com/content/www/us/en/download/736633/intel-memory-latency-checker-intel-mlc.html',
+                   'redist_name': 'mlc_internal', 'packaged_binary': 'mlc'}
+        if license_bytes.startswith(b'\x1f\x8b'):
+            with tarfile.open(fileobj=io.BytesIO(license_bytes)) as nested:
+                details['mislabeled_member_contents'] = nested.getnames()
+        (OUT / 'MLC-REVIEW.json').write_text(json.dumps(details, indent=2) + '\n')
     tracked = subprocess.check_output(['git', 'ls-files', '-z']).decode().rstrip('\0').split('\0')
     for name in tracked:
         if any(part in PRIVATE for part in PurePosixPath(name).parts):
@@ -149,8 +157,9 @@ def main():
         names = subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', commit]).decode().splitlines()
         if any(any(part in PRIVATE for part in PurePosixPath(name).parts) for name in names):
             raise ValueError('Private parent commit: ' + commit)
-    report = {'status': 'passed', 'source_commit': os.environ['GITHUB_SHA'], 'release_bytes_unchanged': True,
+    report = {'status': 'inventory_passed', 'source_commit': os.environ['GITHUB_SHA'], 'release_bytes_unchanged': True,
               'source_and_history_private_paths': 'absent', 'counts': COUNTS,
+              'public_mlc_redistribution': 'unresolved' if license_issue else 'not_assessed',
               'checked_release_archives': archives, 'attachments': additions,
               'scope': 'source/history paths and recursive package inventory; not an anti-reverse-engineering guarantee'}
     (OUT / 'AUDIT.json').write_text(json.dumps(report, indent=2) + '\n')
