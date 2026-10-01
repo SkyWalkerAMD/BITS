@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from distribution.source_export import export_sources
 
-version = "0.4.0-alpha.3"
+version = "0.4.0-alpha.4"
 run = os.environ["GITHUB_RUN_ID"]
 commit = os.environ["GITHUB_SHA"]
 inputs = Path("native-evidence")
@@ -44,7 +44,8 @@ for kind in ("rpm", "deb"):
     for source in packages:
         shutil.copyfile(str(source), str(out / source.name))
 for filename in ("dashboard.png", "dashboard-mobile.png", "batch-running.png", "batch-wizard.png", "report-preview.html",
-                 "hardware-monitor.png", "hardware-table.png", "hardware-mobile.png"):
+                 "hardware-monitor.png", "hardware-table.png", "hardware-mobile.png",
+                 "hardware-scrolled.png", "workspace-compact.png", "navigation-mobile.png"):
     shutil.copyfile(str(browser_dir / filename), str(out / filename))
 for source, target in (("docs/development/BITS-INDEPENDENT.md", "ARCHITECTURE.md"),
                        ("docs/deployment/BITS-INDEPENDENT-PREVIEW.md", "OPERATIONS.md")):

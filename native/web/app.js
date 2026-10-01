@@ -68,6 +68,8 @@ const iconPaths = {
   clock: ["M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M12 7v6h4"],
   alert: ["M12 3 2 21h20zM12 9v5M12 17h.1"],
   check: ["M4 12l5 5L20 6"],
+  menu: ["M4 6h16M4 12h16M4 18h16"],
+  refresh: ["M20 7v5h-5M4 17v-5h5M5.6 7a8 8 0 0 1 13-1L20 8M4 16l1.4 2a8 8 0 0 0 13-1"],
 };
 let snapshot = { nodes: [], batches: [], tools: [], version: "" };
 let frames = new Map(),
@@ -80,6 +82,9 @@ let page = "overview",
   selectedNode = null,
   nodeFilter = "all",
   nodePage = 0;
+let batchPage = 0, reportPage = 0;
+const routePositions = new Map(), inFlightActions = new Set();
+let routeKey = "", restorePosition = null, syncRequested = false;
 let coreSocket = "all",
   coreMode = "map",
   corePage = 0;
@@ -96,6 +101,54 @@ const collator = new Intl.Collator("zh-CN", {
   numeric: true,
   sensitivity: "base",
 });
+const mobileNavigation = window.matchMedia("(max-width: 830px)");
+let compactNavigation = false;
+try { compactNavigation = localStorage.getItem("bits.navigation.compact") === "true"; } catch {}
+function navigation() {
+  const drawer = $("navigation-dialog"), sidebar = $("main-navigation");
+  if (mobileNavigation.matches) {
+    if (sidebar.parentNode !== drawer) drawer.append(sidebar);
+  } else {
+    drawer.close();
+    if (sidebar.parentNode !== document.body) document.body.insertBefore(sidebar, drawer);
+  }
+  document.body.classList.toggle("navigation-compact", compactNavigation && !mobileNavigation.matches);
+  const expanded = mobileNavigation.matches ? drawer.open : !compactNavigation;
+  $("navigation-toggle").setAttribute("aria-expanded", String(expanded));
+  const name = mobileNavigation.matches ? "打开导航" : expanded ? "收起导航" : "展开导航";
+  $("navigation-toggle").setAttribute("aria-label", name);
+  $("navigation-toggle").title = name;
+}
+function scrollToArea(selector) {
+  document.querySelector(selector)?.scrollIntoView({block: "start", behavior: "instant"});
+}
+function renderPager(root, total, size, index, change) {
+  const count = Math.ceil(total / size), children = [];
+  if (count > 1) {
+    const prev = button("← 上一页", () => change(index - 1), "", root.id + "-prev"),
+      next = button("下一页 →", () => change(index + 1), "", root.id + "-next");
+    prev.disabled = index === 0;
+    next.disabled = index + 1 >= count;
+    children.push(prev, el("span", `${index + 1} / ${count} · ${index * size + 1}–${Math.min(total, (index + 1) * size)} / ${total}`), next);
+  }
+  replace(root, ...children);
+}
+const formStates = new WeakMap();
+function formBusy(form, busy) {
+  const dialog = form.closest("dialog");
+  if (busy) {
+    dialog.dataset.submitting = "true";
+    form.setAttribute("aria-busy", "true");
+    const states = [...form.querySelectorAll("button,input,select,textarea")].map(e => [e, e.disabled]);
+    formStates.set(form, states);
+    for (const [e] of states) e.disabled = true;
+  } else {
+    delete dialog.dataset.submitting;
+    form.removeAttribute("aria-busy");
+    for (const [e, disabled] of formStates.get(form) || []) e.disabled = disabled;
+    formStates.delete(form);
+  }
+}
 function el(tag, text, cls) {
   const e = document.createElement(tag);
   if (text !== undefined) e.textContent = text;
@@ -198,7 +251,12 @@ function replace(root, ...children) {
   const key = root.contains(document.activeElement)
     ? document.activeElement.dataset.focusKey
     : null;
+  const scrolls = [...root.querySelectorAll("[data-scroll-key]")].map(e => [e.dataset.scrollKey, e.scrollTop, e.scrollLeft]);
   root.replaceChildren(...children);
+  for (const [name, top, left] of scrolls) {
+    const e = [...root.querySelectorAll("[data-scroll-key]")].find(e => e.dataset.scrollKey === name);
+    if (e) { e.scrollTop = top; e.scrollLeft = left; }
+  }
   if (key) {
     const b = [...root.querySelectorAll("[data-focus-key]")].find(
       (e) => e.dataset.focusKey === key,
@@ -234,6 +292,7 @@ function fileLink(b, name, text) {
   );
   a.target = "_blank";
   a.rel = "noopener";
+  a.dataset.focusKey = "file-" + b.id + "-" + name;
   return a;
 }
 function empty(title, text) {
@@ -249,6 +308,9 @@ function metric(label, value, unit, places = 0) {
   return d;
 }
 async function api(path, method = "GET", data) {
+  const actionKey = method + " " + path;
+  if (method !== "GET" && inFlightActions.has(actionKey)) throw new Error("此操作正在提交，请等待结果。");
+  if (method !== "GET") inFlightActions.add(actionKey);
   const controller = new AbortController(),
     timer = setTimeout(() => controller.abort(), 10000);
   try {
@@ -262,6 +324,7 @@ async function api(path, method = "GET", data) {
     if (r.status === 401) {
       authenticated = false;
       connected = false;
+      for (const d of document.querySelectorAll("dialog[open]")) if (d.id !== "login-dialog") d.close();
       if (!$("login-dialog").open) $("login-dialog").showModal();
       throw new Error("请登录工作台");
     }
@@ -279,6 +342,7 @@ async function api(path, method = "GET", data) {
       throw new Error("请求超时，尚未确认服务器状态");
     throw e;
   } finally {
+    inFlightActions.delete(actionKey);
     clearTimeout(timer);
   }
 }
@@ -291,6 +355,8 @@ function connection() {
   $("connection").textContent = fresh
     ? "实时同步 · 2 秒"
     : "连接中断 · 状态待确认";
+  $("connection").title = lastNetwork ? "浏览器最后同步：" + dateText(new Date(lastNetwork).toISOString()) : "等待首次同步";
+  $("connection-warning").hidden = fresh || !authenticated;
   return fresh;
 }
 function online(n) {
@@ -344,9 +410,10 @@ function progress(elapsed, budget) {
   return d;
 }
 function trend(rows, field, mini = false) {
-  const w = mini ? 90 : 280,
-    h = mini ? 30 : 108,
+  const w = mini ? 90 : 340,
+    h = mini ? 30 : 126,
     pad = mini ? 2 : 7,
+    left = mini ? pad : 44,
     s = svgEl("svg", {
       viewBox: `0 0 ${w} ${h}`,
       class: mini ? "mini-trend" : "trend-chart",
@@ -359,16 +426,30 @@ function trend(rows, field, mini = false) {
     values = rows
       .filter((v) => v.available && typeof v[field] === "number")
       .map((v) => v[field]);
-  if (!values.length) return s;
+  if (!values.length) {
+    if (!mini) {
+      const t = svgEl("text", {x: w / 2, y: h / 2, "text-anchor": "middle", class: "trend-label"});
+      t.textContent = "尚无可绘制的采样"; s.append(t);
+    }
+    return s;
+  }
   const lo = Math.min(...values),
     hi = Math.max(...values),
     range = Math.max(hi - lo, 1),
-    span = Math.max(1, rows.length - 1);
-  if (!mini)
-    for (const y of [pad, h / 2, h - pad])
+    minimum = lo - range * 0.1,
+    maximum = hi + range * 0.1,
+    scale = maximum - minimum,
+    times = rows.map(v => Date.parse(v.observed_at)),
+    timeAxis = times.every(Number.isFinite) && times.at(-1) > times[0],
+    span = timeAxis ? times.at(-1) - times[0] : Math.max(1, rows.length - 1);
+  if (!mini) {
+    const title = svgEl("title");
+    title.textContent = `最低 ${number(lo, 1)}，最高 ${number(hi, 1)} ${field === "temp_c" ? "°C" : "W"}；采样中断处不连线`;
+    s.append(title);
+    for (const [i, y] of [pad, h / 2, h - pad].entries()) {
       s.append(
         svgEl("line", {
-          x1: 0,
+          x1: left,
           y1: y,
           x2: w,
           y2: y,
@@ -377,20 +458,27 @@ function trend(rows, field, mini = false) {
           "stroke-dasharray": "3 4",
         }),
       );
+      const label = svgEl("text", {x: left - 7, y: y + 3, "text-anchor": "end", class: "trend-label"});
+      label.textContent = number(maximum - scale * i / 2, 1);
+      s.append(label);
+    }
+  }
   let path = "",
-    last = false;
+    last = false, lastPoint = null;
   rows.forEach((v, i) => {
     if (!v.available || typeof v[field] !== "number") {
       last = false;
       return;
     }
-    const x = pad + ((w - 2 * pad) * i) / span,
+    if (i > 0 && timeAxis && times[i] - times[i - 1] > 10000) last = false;
+    const x = left + ((w - left - pad) * (timeAxis ? times[i] - times[0] : i)) / span,
       y =
         h -
         pad -
-        ((v[field] - lo + range * 0.1) / (range * 1.2)) * (h - 2 * pad);
+        ((v[field] - minimum) / scale) * (h - 2 * pad);
     path += (last ? "L" : "M") + x.toFixed(1) + " " + y.toFixed(1);
     last = true;
+    lastPoint = [x, y];
   });
   s.append(
     svgEl("path", {
@@ -402,6 +490,7 @@ function trend(rows, field, mini = false) {
       "stroke-linejoin": "round",
     }),
   );
+  if (!mini && lastPoint) s.append(svgEl("circle", {cx: lastPoint[0], cy: lastPoint[1], r: 3, fill: "currentColor"}));
   return s;
 }
 function nodeCard(n) {
@@ -625,25 +714,9 @@ function renderNodes() {
     $("node-list").append(
       empty("没有符合条件的节点", "调整名称或状态筛选，或添加新的节点。"),
     );
-  const pager = $("node-pagination");
-  pager.replaceChildren();
-  if (nodes.length > count) {
-    const prev = button("← 上一页", () => {
-        nodePage--;
-        renderNodes();
-      }),
-      next = button("下一页 →", () => {
-        nodePage++;
-        renderNodes();
-      });
-    prev.disabled = nodePage === 0;
-    next.disabled = (nodePage + 1) * count >= nodes.length;
-    pager.append(
-      prev,
-      el("span", nodePage + 1 + " / " + Math.ceil(nodes.length / count)),
-      next,
-    );
-  }
+  renderPager($("node-pagination"), nodes.length, count, nodePage, (index) => {
+    nodePage = index; renderNodes(); scrollToArea("#view-nodes .toolbar");
+  });
   if (selectedNode) renderNodeDetail();
 }
 function inspectNode(id) {
@@ -651,7 +724,7 @@ function inspectNode(id) {
   location.hash = "nodes";
   renderNodes();
   $("node-detail").hidden = false;
-  $("node-detail").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  scrollToArea("#node-detail");
 }
 function renderNodeDetail() {
   const n = snapshot.nodes.find((n) => n.id === selectedNode);
@@ -763,9 +836,12 @@ function renderBatches() {
             ? activeStates.includes(b.state)
             : b.state === filter)),
     );
+  const size = 25;
+  batchPage = Math.min(batchPage, Math.max(0, Math.ceil(items.length / size) - 1));
+  $("batch-count").textContent = items.length + " 个符合条件的批次 · 每页 " + size + " 个";
   replace(
     $("batch-list"),
-    ...items.map((b) => {
+    ...items.slice(batchPage * size, (batchPage + 1) * size).map((b) => {
       const tr = el("tr"),
         title = el("td");
       title.append(
@@ -811,6 +887,9 @@ function renderBatches() {
       return tr;
     }),
   );
+  renderPager($("batch-pagination"), items.length, size, batchPage, (index) => {
+    batchPage = index; renderBatches(); scrollToArea("#view-batches .toolbar");
+  });
   if (!items.length) {
     const tr = el("tr"),
       td = el("td");
@@ -827,9 +906,12 @@ function renderReports() {
         b.state === "delivered" &&
         (b.plan.label + " " + b.plan.node).toLowerCase().includes(q),
     );
+  const size = 18;
+  reportPage = Math.min(reportPage, Math.max(0, Math.ceil(items.length / size) - 1));
+  $("report-count").textContent = items.length + " 份已交付报告 · 每页 " + size + " 份";
   replace(
     $("report-list"),
-    ...items.map((b) => {
+    ...items.slice(reportPage * size, (reportPage + 1) * size).map((b) => {
       const d = el("article", undefined, "report-card"),
         head = el("div", undefined, "report-top"),
         ops = el("div", undefined, "actions");
@@ -850,6 +932,9 @@ function renderReports() {
       return d;
     }),
   );
+  renderPager($("report-pagination"), items.length, size, reportPage, (index) => {
+    reportPage = index; renderReports(); scrollToArea("#view-reports .toolbar");
+  });
   if (!items.length)
     $("report-list").append(
       empty(
@@ -1081,6 +1166,7 @@ function renderDetail() {
   files.append(el("h2", "报告与结果文件"));
   if (b.artifacts) {
     const list = el("div", undefined, "file-list");
+    list.dataset.scrollKey = "files";
     for (const [name, m] of Object.entries(b.artifacts)) {
       const row = el("div", undefined, "file-row");
       row.append(fileLink(b, name), el("small", bytes(m.bytes)));
@@ -1110,6 +1196,7 @@ function renderDetail() {
   );
   events.append(el("h2", "操作与状态记录"));
   const eventList = el("div", undefined, "events");
+  eventList.dataset.scrollKey = "events";
   for (const event of detailEvents.slice(0, 40)) {
     const d = el("div", undefined, "event");
     d.append(
@@ -1189,6 +1276,16 @@ function renderMonitor() {
   );
   hero.append(title, action);
   items.push(hero);
+  const sections = el("nav", undefined, "monitor-section-nav");
+  sections.setAttribute("aria-label", "硬件信息分区");
+  sections.dataset.scrollKey = "monitor-sections";
+  sections.append(el("strong", b.plan.node, "monitor-context"));
+  for (const [label, selector] of [["整机概况", ".monitor-summary"], ["插槽信息", ".monitor-sockets"], ["逐核心", ".core-section"], ["趋势", ".monitor-trends"]]) {
+    const jump = button(label, () => scrollToArea(selector), "quiet", "jump-" + selector);
+    jump.disabled = !hardware && [".monitor-sockets", ".core-section"].includes(selector);
+    sections.append(jump);
+  }
+  items.push(sections);
   const stamps = el("div", undefined, "monitor-stamps");
   stamps.append(
     el(
@@ -1357,6 +1454,7 @@ function renderMonitor() {
     heading.append(info, views);
     section.append(heading);
     const filters = el("div", undefined, "core-filters");
+    filters.dataset.scrollKey = "core-filters";
     if (
       coreSocket !== "all" &&
       !sockets.some((s) => String(s.id) === coreSocket)
@@ -1435,6 +1533,11 @@ function renderMonitor() {
         row = el("tr"),
         body = el("tbody");
       table.setAttribute("aria-label", "逐核心实时读数");
+      wrap.dataset.scrollKey = "core-table";
+      wrap.dataset.focusKey = "core-table-region";
+      wrap.tabIndex = 0;
+      wrap.setAttribute("role", "region");
+      wrap.setAttribute("aria-label", "逐核心表格，可滚动查看");
       for (const text of [
         "CPU 编号",
         "插槽",
@@ -1543,20 +1646,7 @@ function renderMonitor() {
       "monitor-quality",
     ),
   );
-  const scrollPositions = [".core-table-scroll", ".core-filters"].map(
-    (selector) => {
-      const box = root.querySelector(selector);
-      return [selector, box?.scrollTop || 0, box?.scrollLeft || 0];
-    },
-  );
   replace(root, ...items);
-  for (const [selector, top, left] of scrollPositions) {
-    const box = root.querySelector(selector);
-    if (box) {
-      box.scrollTop = top;
-      box.scrollLeft = left;
-    }
-  }
 }
 function render() {
   $("version").textContent =
@@ -1569,6 +1659,11 @@ function render() {
   if (page === "reports") renderReports();
   if (page === "detail") renderDetail();
   if (page === "monitor") renderMonitor();
+  if (restorePosition !== null && (!selected || detailData?.id === selected)) {
+    window.scrollTo({top: restorePosition, behavior: "instant"});
+    restorePosition = null;
+  }
+  $("back-to-top").hidden = window.scrollY < 400;
 }
 function route() {
   notice("");
@@ -1581,6 +1676,14 @@ function route() {
     : Object.hasOwn(pageInfo, hash) && !["detail", "monitor"].includes(hash)
       ? hash
       : "overview";
+  const nextRouteKey = detail ? detail[0] : page;
+  if (routeKey !== nextRouteKey) {
+    if (routeKey) routePositions.set(routeKey, window.scrollY);
+    // Retain useful back-navigation positions without an unbounded session cache.
+    if (routePositions.size > 80) routePositions.delete(routePositions.keys().next().value);
+    restorePosition = routePositions.get(nextRouteKey) || 0;
+    routeKey = nextRouteKey;
+  }
   selected = detail ? detail[2] : null;
   if (selected && detailData?.id !== selected) {
     detailData = null;
@@ -1603,6 +1706,7 @@ function route() {
   $("crumb").textContent = info[0];
   $("page-kicker").textContent = info[1];
   $("page-description").textContent = info[2];
+  document.title = "BITS · " + info[0];
   document.querySelectorAll("[data-nav]").forEach((a) => {
     const match =
       a.dataset.nav ===
@@ -1615,9 +1719,12 @@ function route() {
   if (authenticated) sync(true);
 }
 async function sync(force = false) {
-  if (syncing || document.hidden || (!authenticated && $("login-dialog").open))
+  if (syncing) { syncRequested ||= force; return; }
+  if (document.hidden || (!authenticated && $("login-dialog").open))
     return;
   syncing = true;
+  $("refresh").disabled = true;
+  $("refresh").setAttribute("aria-busy", "true");
   try {
     const refreshOverview = force || Date.now() - lastOverview >= 5000,
       requested = selected;
@@ -1671,6 +1778,9 @@ async function sync(force = false) {
     if (force && !$("login-dialog").open) notice(e.message, true);
   } finally {
     syncing = false;
+    $("refresh").disabled = false;
+    $("refresh").removeAttribute("aria-busy");
+    if (syncRequested) { syncRequested = false; queueMicrotask(() => sync(true)); }
   }
 }
 function confirmAction(title, text, reason, fn, danger = false) {
@@ -1864,9 +1974,9 @@ $("node-search").oninput = () => {
   nodePage = 0;
   renderNodes();
 };
-$("batch-search").oninput = renderBatches;
-$("batch-filter").onchange = renderBatches;
-$("report-search").oninput = renderReports;
+$("batch-search").oninput = () => { batchPage = 0; renderBatches(); };
+$("batch-filter").onchange = () => { batchPage = 0; renderBatches(); };
+$("report-search").oninput = () => { reportPage = 0; renderReports(); };
 $("node-filters")
   .querySelectorAll("button")
   .forEach(
@@ -1890,8 +2000,8 @@ for (const b of document.querySelectorAll("[data-close]"))
 $("login-dialog").addEventListener("cancel", (e) => e.preventDefault());
 $("login-form").onsubmit = async (e) => {
   e.preventDefault();
-  const b = e.submitter;
-  b.disabled = true;
+  if (formStates.has($("login-form"))) return;
+  formBusy($("login-form"), true);
   try {
     await api("login", "POST", { token: $("login-token").value });
     $("login-token").value = "";
@@ -1903,7 +2013,7 @@ $("login-form").onsubmit = async (e) => {
   } catch (err) {
     $("login-error").textContent = err.message;
   } finally {
-    b.disabled = false;
+    formBusy($("login-form"), false);
   }
 };
 $("logout").onclick = async () => {
@@ -1916,8 +2026,8 @@ $("logout").onclick = async () => {
 };
 $("confirm-form").onsubmit = async (e) => {
   e.preventDefault();
-  const b = e.submitter;
-  b.disabled = true;
+  if (formStates.has($("confirm-form"))) return;
+  formBusy($("confirm-form"), true);
   try {
     await nextConfirm($("confirm-reason").value.trim());
     $("confirm-dialog").close();
@@ -1928,11 +2038,12 @@ $("confirm-form").onsubmit = async (e) => {
   } catch (err) {
     $("confirm-error").textContent = err.message;
   } finally {
-    b.disabled = false;
+    formBusy($("confirm-form"), false);
   }
 };
 $("batch-form").onsubmit = async (e) => {
   e.preventDefault();
+  if (formStates.has($("batch-form"))) return;
   if (wizardStep < 2) {
     if (validateWizard()) {
       wizardStep++;
@@ -1940,8 +2051,7 @@ $("batch-form").onsubmit = async (e) => {
     }
     return;
   }
-  const b = $("batch-submit");
-  b.disabled = true;
+  formBusy($("batch-form"), true);
   try {
     const batch = await api("batches", "POST", {
       node: $("batch-node").value,
@@ -1956,13 +2066,13 @@ $("batch-form").onsubmit = async (e) => {
   } catch (err) {
     $("batch-error").textContent = err.message;
   } finally {
-    b.disabled = false;
+    formBusy($("batch-form"), false);
   }
 };
 $("node-form").onsubmit = async (e) => {
   e.preventDefault();
-  const b = e.submitter;
-  b.disabled = true;
+  if (formStates.has($("node-form"))) return;
+  formBusy($("node-form"), true);
   try {
     const cfg = await api("nodes", "POST", {
         id: $("node-id").value,
@@ -1993,10 +2103,35 @@ $("node-form").onsubmit = async (e) => {
   } catch (err) {
     $("node-error").textContent = err.message;
   } finally {
-    b.disabled = false;
+    formBusy($("node-form"), false);
   }
 };
 window.addEventListener("hashchange", route);
+if ("scrollRestoration" in window.history) window.history.scrollRestoration = "manual";
+$("refresh").onclick = () => sync(true);
+document.querySelector(".skip-link").onclick = e => {
+  e.preventDefault(); $("workspace").focus({preventScroll: true}); window.scrollTo({top: 0, behavior: "instant"});
+};
+$("back-to-top").onclick = () => { window.scrollTo({top: 0, behavior: "instant"}); $("workspace").focus({preventScroll: true}); };
+$("navigation-toggle").onclick = () => {
+  if (mobileNavigation.matches) $("navigation-dialog").showModal();
+  else {
+    compactNavigation = !compactNavigation;
+    try { localStorage.setItem("bits.navigation.compact", String(compactNavigation)); } catch {}
+  }
+  navigation();
+};
+$("navigation-close").onclick = () => $("navigation-dialog").close();
+$("navigation-dialog").addEventListener("close", navigation);
+$("navigation-dialog").addEventListener("click", e => {
+  if (e.target === $("navigation-dialog")) $("navigation-dialog").close();
+});
+document.querySelectorAll("[data-nav], .brand").forEach(a => a.addEventListener("click", () => $("navigation-dialog").close()));
+mobileNavigation.addEventListener("change", navigation);
+window.addEventListener("scroll", () => { $("back-to-top").hidden = window.scrollY < 400; }, {passive: true});
+for (const d of document.querySelectorAll("dialog")) {
+  d.addEventListener("cancel", e => { if (d.dataset.submitting) e.preventDefault(); });
+}
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) sync(true);
 });
@@ -2006,6 +2141,7 @@ window.addEventListener("offline", () => {
   render();
 });
 decorate();
+navigation();
 route();
 sync(true);
 setInterval(() => sync(), 2000);

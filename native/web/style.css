@@ -1,6 +1,8 @@
 :root {
+  --navigation-width: 222px;
+  --topbar-height: 68px;
   --ink: #183440;
-  --muted: #758893;
+  --muted: #5f7581;
   --teal: #087e83;
   --green: #128473;
   --line: #e1e9ee;
@@ -21,6 +23,11 @@ body {
   margin: 0;
   background: var(--bg);
 }
+html { scrollbar-gutter: stable; }
+body:has(dialog[open]) { overflow: hidden; }
+main { overflow-anchor: none; }
+[tabindex]:focus-visible { outline: 3px solid #72c7c5; outline-offset: 3px; }
+.toolbar, #node-detail { scroll-margin-top: 88px; }
 a {
   color: var(--teal);
   text-decoration: none;
@@ -147,8 +154,8 @@ p {
   flex-wrap: wrap;
 }
 .skip-link {
-  position: absolute;
-  z-index: 20;
+  position: fixed;
+  z-index: 50;
   top: -80px;
   background: white;
   padding: 12px;
@@ -159,15 +166,19 @@ p {
 .sidebar {
   position: fixed;
   inset: 0 auto 0 0;
-  width: 222px;
+  width: var(--navigation-width);
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
   background: #142e3b;
   color: #cad7dd;
   padding: 34px 20px;
   display: flex;
   flex-direction: column;
-  z-index: 3;
+  z-index: 30;
 }
 .brand {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -205,6 +216,12 @@ p {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 3px;
+  margin: -3px;
+  scrollbar-width: thin;
 }
 .sidebar nav > a {
   display: flex;
@@ -213,7 +230,7 @@ p {
   padding: 12px;
   color: #bdccd4;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 14px;
 }
 .sidebar nav > a:hover {
   background: #203e4b;
@@ -231,6 +248,7 @@ p {
   color: #b5d4d6;
 }
 .sidebar-bottom {
+  flex-shrink: 0;
   margin-top: auto;
   font-size: 11px;
   color: #b7c8d0;
@@ -252,10 +270,15 @@ p {
   margin-right: 5px;
 }
 .shell {
-  margin-left: 222px;
+  margin-left: var(--navigation-width);
+  min-height: 100vh;
 }
 .topbar {
-  height: 68px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: var(--topbar-height);
+  box-shadow: 0 2px 8px #18344004;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -263,6 +286,28 @@ p {
   background: white;
   border-bottom: 1px solid var(--line);
 }
+.topbar-location { display: flex; align-items: center; min-width: 0; gap: 14px; }
+.breadcrumb { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.breadcrumb-root { padding: 0 !important; }
+#navigation-close { display: none; }
+#navigation-toggle, #refresh, #logout { min-width: 40px; min-height: 40px; flex-shrink: 0; }
+.navigation-dialog { padding: 0; margin: 0; inset: 0 auto 0 0; border: 0; border-radius: 0 14px 14px 0; width: min(310px, 88vw); height: 100vh; height: 100dvh; max-height: none; max-width: 88vw; background: #142e3b; }
+.navigation-dialog .sidebar { position: static; width: 100%; padding: 28px 20px max(24px, env(safe-area-inset-bottom)); }
+.navigation-dialog #navigation-close { display: flex; position: absolute; top: 12px; right: 12px; color: #d1e4ea; }
+.navigation-compact { --navigation-width: 80px; }
+.navigation-compact .sidebar { padding: 32px 12px; }
+.navigation-compact .brand { padding: 0; justify-content: center; }
+.navigation-compact .brand > span, .navigation-compact .nav-caption, .navigation-compact .sidebar nav > a > span:not([data-icon]), .navigation-compact .sidebar nav small, .navigation-compact .sidebar-bottom { display: none; }
+.navigation-compact .sidebar nav > a { justify-content: center; padding: 14px; }
+.back-to-top { position: fixed; bottom: max(24px, env(safe-area-inset-bottom)); right: 24px; z-index: 22; width: 44px; height: 44px; background: var(--ink); color: white; box-shadow: 0 5px 20px #18344024; }
+.back-to-top:hover { background: var(--teal); color: white; }
+.connection-warning { padding: 12px 16px; border: 1px solid #e2c98d; background: #fff8e8; color: #7c5917; border-radius: 8px; font-size: 12px; }
+.trend-label { font-size: 10px; fill: #657d88; font-variant-numeric: tabular-nums; }
+.monitor-section-nav { position: sticky; top: var(--topbar-height); z-index: 15; display: flex; align-items: center; gap: 20px; padding: 12px 18px; background: #f8fbfcf5; border: 1px solid var(--line); border-radius: 8px; backdrop-filter: blur(12px); overflow-x: auto; margin: 18px 0; }
+.monitor-context { margin-right: auto; white-space: nowrap; max-width: 40%; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+.monitor-section-nav button { min-height: 30px; }
+.monitor-summary, .monitor-sockets, .core-section, .monitor-trends { scroll-margin-top: calc(var(--topbar-height) + 82px); }
+.monitor-history .trend-chart { opacity: 0.55; }
 .breadcrumb {
   font-size: 12px;
   color: var(--muted);
@@ -813,6 +858,8 @@ main {
 }
 .table-wrap {
   overflow: auto;
+  max-height: 72vh;
+  overscroll-behavior: contain;
   border: 1px solid var(--line);
   border-radius: 9px;
   background: white;
@@ -824,6 +871,9 @@ main {
   font-size: 11px;
 }
 .batch-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   text-align: left;
   background: #f0f5f7;
   color: #6c8390;
@@ -1317,6 +1367,12 @@ dialog h2 {
   color: #8a9eaa;
 }
 .dialog-actions {
+  position: sticky;
+  bottom: -30px;
+  background: white;
+  z-index: 2;
+  padding-bottom: 20px;
+  margin-bottom: -20px;
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -1451,13 +1507,10 @@ dialog h2 {
   }
 }
 @media (max-width: 1190px) {
+  :root { --navigation-width: 196px; }
   .sidebar {
-    width: 196px;
     padding-left: 15px;
     padding-right: 15px;
-  }
-  .shell {
-    margin-left: 196px;
   }
   .node-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1495,57 +1548,13 @@ dialog h2 {
   }
 }
 @media (max-width: 830px) {
-  .sidebar {
-    position: sticky;
-    top: 0;
-    width: 100%;
-    padding: 0 17px;
-    height: 55px;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    gap: 20px;
-  }
-  .brand {
-    margin: 0;
-    padding: 0;
-  }
-  .brand > svg {
-    width: 20px;
-    height: 26px;
-  }
-  .brand > span {
-    font-size: 20px;
-    letter-spacing: 1px;
-  }
-  .brand small,
-  .nav-caption,
-  .sidebar-bottom,
-  .sidebar nav small {
-    display: none;
-  }
-  .sidebar nav {
-    flex-direction: row;
-    gap: 1px;
-    overflow: auto;
-  }
-  .sidebar nav > a {
-    font-size: 11px;
-    padding: 8px 10px;
-    gap: 6px;
-  }
-  .sidebar nav > a.selected {
-    box-shadow: none;
-  }
-  .sidebar nav svg {
-    width: 15px;
-    height: 15px;
-  }
+  :root { --topbar-height: 60px; }
+  .breadcrumb-root { display: none; }
+  .topbar-location { gap: 6px; }
   .shell {
     margin: 0;
   }
   .topbar {
-    height: 57px;
     padding: 0 22px;
   }
   .topbar-actions {
@@ -1593,52 +1602,31 @@ dialog h2 {
   }
 }
 @media (max-width: 540px) {
-  .sidebar {
-    height: 53px;
-    padding: 0 14px;
-    gap: 12px;
-  }
-  .brand > svg {
-    display: none;
-  }
-  .brand > span {
-    font-size: 19px;
-  }
-  .sidebar nav {
-    gap: 0;
-  }
-  .sidebar nav > a {
-    padding: 8px;
-    font-size: 10px;
-    white-space: nowrap;
-  }
-  .sidebar nav > a svg {
-    display: none;
-  }
-  .sidebar nav > a:last-child > span:last-child {
-    display: none;
-  }
-  .sidebar nav > a:last-child svg {
-    display: block;
-  }
+  .monitor-section-nav { gap: 18px; padding: 8px 12px; }
+  .monitor-context { display: none; }
+  .back-to-top { right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); }
   .topbar {
     padding: 0 16px;
-    height: 51px;
+    padding: 0 10px;
   }
   .breadcrumb {
-    font-size: 10px;
+    font-size: 11px;
   }
   .breadcrumb span {
     padding: 0 7px;
   }
   .connection {
-    font-size: 9px;
+    font-size: 10px;
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .avatar {
     display: none;
   }
   .topbar-actions {
-    gap: 6px;
+    gap: 2px;
+    flex-shrink: 0;
   }
   .topbar .icon-button {
     padding: 5px;
@@ -1797,6 +1785,7 @@ dialog h2 {
   dialog {
     padding: 24px 20px;
   }
+  .dialog-actions { bottom: -24px; }
   .login-dialog {
     padding: 32px 25px;
   }
@@ -1855,6 +1844,14 @@ dialog h2 {
     transition: none !important;
     scroll-behavior: auto !important;
   }
+}
+@media (max-height: 620px) {
+  .sidebar, .navigation-dialog .sidebar { padding-top: 22px; padding-bottom: 18px; }
+  .brand { margin-bottom: 24px; }
+  .sidebar-bottom { padding-top: 12px; }
+}
+@media (max-height: 440px) {
+  .sidebar-bottom, .nav-caption { display: none; }
 }
 
 /* Read-only hardware workspace, sharing the operator console palette. */

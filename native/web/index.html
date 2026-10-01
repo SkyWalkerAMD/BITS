@@ -10,7 +10,8 @@
   </head>
   <body>
     <a class="skip-link" href="#workspace">跳到工作区</a>
-    <aside class="sidebar">
+    <aside class="sidebar" id="main-navigation" aria-label="BITS 导航">
+      <button id="navigation-close" class="icon-button" aria-label="关闭导航">×</button>
       <a class="brand" href="#overview" aria-label="BITS 总览"
         ><svg viewBox="0 0 32 36" aria-hidden="true">
           <path d="M2 3h20l8 8H10zM2 14h20l8 8H10zM2 25h20l8 8H10z" /></svg
@@ -18,20 +19,20 @@
       >
       <p class="nav-caption">工作空间</p>
       <nav aria-label="主导航">
-        <a href="#overview" data-nav="overview"
+        <a href="#overview" data-nav="overview" aria-label="运行总览" title="运行总览"
           ><span data-icon="overview"></span><span>运行总览</span></a
         >
-        <a href="#nodes" data-nav="nodes"
+        <a href="#nodes" data-nav="nodes" aria-label="测试节点" title="测试节点"
           ><span data-icon="nodes"></span><span>测试节点</span
           ><small id="nav-node-count">0</small></a
         >
-        <a href="#batches" data-nav="batches"
+        <a href="#batches" data-nav="batches" aria-label="压测批次" title="压测批次"
           ><span data-icon="batches"></span><span>压测批次</span></a
         >
-        <a href="#reports" data-nav="reports"
+        <a href="#reports" data-nav="reports" aria-label="结果与报告" title="结果与报告"
           ><span data-icon="reports"></span><span>结果与报告</span></a
         >
-        <a href="#guide" data-nav="guide"
+        <a href="#guide" data-nav="guide" aria-label="部署与操作" title="部署与操作"
           ><span data-icon="guide"></span><span>部署与操作</span></a
         >
       </nav>
@@ -40,13 +41,18 @@
         <p id="version">BITS 独立架构预览</p>
       </div>
     </aside>
+    <dialog id="navigation-dialog" class="navigation-dialog" aria-label="主导航"></dialog>
     <div class="shell">
       <header class="topbar">
-        <div class="breadcrumb">
-          工作空间 <span>/</span> <strong id="crumb">运行总览</strong>
+        <div class="topbar-location">
+          <button id="navigation-toggle" class="icon-button" aria-label="收起导航" title="收起导航" aria-controls="main-navigation" aria-expanded="true"><span data-icon="menu"></span></button>
+          <div class="breadcrumb">
+            <span class="breadcrumb-root">工作空间 <span>/</span></span><strong id="crumb">运行总览</strong>
+          </div>
         </div>
         <div class="topbar-actions">
-          <span id="connection" class="connection">正在连接</span
+          <button id="refresh" class="icon-button" aria-label="立即刷新" title="立即刷新"><span data-icon="refresh"></span></button>
+          <span id="connection" class="connection" role="status">正在连接</span
           ><span class="avatar" aria-hidden="true">B</span
           ><button
             id="logout"
@@ -73,6 +79,7 @@
           </div>
         </div>
         <p id="notice" class="notice" role="status" hidden></p>
+        <p id="connection-warning" class="connection-warning" role="status" hidden>连接中断，当前显示最后收到的数据。网页无法确认节点的最新状态；恢复连接后会自动同步，也可使用顶部刷新按钮重试。</p>
         <section id="view-overview">
           <div id="summary" class="summary"></div>
           <div class="section-title">
@@ -161,8 +168,9 @@
               </select></label
             >
           </div>
-          <div class="table-wrap">
-            <table class="batch-table">
+          <p id="batch-count" class="list-meta"></p>
+          <div class="table-wrap" tabindex="0" role="region" aria-label="压测批次表格，可横向滚动">
+            <table class="batch-table" aria-label="压测批次">
               <thead>
                 <tr>
                   <th>批次 / 节点</th>
@@ -176,6 +184,7 @@
               <tbody id="batch-list"></tbody>
             </table>
           </div>
+          <div id="batch-pagination" class="pagination"></div>
           <p class="list-meta">保留所有进行中批次，并展示最近 500 个批次。</p>
         </section>
         <section id="view-monitor" hidden>
@@ -197,7 +206,9 @@
                 aria-label="搜索报告" /></label
             ><span class="muted">仅展示已核验交付的批次</span>
           </div>
+          <p id="report-count" class="list-meta"></p>
           <div id="report-list" class="report-grid"></div>
+          <div id="report-pagination" class="pagination"></div>
         </section>
         <section id="view-guide" hidden>
           <div class="guide-intro">
@@ -298,11 +309,12 @@ systemctl enable --now bits-node.service</pre
         </footer>
       </main>
     </div>
-    <dialog id="login-dialog" class="login-dialog">
+    <button id="back-to-top" class="back-to-top" aria-label="返回顶部" title="返回顶部" hidden>↑</button>
+    <dialog id="login-dialog" class="login-dialog" aria-labelledby="login-title">
       <form id="login-form">
         <div class="login-mark">B</div>
         <p class="eyebrow">BITS CONTROL CENTER</p>
-        <h2>进入压测工作台</h2>
+        <h2 id="login-title">进入压测工作台</h2>
         <p class="muted">使用中心初始化时保存的管理口令。</p>
         <label
           >管理口令<input
@@ -316,12 +328,12 @@ systemctl enable --now bits-node.service</pre
         <p class="form-note">BITS 管理凭据与 sckocp 激活码相互独立。</p>
       </form>
     </dialog>
-    <dialog id="batch-dialog" class="wide-dialog">
+    <dialog id="batch-dialog" class="wide-dialog" aria-labelledby="batch-dialog-title">
       <form id="batch-form">
         <div class="dialog-heading">
           <div>
             <p class="eyebrow">NEW TEST BATCH</p>
-            <h2>新建压测批次</h2>
+            <h2 id="batch-dialog-title">新建压测批次</h2>
           </div>
           <button
             type="button"
@@ -387,12 +399,12 @@ systemctl enable --now bits-node.service</pre
         </div>
       </form>
     </dialog>
-    <dialog id="node-dialog">
+    <dialog id="node-dialog" aria-labelledby="node-dialog-title">
       <form id="node-form">
         <div class="dialog-heading">
           <div>
             <p class="eyebrow">CONNECT A NODE</p>
-            <h2>添加测试节点</h2>
+            <h2 id="node-dialog-title">添加测试节点</h2>
           </div>
           <button
             type="button"
@@ -434,7 +446,7 @@ systemctl enable --now bits-node.service</pre
         </div>
       </form>
     </dialog>
-    <dialog id="confirm-dialog">
+    <dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-description">
       <form id="confirm-form">
         <p class="eyebrow">CONFIRM ACTION</p>
         <h2 id="confirm-title"></h2>

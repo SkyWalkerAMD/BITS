@@ -42,6 +42,13 @@ with sync_playwright() as p:
             page.wait_for_timeout(500)
         raise AssertionError("live DOM sequence did not advance")
 
+    def navigate(name):
+        target = page.locator('a[data-nav="' + name + '"]')
+        if not target.is_visible():
+            page.locator("#navigation-toggle").click()
+            expect(page.locator("#navigation-dialog")).to_be_visible()
+        target.click()
+
     try:
         page.goto(admin["url"])
         page.locator("#login-token").fill(admin["token"])
@@ -59,7 +66,7 @@ with sync_playwright() as p:
             download.value.delete()
             expect(page.locator("#view-guide")).to_be_visible()
         checks.append("enroll node and download one-time connection file")
-        page.locator('a[data-nav="nodes"]').click()
+        navigate("nodes")
         page.locator("#node-list .node-card").first.wait_for()
         expect(page.locator("#node-list .node-name strong")).to_have_text(["BITS-CLOUD", "LAB-002", "LAB-010"])
         page.locator("#node-search").fill("LAB-002")
@@ -90,7 +97,7 @@ with sync_playwright() as p:
         expect(page.locator("#detail-body")).to_contain_text("整机 PSU 输入")
         page.screenshot(path=str(out / "batch-running.png"), full_page=True)
         checks.append("explicit start, advancing live samples and actual step elapsed")
-        page.locator('a[data-nav="overview"]').click()
+        navigate("overview")
         page.locator("#overview-node-list .node-card.running").wait_for()
         expect(page.locator("#overview-node-list .node-card.running")).to_contain_text("108.0")
         page.screenshot(path=str(out / "dashboard.png"), full_page=True)
@@ -107,6 +114,29 @@ with sync_playwright() as p:
         assert all("hardware" not in h for h in detailed["history"])
         page.evaluate("window.scrollTo({top:0,behavior:'instant'})")
         page.screenshot(path=str(out / "hardware-monitor.png"), full_page=True)
+        page.locator(".monitor-section-nav").get_by_role("button", name="逐核心", exact=True).click()
+        assert page.evaluate("window.scrollY") > 300
+        sidebar = page.locator("#main-navigation").bounding_box()
+        topbar = page.locator(".topbar").bounding_box()
+        assert sidebar["y"] == 0 and sidebar["height"] == page.viewport_size["height"]
+        assert topbar["y"] == 0
+        expect(page.locator('a[data-nav="guide"]')).to_be_in_viewport()
+        expect(page.locator("#back-to-top")).to_be_visible()
+        page.screenshot(path=str(out / "hardware-scrolled.png"))
+        page.locator("#navigation-toggle").click()
+        assert page.locator("#main-navigation").bounding_box()["width"] == 80
+        page.reload()
+        expect(page.locator("#monitor-title")).to_have_text("BITS-CLOUD")
+        assert page.locator("#main-navigation").bounding_box()["width"] == 80
+        page.screenshot(path=str(out / "workspace-compact.png"))
+        page.locator("#navigation-toggle").click()
+        assert page.locator("#main-navigation").bounding_box()["width"] > 180
+        checks.append("desktop sidebar/topbar remain in the viewport after scrolling; compact navigation persists")
+        page.locator(".skip-link").focus()
+        page.keyboard.press("Enter")
+        assert page.url.endswith("monitor/" + batch_id)
+        expect(page.locator("#workspace")).to_be_focused()
+        checks.append("keyboard skip link keeps the current route and focuses the workspace")
         page.get_by_role("button", name="详细表格", exact=True).click()
         expect(page.locator(".core-table tbody tr")).to_have_count(24)
         assert page.locator(".core-table tbody tr").evaluate_all("xs => xs.map(x => Number(x.dataset.cpu))") == list(range(24))
@@ -115,7 +145,12 @@ with sync_playwright() as p:
         page.evaluate("window.scrollTo({top:0,behavior:'instant'})")
         page.screenshot(path=str(out / "hardware-table.png"), full_page=True)
         page.locator(".core-table-scroll").evaluate("x => { x.scrollTop = 200; }")
+        page.locator(".core-table-scroll").focus()
         page.wait_for_timeout(3500)
+        assert page.locator(".core-table-scroll").evaluate("x => x.scrollTop") >= 190
+        expect(page.locator(".core-table-scroll")).to_be_focused()
+        page.locator("#refresh").click()
+        expect(page.locator("#refresh")).to_be_enabled(timeout=12000)
         assert page.locator(".core-table-scroll").evaluate("x => x.scrollTop") >= 190
         checks.append("live core table retains its scroll position during refresh")
         checks.append("node card opens typed socket/core monitor, numeric order and detail-only arrays")
@@ -124,10 +159,32 @@ with sync_playwright() as p:
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), "hardware mobile overflow"
         page.evaluate("window.scrollTo({top:0,behavior:'instant'})")
         page.screenshot(path=str(out / "hardware-mobile.png"), full_page=True)
+        page.locator("#navigation-toggle").click()
+        expect(page.locator("#navigation-dialog")).to_be_visible()
+        expect(page.locator('a[data-nav="guide"]')).to_be_in_viewport()
+        page.screenshot(path=str(out / "navigation-mobile.png"))
+        page.keyboard.press("Escape")
+        expect(page.locator("#navigation-dialog")).not_to_be_visible()
+        expect(page.locator("#navigation-toggle")).to_be_focused()
+        # Native modal focus containment also prevents background operations.
+        page.locator("#navigation-toggle").click()
+        for _ in range(9):
+            page.keyboard.press("Tab")
+            assert page.evaluate("document.getElementById('navigation-dialog').contains(document.activeElement)")
+        page.locator("#navigation-close").click()
+        checks.append("mobile drawer retains every navigation label, traps focus and closes with Escape")
         page.get_by_role("button", name="详细表格", exact=True).click()
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), "core table mobile overflow"
         checks.append("responsive hardware matrix and internally scrollable core table")
         page.set_viewport_size({"width":1440, "height":1080})
+        page.locator(".monitor-section-nav").get_by_role("button", name="逐核心", exact=True).click()
+        old_scroll = page.evaluate("window.scrollY")
+        navigate("batches")
+        page.go_back()
+        expect(page.locator("#monitor-title")).to_have_text("BITS-CLOUD")
+        page.wait_for_timeout(2500)
+        assert abs(page.evaluate("window.scrollY") - old_scroll) < 30
+        checks.append("back navigation restores hardware reading position after polling")
         # UI-only fixture for large multi-socket topology and missing metrics.
         # Production wire topology is validated by Go tests separately.
         def topology(route):
@@ -162,12 +219,19 @@ with sync_playwright() as p:
         context.set_offline(False)
         expect(page.locator("#monitor-status")).to_have_text("实时采集中", timeout=15000)
         checks.append("hardware monitor disconnect preserves clearly marked last readings")
-        page.locator('a[data-nav="overview"]').click()
+        # Viewport evidence, rather than a full-page stitch, proves fixed navigation.
+        page.set_viewport_size({"width":1024, "height":400})
+        page.locator('a[data-nav="guide"]').scroll_into_view_if_needed()
+        expect(page.locator('a[data-nav="guide"]')).to_be_in_viewport()
+        assert page.locator("#main-navigation").bounding_box()["y"] == 0
+        page.set_viewport_size({"width":1440, "height":1080})
+        checks.append("short desktop viewport keeps navigation reachable through its own scroll area")
+        navigate("overview")
         page.set_viewport_size({"width":430, "height":932})
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), "mobile page overflows"
         expect(page.locator("#logout")).to_be_visible()
         page.screenshot(path=str(out / "dashboard-mobile.png"), full_page=True)
-        page.locator('a[data-nav="batches"]').click()
+        navigate("batches")
         assert page.locator("#batch-list .badge").evaluate_all("xs => xs.every(x => x.getBoundingClientRect().height < 40)")
         checks.append("desktop/mobile overview, readable table and visible logout")
         # Loss of browser connection is a distinct state, never a green live badge.
@@ -204,22 +268,77 @@ with sync_playwright() as p:
         checks.append("terminal batch monitor never presents its cached reading as live")
         response = context.request.get(admin["url"] + "/api/v1/batches/" + batch_id + "/receipt")
         assert response.ok and hashlib.sha256(response.body()).hexdigest() == final["receipt_sha256"]
-        page.locator('a[data-nav="reports"]').click()
+        navigate("reports")
         page.locator("#report-search").fill("BROWSER-LIVE")
         expect(page.locator("#report-list .report-card")).to_have_count(1, timeout=15000)
         report = page.locator("#report-list").get_by_role("link", name="查看 HTML ↗")
         assert context.request.get(admin["url"] + report.get_attribute("href")).ok
         checks.append("confirmed cancellation, cleanup, report access and receipt hash")
+        def archives(route):
+            response = route.fetch()
+            value = response.json()
+            template = next(b for b in value["batches"] if b["id"] == batch_id)
+            value["batches"] = []
+            for i in range(61):
+                row = json.loads(json.dumps(template))
+                row["id"] = "{:032x}".format(10000 + i)
+                row["plan"]["label"] = "ARCHIVE-{:03d}".format(i)
+                value["batches"].append(row)
+            route.fulfill(response=response, json=value)
+        page.route("**/api/v1/overview", archives)
+        navigate("batches")
+        expect(page.locator("#batch-list tr")).to_have_count(25, timeout=15000)
+        page.locator("#batch-pagination").get_by_role("button", name="下一页 →").click()
+        expect(page.locator("#batch-list tr").first).to_contain_text("ARCHIVE-025")
+        page.wait_for_timeout(2500)
+        expect(page.locator("#batch-list tr").first).to_contain_text("ARCHIVE-025")
+        page.locator("#batch-search").fill("ARCHIVE-060")
+        expect(page.locator("#batch-list tr")).to_have_count(1)
+        navigate("reports")
+        page.locator("#report-search").fill("")
+        expect(page.locator("#report-list .report-card")).to_have_count(18)
+        page.locator("#report-pagination").get_by_role("button", name="下一页 →").click()
+        expect(page.locator("#report-list .report-card").first).to_contain_text("ARCHIVE-018")
+        page.locator("#report-search").fill("ARCHIVE-060")
+        expect(page.locator("#report-list .report-card")).to_have_count(1)
+        for width in (320, 768, 820, 1280):
+            page.set_viewport_size({"width":width,"height":800})
+            assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), width
+            expect(page.locator("#logout")).to_be_in_viewport()
+        page.set_viewport_size({"width":1440,"height":1080})
+        page.unroute("**/api/v1/overview", archives)
+        page.locator("#batch-search").fill("")
+        page.locator("#report-search").fill("BROWSER-LIVE")
+        page.locator("#refresh").click()
+        expect(page.locator("#report-list .report-card")).to_have_count(1, timeout=15000)
+        checks.append("batch/report pagination, filter reset and polling position retention with 61 simulated records")
+        checks.append("320px to desktop layouts retain visible account controls without page overflow")
         page.locator("#report-list").get_by_role("button", name="全部文件").click()
         page.locator("#detail-body").get_by_role("button", name="复制计划为新草稿").click()
         expect(page.locator("#batch-label")).to_have_value("BROWSER-LIVE-COPY")
         page.locator("#batch-next").click()
         page.locator("#batch-next").click()
+        pending_posts = []
+        def hold_post(route):
+            if route.request.method == "POST":
+                pending_posts.append(route)
+            else:
+                route.continue_()
+        page.route("**/api/v1/batches", hold_post)
         page.locator("#batch-submit").click()
+        expect(page.locator("#batch-form")).to_have_attribute("aria-busy", "true")
+        expect(page.locator('#batch-dialog button[data-close]').first).to_be_disabled()
+        page.keyboard.press("Escape")
+        expect(page.locator("#batch-dialog")).to_be_visible()
+        page.locator("#batch-form").dispatch_event("submit")
+        assert len(pending_posts) == 1
+        pending_posts[0].continue_()
+        page.unroute("**/api/v1/batches", hold_post)
         expect(page.locator("#detail-title")).to_have_text("BROWSER-LIVE-COPY")
         copy_id = page.url.split("batch/")[-1]
         assert api("batches/" + copy_id)["state"] == "draft"
         checks.append("copy plan preserves explicit start boundary")
+        checks.append("in-flight form cannot close or submit a duplicate; only one draft is created")
         page.locator("#logout").click()
         expect(page.locator("#login-dialog")).to_be_visible()
         assert not errors, errors
