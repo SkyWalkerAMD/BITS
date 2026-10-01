@@ -19,6 +19,7 @@ import time
 # Only this module's package root may supply the manifest-covered layout.
 sys.path.insert(0, str(Path(__file__).absolute().parents[2]))
 from bits_layout import LAYOUT
+DISPLAY_NAME = "bits-collector" if LAYOUT.native else "mon-sensors-plugin"
 LOCK_NAME = LAYOUT.runtime_lock
 FD_ENV = LAYOUT.runtime_fd
 NEEDS_SUPERVISOR = 3
@@ -189,7 +190,7 @@ def supervise(app, command):
         try:
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
-            print("mon-sensors-plugin: monitoring already runs for this application", file=sys.stderr)
+            print(DISPLAY_NAME + ": monitoring already runs for this application", file=sys.stderr)
             return ALREADY_RUNNING
         # Lock order is runtime EX then installation SH. The installer holds
         # installation EX and refuses active collectors, so neither can cross
@@ -355,7 +356,7 @@ def main(argv=None):
         command = args.command[1:] if args.command[:1] == ["--"] else args.command
         return supervise(args.run, command)
     except (OSError, ValueError) as error:
-        print("mon-sensors-plugin: {}".format(error), file=sys.stderr)
+        print(DISPLAY_NAME + ": {}".format(error), file=sys.stderr)
         return 1
 
 

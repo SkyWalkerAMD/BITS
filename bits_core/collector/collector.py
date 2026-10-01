@@ -17,6 +17,7 @@ import time
 
 import sckocp_api
 from bits_layout import LAYOUT
+DISPLAY_NAME = "bits-collector" if LAYOUT.native else "mon-sensors-plugin"
 from sckocp_api.provider import ERRORS, STDOUT_LIMIT
 
 
@@ -306,7 +307,7 @@ def stop_monitors(app, proc_root="/proc"):
 
 
 def _arguments(argv):
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(prog=DISPLAY_NAME, description=__doc__)
     parser.add_argument("interval", nargs="?", type=float, default=5)
     parser.add_argument("logfile", nargs="?", default="view")
     parser.add_argument("--once", action="store_true")
@@ -355,7 +356,7 @@ def main(argv=None):
         try:
             return stop_monitors(args.stop_app)
         except (OSError, ValueError):
-            print("mon-sensors-plugin: Cannot safely stop monitoring for this application.", file=sys.stderr)
+            print(DISPLAY_NAME + ": Cannot safely stop monitoring for this application.", file=sys.stderr)
             return 1
     previous = {sig: signal.signal(sig, _interrupt) for sig in (signal.SIGINT, signal.SIGTERM)}
     try:
@@ -403,7 +404,7 @@ def main(argv=None):
                     next_details = time.monotonic() + args.details_interval
                     detail_status = tuple(supplemental["parts"][k]["status"] for k in ("overview", "info"))
                     if detail_status != last_detail_status:
-                        print("mon-sensors-plugin: supplementary mon/info status=" + "/".join(detail_status), file=sys.stderr, flush=True)
+                        print(DISPLAY_NAME + ": supplementary mon/info status=" + "/".join(detail_status), file=sys.stderr, flush=True)
                         last_detail_status = detail_status
                 if sidecar is not None:
                     record = {"schema": "mon-sensors-sckocp-v1", "os": context,
@@ -424,14 +425,14 @@ def main(argv=None):
                                if status == "ok" and args.format == "v1" else
                                "Monitoring available." if status == "ok" else
                                ERRORS.get(status, "Monitoring unavailable."))
-                    print("mon-sensors-plugin: " + message, file=sys.stderr, flush=True)
+                    print(DISPLAY_NAME + ": " + message, file=sys.stderr, flush=True)
                     last_status = status
                 if status != "ok":
                     consecutive_failures += 1
                     if (args.once or status not in RETRYABLE_STATUSES
                             or consecutive_failures > args.retries):
                         return 1
-                    print("mon-sensors-plugin: Retrying collection in {} seconds ({}/{}).".format(
+                    print(DISPLAY_NAME + ": Retrying collection in {} seconds ({}/{}).".format(
                         args.retry_delay, consecutive_failures, args.retries),
                         file=sys.stderr, flush=True)
                     time.sleep(args.retry_delay)
@@ -446,7 +447,7 @@ def main(argv=None):
     except KeyboardInterrupt:
         return 0
     except (OSError, ValueError):
-        print("mon-sensors-plugin: Cannot safely open or write monitoring logs.", file=sys.stderr)
+        print(DISPLAY_NAME + ": Cannot safely open or write monitoring logs.", file=sys.stderr)
         return 1
     finally:
         for sig, handler in previous.items():

@@ -11,6 +11,7 @@ sys.path.insert(0, modules if os.path.isdir(modules) else entry_directory)
 from bits_core.collector.collector import _arguments, main
 from bits_core.collector import runtime
 from bits_layout import LAYOUT
+DISPLAY_NAME = "bits-collector" if LAYOUT.native else "mon-sensors-plugin"
 
 
 def entry(argv=None):
@@ -29,7 +30,7 @@ def entry(argv=None):
         try:
             guarded = runtime.guard_valid(app)
         except (OSError, ValueError) as error:
-            print("mon-sensors-plugin: {}".format(error), file=sys.stderr)
+            print(DISPLAY_NAME + ": {}".format(error), file=sys.stderr)
             return 1
         if not guarded:
             # Re-exec as the recognizable supervisor before opening a log or
