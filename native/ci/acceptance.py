@@ -61,7 +61,7 @@ def new_batch(label, tools):
 def interrupt_node(batch_id):
     # Exercise overlapping parent/systemd stop requests, as found on Alma 9.
     # Pin only this isolated batch's installed worker, never signal by name.
-    expected = ["/opt/bits/native/0.4.0-alpha.2/worker/worker.py", "execute",
+    expected = ["/opt/bits/native/0.4.0-alpha.3/worker/worker.py", "execute",
                 "/var/lib/bits/node/runs/" + batch_id]
     pinned = []
     for entry in Path("/proc").iterdir():
@@ -103,7 +103,7 @@ def main():
         "family": 6, "interval_s": 1,
         "sockets": [{"id": 0, "tjmax_c": 94, "temp_max_c": 34, "vid_v": .91,
                      "core_mhz": 3300, "base_mhz": 2500, "pkg_w": 108}],
-        "cores": [{"cpu": i, "socket": 0, "mhz": 3297, "temp_c": 24,
+        "cores": [{"cpu": i, "socket": 0, "mhz": 3297 + (i % 4), "temp_c": 24 + (i % 10),
                    "vid_v": .91, "c0_pct": 100, "c6_pct": 0} for i in range(24)]}
     fake = ("#!/usr/bin/python3\nimport json,sys,time,os\n"
             "args=sys.argv[1:]\n"
@@ -166,6 +166,13 @@ def main():
     assert live_steps == {"step-001", "step-002", "step-003"}, live_steps
     assert live_samples and live_samples[-1]["sequence"] > live_samples[0]["sequence"]
     live_last = live_samples[-1]
+    hardware = live_last["hardware"]
+    assert [c["cpu"] for c in hardware["cores"]] == list(range(24))
+    assert hardware["sockets"][0]["extra"]["memory_total_gb"] == 256
+    assert hardware["sockets"][0]["extra"]["dimms"] == 4
+    assert hardware["sockets"][0]["extra"]["mesh_mhz"] == 1400
+    assert all("hardware" not in r for r in api("batches/" + first["id"] + "/live")["frames"][0]["history"])
+    assert all("hardware" not in f.get("sample", {}) for f in api("live")["frames"])
     for field, expected in {"package_w":108, "temp_c":34, "psu_w":490,
                             "memory_temp_c":33, "dram_w":1.8, "vccin_v":1.83,
                             "vid_v":.91, "tjmax_c":94}.items():
@@ -194,7 +201,7 @@ def main():
     result["report"] = "not_generated"
     write(run_dir / "result.json", json.dumps(result))
     python = "/usr/libexec/platform-python" if Path("/usr/libexec/platform-python").exists() else "/usr/bin/python3"
-    worker = "/opt/bits/native/0.4.0-alpha.2/worker/worker.py"
+    worker = "/opt/bits/native/0.4.0-alpha.3/worker/worker.py"
     run(python, "-I", "-S", "-B", worker, "report", str(run_dir))
     assert json.loads((run_dir / "result.json").read_text())["report"] == "generated"
     assert receipt == (evidence / "receipt.json").read_bytes()
@@ -249,7 +256,7 @@ def main():
     assert all(call in [["mon", "--json"], ["mon", "--cols=1"], ["info"]] for call in calls)
     ports = run("ss", "-lntp")
     assert ":6379 " not in ports and ":873 " not in ports
-    summary = {"status": "passed", "version": "0.4.0-alpha.2", "python": sys.version,
+    summary = {"status": "passed", "version": "0.4.0-alpha.3", "python": sys.version,
         "os": Path("/etc/os-release").read_text(), "batch": finished["id"],
         "normal_steps": finished["result"]["steps"], "cancel_execution": cancel_result["result"]["execution"],
         "service_restart_execution": interrupted["result"]["execution"],

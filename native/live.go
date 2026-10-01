@@ -25,6 +25,7 @@ type LiveSample struct {
 	VCCIN         *float64 "json:\"vccin_v\""
 	VID           *float64 "json:\"vid_v\""
 	TjMax         *float64 "json:\"tjmax_c\""
+	Hardware      *LiveHardware "json:\"hardware,omitempty\""
 }
 type LiveUpdate struct {
 	Phase       string      "json:\"phase\""
@@ -80,7 +81,10 @@ func validSample(v *LiveSample) error {
 			return errors.New("invalid or unavailable live metric")
 		}
 	}
-	return nil
+	if !v.Available && v.Hardware != nil {
+		return errors.New("unavailable sample contains hardware readings")
+	}
+	return validHardware(v.Hardware, v.ExtraObserved)
 }
 func (c *LiveCache) Put(b Batch, v LiveUpdate) error {
 	if IsTerminal(b.State) || b.State == "draft" {
@@ -107,6 +111,9 @@ func (c *LiveCache) Put(b Batch, v LiveUpdate) error {
 	if err := validSample(v.Sample); err != nil {
 		return err
 	}
+	// Own the values, including nested pointer fields; neither publishers nor
+	// snapshot readers may mutate an accepted sample after validation.
+	v.Sample = copyLiveSample(v.Sample, true)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	old := c.nodes[b.Plan.Node]
@@ -135,7 +142,7 @@ func (c *LiveCache) Put(b Batch, v LiveUpdate) error {
 	}
 	if v.Sample != nil && (old.Batch != b.ID || old.Sample == nil || v.Sample.Sequence > old.Sample.Sequence) {
 		frame.SampleReceived = UTC()
-		frame.History = append(frame.History, *v.Sample)
+		frame.History = append(frame.History, *copyLiveSample(v.Sample, false))
 		if len(frame.History) > 180 {
 			frame.History = append([]LiveSample(nil), frame.History[len(frame.History)-180:]...)
 		}
@@ -154,8 +161,12 @@ func (c *LiveCache) Snapshot(batch string) []LiveFrame {
 		if batch == "" {
 			value.History = nil
 		} else {
-			value.History = append([]LiveSample(nil), value.History...)
+			value.History = make([]LiveSample, len(value.History))
+			for i, sample := range c.nodes[value.Node].History {
+				value.History[i] = *copyLiveSample(&sample, false)
+			}
 		}
+		value.Sample = copyLiveSample(value.Sample, batch != "")
 		out = append(out, value)
 	}
 	return out

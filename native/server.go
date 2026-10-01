@@ -67,10 +67,15 @@ func respond(w http.ResponseWriter, v any) {
 	json.NewEncoder(w).Encode(v)
 }
 func decode(r *http.Request, v any) error {
+	return decodeBounded(r, v, 1<<20)
+}
+func decodeBounded(r *http.Request, v any, limit int64) error {
 	if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
 		return errors.New("application/json required")
 	}
-	d := json.NewDecoder(io.LimitReader(r.Body, (1<<20)+1))
+	raw, err := io.ReadAll(io.LimitReader(r.Body, limit+1))
+	if err != nil || int64(len(raw)) > limit { return errors.New("request exceeds size limit") }
+	d := json.NewDecoder(strings.NewReader(string(raw)))
 	d.DisallowUnknownFields()
 	if err := d.Decode(v); err != nil {
 		return errors.New("invalid or unknown request field")
@@ -399,7 +404,7 @@ func (s *Server) node(w http.ResponseWriter, r *http.Request, node string) error
 			break
 		}
 		var in LiveUpdate
-		if err = decode(r, &in); err != nil {
+		if err = decodeBounded(r, &in, 2<<20); err != nil {
 			return err
 		}
 		if err = s.live.Put(b, in); err != nil {

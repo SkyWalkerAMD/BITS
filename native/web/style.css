@@ -1856,3 +1856,110 @@ dialog h2 {
     scroll-behavior: auto !important;
   }
 }
+
+/* Read-only hardware workspace, sharing the operator console palette. */
+.monitor-hero {
+  display: flex; justify-content: space-between; gap: 24px; align-items: center;
+  background: #153e48; color: #f3fbfa; border-radius: 12px; padding: 30px 34px;
+}
+.monitor-hero .eyebrow { color: #96ccc3; font-size: 10px; letter-spacing: 2px; margin-bottom: 12px; }
+.monitor-hero h2 { font-size: 32px; letter-spacing: -.5px; margin: 0 0 6px; overflow-wrap: anywhere; }
+.monitor-subtitle { font-size: 12px; color: #b6d0d2; margin: 0; overflow-wrap: anywhere; }
+.monitor-hero-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 18px; flex-shrink: 0; }
+.monitor-hero-actions button { color: #d3eeea; border-color: #476c72; background: transparent; font-size: 11px; }
+.monitor-hero-actions button:hover { background: #29525b; }
+.monitor-status { font-size: 12px; display: flex; align-items: center; gap: 8px; }
+.monitor-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #f1c875; }
+.monitor-status.is-live::before { background: #78dbbc; box-shadow: 0 0 0 4px #78dbbc18; }
+.monitor-stamps { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 14px 1px 22px; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.monitor-extra-age.stale { color: var(--amber); }
+.monitor-summary { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 15px; margin-bottom: 24px; }
+.monitor-summary .metric { padding: 22px 23px; background: white; border: 1px solid var(--line); border-radius: 9px; }
+.monitor-summary .metric label { font-size: 10px; color: var(--muted); }
+.monitor-summary .metric strong { display: block; font-size: 29px; margin-top: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.monitor-summary .metric small { font-size: 11px; color: var(--muted); margin-left: 5px; font-weight: 400; }
+.monitor-sockets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-bottom: 24px; }
+.monitor-sockets:has(> :only-child) { grid-template-columns: 1fr; }
+.socket-card { background: white; border: 1px solid var(--line); border-radius: 10px; padding: 25px 27px; min-width: 0; }
+.socket-heading { display: flex; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
+.socket-heading .eyebrow { color: var(--teal); font-size: 10px; margin-bottom: 7px; }
+.socket-heading h3 { font-size: 16px; margin-bottom: 6px; overflow-wrap: anywhere; }
+.socket-heading .muted { font-size: 11px; margin: 0; }
+.socket-chip { background: #ecf5f3; color: #34776f; border: 1px solid #dbeae6; width: 44px; height: 44px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600; flex-shrink: 0; }
+.socket-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 19px 0 18px; border-top: 1px solid var(--line); }
+.socket-metrics .metric label { font-size: 11px; color: var(--muted); }
+.socket-metrics .metric strong { display: block; font-size: 28px; font-variant-numeric: tabular-nums; }
+.socket-metrics .metric small { font-size: 11px; color: var(--muted); margin-left: 5px; font-weight: 400; }
+.socket-primary { display: flex; gap: 28px; margin: 0; padding-bottom: 19px; border-bottom: 1px solid var(--line); }
+.monitor-pair { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 11px; }
+.monitor-pair dt { color: var(--muted); }
+.monitor-pair dd { margin: 0; font-weight: 550; font-variant-numeric: tabular-nums; }
+.socket-extra-label { color: #82959d; font-size: 10px; margin: 17px 0 12px; }
+.socket-extra { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 30px; margin: 0; }
+.socket-memory { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; font-size: 11px; margin-top: 19px; background: #f4f8f8; padding: 12px 15px; border-radius: 5px; }
+.socket-memory span { color: var(--muted); }
+.socket-memory strong { font-weight: 500; font-variant-numeric: tabular-nums; }
+.monitor-history .socket-chip { color: #71858d; background: #f2f5f6; border-color: #e0e8eb; }
+.monitor-summary.is-stale .metric strong, .monitor-summary .metric.stale strong,
+.monitor-sockets.is-stale .metric strong, .monitor-sockets.is-stale dd,
+.socket-extra.stale dd, .socket-memory.stale strong { color: #80929a; }
+.core-section { margin-bottom: 24px; }
+.core-section .section-title .muted { font-size: 11px; }
+.core-filters { display: flex; overflow-x: auto; gap: 8px; margin: 20px 0 18px; padding: 3px; }
+.core-filters button { font-size: 11px; padding: 6px 13px; }
+.core-filters .selected { background: #e9f4f2; border-color: #7cb5ad; color: #20766e; }
+.core-grid { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 10px; }
+.core-tile { border: 1px solid #e0ebe8; background: #f8fbfa; border-radius: 7px; padding: 13px 12px 10px; font-variant-numeric: tabular-nums; min-width: 0; }
+.core-tile-top { display: flex; justify-content: space-between; gap: 4px; align-items: baseline; }
+.core-tile-top strong { font-size: 10px; font-weight: 650; }
+.core-tile-top small { font-size: 9px; color: #879e9b; }
+.core-temperature { color: #257f75; font-size: 22px; margin-top: 10px; line-height: 1.5; white-space: nowrap; }
+.core-frequency { font-size: 10px; color: #6f8790; white-space: nowrap; }
+.core-tile > small { display: block; color: #7c9499; font-size: 9px; margin-top: 5px; }
+.core-load { height: 3px; background: #e1eeea; margin-top: 13px; border-radius: 2px; overflow: hidden; }
+.core-load i { display: block; height: 100%; background: #64b5a2; border-radius: 2px; }
+.core-grid.is-stale .core-temperature { color: #7d9098; }
+.core-grid.is-stale .core-load i { background: #b1c0c5; }
+.core-table-scroll { overflow: auto; max-height: 640px; border: 1px solid var(--line); border-radius: 6px; }
+.core-table { width: 100%; min-width: 680px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.core-table th { position: sticky; top: 0; background: #eef5f5; font-size: 11px; text-align: right; padding: 13px; white-space: nowrap; }
+.core-table td { font-size: 12px; text-align: right; padding: 11px 13px; border-top: 1px solid var(--line); }
+.core-table th:first-child, .core-table td:first-child { text-align: left; }
+.core-table tbody tr:nth-child(even) { background: #f9fbfb; }
+.core-table tbody tr:hover { background: #eef7f4; }
+.core-table-scroll.is-stale td { color: #80929a; }
+.core-legend { margin: 18px 0 0; color: var(--muted); }
+.monitor-trends { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 20px; }
+.monitor-trends h3 { font-size: 13px; margin: 0; }
+.monitor-trends .muted { font-size: 10px; }
+.monitor-trends .trend-chart { width: 100%; height: 120px; color: var(--teal); }
+.monitor-trends .field-help { margin-bottom: 0; }
+.monitor-quality { font-size: 11px; color: var(--muted); line-height: 1.9; }
+@media (min-width: 1700px) { .core-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); } }
+@media (max-width: 1190px) {
+  .monitor-summary { gap: 10px; }
+  .monitor-summary .metric { padding: 18px 14px; }
+  .monitor-summary .metric strong { font-size: 23px; }
+  .core-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .monitor-sockets { grid-template-columns: 1fr; }
+}
+@media (max-width: 650px) {
+  .monitor-hero { display: block; padding: 25px; }
+  .monitor-hero h2 { font-size: 28px; }
+  .monitor-hero-actions { margin-top: 20px; align-items: flex-start; gap: 14px; }
+  .monitor-stamps { font-size: 10px; margin-bottom: 18px; }
+  .monitor-summary { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .monitor-summary .metric:last-child { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; }
+  .monitor-summary .metric:last-child strong { margin: 0; }
+  .socket-card { padding: 22px 20px; }
+  .socket-heading h3 { font-size: 14px; }
+  .socket-metrics .metric strong { font-size: 23px; }
+  .socket-extra { gap: 10px 16px; }
+  .monitor-pair { font-size: 10px; gap: 6px; }
+  .core-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .core-tile { padding: 12px 9px; }
+  .core-temperature { font-size: 21px; }
+  .core-section .section-title { display: block; }
+  .core-section .segmented { margin-top: 18px; width: fit-content; }
+  .monitor-trends { grid-template-columns: 1fr; }
+}

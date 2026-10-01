@@ -71,7 +71,7 @@ with sync_playwright() as p:
         page.locator("#batch-label").fill("BROWSER-LIVE")
         page.locator("#batch-next").click()
         for box in page.locator("#steps input").all():
-            box.fill("60")
+            box.fill("180")
         page.locator("#batch-next").click()
         expect(page.locator("#batch-review")).to_contain_text("stress-ng")
         page.screenshot(path=str(out / "batch-wizard.png"))
@@ -94,6 +94,68 @@ with sync_playwright() as p:
         page.locator("#overview-node-list .node-card.running").wait_for()
         expect(page.locator("#overview-node-list .node-card.running")).to_contain_text("108.0")
         page.screenshot(path=str(out / "dashboard.png"), full_page=True)
+        page.locator("#overview-node-list .node-card.running").get_by_role("button", name="实时监控 ↗").click()
+        expect(page.locator("#monitor-title")).to_have_text("BITS-CLOUD")
+        expect(page.locator("#monitor-status")).to_have_text("实时采集中")
+        expect(page.locator(".core-tile")).to_have_count(24)
+        assert page.locator(".core-tile").evaluate_all("xs => xs.map(x => Number(x.dataset.cpu))") == list(range(24))
+        expect(page.locator(".socket-card")).to_contain_text("w7-2495X")
+        expect(page.locator(".socket-card")).to_contain_text("1.83 V")
+        assert "hardware" not in api("live")["frames"][0]["sample"]
+        detailed = api("batches/" + batch_id + "/live")["frames"][0]
+        assert len(detailed["sample"]["hardware"]["cores"]) == 24
+        assert all("hardware" not in h for h in detailed["history"])
+        page.screenshot(path=str(out / "hardware-monitor.png"), full_page=True)
+        page.get_by_role("button", name="详细表格", exact=True).click()
+        expect(page.locator(".core-table tbody tr")).to_have_count(24)
+        assert page.locator(".core-table tbody tr").evaluate_all("xs => xs.map(x => Number(x.dataset.cpu))") == list(range(24))
+        expect(page.locator(".core-table tbody tr").first).to_contain_text("0.9100")
+        expect(page.locator(".core-table tbody tr").first).to_contain_text("未提供")
+        page.screenshot(path=str(out / "hardware-table.png"), full_page=True)
+        checks.append("node card opens typed socket/core monitor, numeric order and detail-only arrays")
+        page.get_by_role("button", name="核心矩阵", exact=True).click()
+        page.set_viewport_size({"width":430, "height":932})
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), "hardware mobile overflow"
+        page.screenshot(path=str(out / "hardware-mobile.png"), full_page=True)
+        page.get_by_role("button", name="详细表格", exact=True).click()
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), "core table mobile overflow"
+        checks.append("responsive hardware matrix and internally scrollable core table")
+        page.set_viewport_size({"width":1440, "height":1080})
+        # UI-only fixture for large multi-socket topology and missing metrics.
+        # Production wire topology is validated by Go tests separately.
+        def topology(route):
+            response = route.fetch()
+            value = response.json()
+            for frame in value["frames"]:
+                sample = frame["sample"]
+                h = sample["hardware"]
+                socket = dict(h["sockets"][0]); socket["id"] = 1
+                h["sockets"].append(socket)
+                original = h["cores"][0]
+                h["cores"] = [dict(original, cpu=i, socket=0 if i < 70 else 1, vid_v=None) for i in reversed(range(140))]
+                sample["extra_observed_at"] = "2020-01-01T00:00:00Z"
+            route.fulfill(response=response, json=value)
+        live_path = "**/api/v1/batches/" + batch_id + "/live"
+        page.route(live_path, topology)
+        expect(page.locator(".socket-card")).to_have_count(2, timeout=12000)
+        expect(page.locator(".core-table tbody tr")).to_have_count(64)
+        expect(page.locator(".core-table tbody tr").first.locator("td").nth(4)).to_have_text("—")
+        page.get_by_role("button", name="下一页", exact=True).click()
+        assert page.locator(".core-table tbody tr").first.get_attribute("data-cpu") == "64"
+        page.locator(".core-filters").get_by_role("button", name="S1", exact=True).click()
+        assert page.locator(".core-table tbody tr").first.get_attribute("data-cpu") == "70"
+        expect(page.locator("#monitor-status")).to_have_text("实时采集中")
+        expect(page.locator(".monitor-extra-age.stale")).to_be_visible()
+        page.unroute(live_path, topology)
+        expect(page.locator(".socket-card")).to_have_count(1, timeout=12000)
+        expect(page.locator(".core-table tbody tr")).to_have_count(24)
+        checks.append("large multi-socket UI pagination, missing values and independent supplemental freshness")
+        context.set_offline(True)
+        expect(page.locator("#monitor-status")).to_contain_text("连接中断", timeout=15000)
+        context.set_offline(False)
+        expect(page.locator("#monitor-status")).to_have_text("实时采集中", timeout=15000)
+        checks.append("hardware monitor disconnect preserves clearly marked last readings")
+        page.locator('a[data-nav="overview"]').click()
         page.set_viewport_size({"width":430, "height":932})
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), "mobile page overflows"
         expect(page.locator("#logout")).to_be_visible()
@@ -130,6 +192,9 @@ with sync_playwright() as p:
         final = wait_batch(batch_id, "delivered")
         assert final["result"]["execution"] == "interrupted", final
         assert final["result"]["steps"][0]["cleanup_confirmed"]
+        page.locator("#detail-body").get_by_role("button", name="硬件实时监控", exact=True).click()
+        expect(page.locator("#monitor-status")).to_have_text("采集已结束 · 最后读数", timeout=15000)
+        checks.append("terminal batch monitor never presents its cached reading as live")
         response = context.request.get(admin["url"] + "/api/v1/batches/" + batch_id + "/receipt")
         assert response.ok and hashlib.sha256(response.body()).hexdigest() == final["receipt_sha256"]
         page.locator('a[data-nav="reports"]').click()

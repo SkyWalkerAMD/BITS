@@ -6,8 +6,10 @@ and report rendering, never the OCRUN scheduler, Redis keys or rsync hooks.
 """
 import csv
 import json
+import math
 import os
 from pathlib import Path
+import re
 import shutil
 import signal
 import sys
@@ -27,7 +29,7 @@ import streaming
 import suite
 import workload
 
-VERSION = "0.4.0-alpha.2"
+VERSION = "0.4.0-alpha.3"
 # 128 explicitly identified steps plus the initial preparing sample.
 report_sheet.MAX_GROUPS = 129
 STOP = False
@@ -76,7 +78,74 @@ def live_sample(record, extra):
                       "dram_w": aggregate(overview["sockets"], "dram_w", sum),
                       "vccin_v": aggregate(overview["sockets"], "vccin_v", max),
                       "psu_w": overview["system"]["psu_input_w_reported"]})
+    hardware = live_hardware(data, extra)
+    if hardware is not None:
+        value["hardware"] = hardware
     return value
+
+
+def live_hardware(data, extra):
+    """Project the existing licensed sample; never invoke another command.
+
+    Only structured JSON metrics and selected mon overview fields are exported.
+    Raw sections, timings and permission data never enter the live protocol.
+    """
+    if data.get("vendor") not in ("GenuineIntel", "AuthenticAMD"):
+        return None
+    def number(value):
+        return value if type(value) in (int, float) and math.isfinite(value) else None
+
+    overview = extra["data"] if extra else {}
+    supplements = {s["id"]: {"vccin_v": number(s.get("vccin_v")),
+                             "mesh_mhz": number(s.get("mesh_mhz")),
+                             "memory_temp_c": number(s.get("memory_temp_max_c")),
+                             "dram_w": number(s.get("dram_w"))}
+                   for s in overview.get("sockets", [])}
+    for section in overview.get("sections", []):
+        if section["name"] not in ("Per-socket Overview", "CPU"):
+            continue
+        current = None
+        for line in section["lines"]:
+            for part in re.split(r"(?=\bS\d+\s)", line):
+                identity = re.match(r"\s*S(\d+)\s", part)
+                if identity:
+                    current = supplements.get(int(identity.group(1)))
+                if current is None:
+                    continue
+                if section["name"] == "CPU":
+                    match = re.fullmatch(r"\s*S\d+\s+(.+?)\s+(\d+)C/(\d+)T\s+Base\s+\d+\s+MHz\s*", part)
+                    if match:
+                        current.update({"model": match.group(1)[:256],
+                                        "physical_cores": int(match.group(2)), "threads": int(match.group(3))})
+                    continue
+                for key, pattern in (
+                    ("memory_mts", r"\bDRAM\s+(\d+(?:\.\d+)?)\s+MT/s"),
+                    ("dimms", r"\b(\d+)\s+DIMMs\b"),
+                    ("pc2_pct", r"\bPC2\s+(\d+(?:\.\d+)?)%"),
+                    ("pc6_pct", r"\bPC6\s+(\d+(?:\.\d+)?)%")):
+                    match = re.search(pattern, part)
+                    if match:
+                        current[key] = number(float(match.group(1)))
+                used = re.search(r"\bUsed\s+(\d+(?:\.\d+)?)/(\d+(?:\.\d+)?)\s+GB\s+(\d+(?:\.\d+)?)%", part)
+                if used:
+                    for key, value in zip(("memory_used_gb", "memory_total_gb", "memory_used_pct"), used.groups()):
+                        current[key] = number(float(value))
+    sockets = []
+    for row in data.get("sockets", []):
+        item = {"id": row["id"]}
+        for source, target in (("temp_max_c", "temp_c"), ("tjmax_c", "tjmax_c"),
+                               ("vid_v", "vid_v"), ("core_mhz", "core_mhz"),
+                               ("base_mhz", "base_mhz"), ("pkg_w", "package_w")):
+            item[target] = number(row.get(source))
+        if row["id"] in supplements:
+            item["extra"] = supplements[row["id"]]
+        sockets.append(item)
+    cores = [{"cpu": row["cpu"], "socket": row["socket"],
+              **{key: number(row.get(key)) for key in ("mhz", "temp_c", "vid_v", "c0_pct", "c6_pct")}}
+             for row in data.get("cores", [])]
+    return {"schema": "bits-live-hardware-v1", "vendor": data["vendor"], "family": data["family"],
+            "sockets": sorted(sockets, key=lambda r: r["id"]),
+            "cores": sorted(cores, key=lambda r: (r["socket"], r["cpu"]))}
 
 
 def request(directory):

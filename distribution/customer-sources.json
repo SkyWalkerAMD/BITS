@@ -206,6 +206,7 @@
     "native/go.sum",
     "native/model.go",
     "native/live.go",
+    "native/live_hardware.go",
     "native/live_test.go",
     "native/native_test.go",
     "native/package.py",
