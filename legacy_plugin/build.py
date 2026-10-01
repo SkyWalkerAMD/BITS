@@ -175,7 +175,8 @@ def build(baseline, output, tools):
         # CI-only upgrade fixture, excluded from the published package set.
         copy(previous / 'standalone/mon-sensors-report-py36-0.2.0.run', output / 'ci/mon-sensors-report-py36-0.2.0.run')
         copy(SOURCE / 'docs/deployment/BITS.md', output / 'MANUAL.md')
-        copy(SOURCE / 'docs/releases/0.2.4.md', output / 'OPTIMIZATION.md')
+        copy(SOURCE / 'docs/releases/0.3.0.md', output / 'OPTIMIZATION.md')
+        copy(SOURCE / 'docs/deployment/MIGRATION-0.3.md', output / 'MIGRATION.md')
         put(output / 'SHA256SUMS', ''.join(sha(p) + '  ' + p.name + '\n' for p in sorted(output.iterdir()) if p.is_file() and p.name != 'SHA256SUMS'))
 
 

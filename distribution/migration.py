@@ -67,9 +67,28 @@ def inspect_backup(source, hostname):
     return config, states
 
 
+def planned_states(node, source, states):
+    planned = []
+    for name, old, raw in states:
+        adapted = dict(old, app=str(node.APP), migration={
+            'source': str(Path(source) / 'app/.mon-sensors-finish' / name),
+            'source_sha256': common.digest(raw), 'results_rewritten': False})
+        target = node.APP / 'state' / name
+        evidence = node.DATA / 'migration-history' / (Path(name).stem + '.' + common.digest(raw) + '.json')
+        if target.exists() or target.is_symlink():
+            if common.load(target, private=True) != adapted:
+                raise ValueError('Batch ID collision; existing history retained: ' + name)
+        if evidence.exists() or evidence.is_symlink():
+            if common.read(evidence, private=True) != raw:
+                raise ValueError('Migration provenance differs')
+        planned.append((target, adapted, evidence, raw))
+    return planned
+
+
 def migrate(node, source, check):
     node.active_scheduler()
     config, states = inspect_backup(source, node.socket.gethostname())
+    planned_states(node, source, states)
     options = SimpleNamespace(config=str(Path(source) / 'connection.json'),
         serial=config['serial'], keep_on=config['keep_on'], check=check)
     # Keep a single JSON response for both configure + history import.
@@ -89,26 +108,13 @@ def migrate(node, source, check):
             raise ValueError('Migration lock changed')
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         node.active_scheduler()
-        provenance = common.mkdir(node.DATA / 'migration-history')
-        target_state = common.directory(node.APP / 'state')
+        common.mkdir(node.DATA / 'migration-history')
+        common.directory(node.APP / 'state')
         # Validate again after initialization and before any imported state.
         second_config, second_states = inspect_backup(source, node.socket.gethostname())
         if second_config != config or second_states != states:
             raise ValueError('Prior installation changed during migration; retained')
-        planned = []
-        for name, old, raw in states:
-            adapted = dict(old, app=str(node.APP), migration={
-                'source': str(Path(source) / 'app/.mon-sensors-finish' / name),
-                'source_sha256': common.digest(raw), 'results_rewritten': False})
-            target = target_state / name
-            evidence = provenance / (Path(name).stem + '.' + common.digest(raw) + '.json')
-            if target.exists() or target.is_symlink():
-                if common.load(target, private=True) != adapted:
-                    raise ValueError('Batch ID collision; existing history retained: ' + name)
-            if evidence.exists() or evidence.is_symlink():
-                if common.read(evidence, private=True) != raw:
-                    raise ValueError('Migration provenance differs')
-            planned.append((target, adapted, evidence, raw))
+        planned = planned_states(node, source, states)
         for target, adapted, evidence, raw in planned:
             if not evidence.exists():
                 common.write(evidence, raw)

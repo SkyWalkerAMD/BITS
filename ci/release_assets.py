@@ -42,6 +42,8 @@ def selections(root):
              'CONTROL-MANUAL.md', 'WORKLOADS-MANUAL.md', 'SERVER-MANUAL.md',
              'SCKOCP-API.md', 'OPTIMIZATION.md',
              'example/report-preview.html', 'example/report-print-preview.pdf']
+    if meta.get('version') == '0.3.0':
+        names += ['MIGRATION.md', 'CORE-REFACTOR.md']
     source_names = [name for name in ('sources/ocrun-source.tar.gz', 'sources/bits-source.tar.gz') if name in checked]
     if len(source_names) != 1:
         raise ValueError('Expected exactly one reviewed customer source archive')

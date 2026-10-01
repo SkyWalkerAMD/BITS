@@ -92,6 +92,8 @@ def main():
                            ('docs/deployment/SERVER.md', 'SERVER-MANUAL.md'), ('docs/monitoring/SCKOCP-API.md', 'SCKOCP-API.md'),
                            ('docs/reports/ACCEPTANCE-REPORT.md', 'ACCEPTANCE-REPORT.md'), ('docs/plugins/CONTROL-READER.md', 'CONTROL-MANUAL.md'),
                            ('docs/releases/' + VERSION + '.md', 'OPTIMIZATION.md')])
+    documents['docs/deployment/MIGRATION-0.3.md'] = 'MIGRATION.md'
+    documents['docs/development/CORE-REFACTOR.md'] = 'CORE-REFACTOR.md'
     from build import document_bytes
     for original, name in documents.items():
         put(target / name, document_bytes(original, name, documents))
@@ -103,6 +105,8 @@ def main():
                 'scope': 'new native center and new native node with included selected workload tools',
                 'monitor_fixture': 'synthetic; no claim of licensed hardware sensor validation in CI',
                 'production_changed': False, 'signing': 'SHA-256; no RPM/GPG signing key configured',
+                'history_migration': 'published 0.2.5 node package: checked import, corruption refusal, idempotence and rollback',
+                'center_data_migration': 'not automated; explicit maintenance and storage/account review required',
                 'field_pending': ['real sckocp hardware collection on new native node', 'native OS kernel/SELinux enforcement',
                                   'MLC full hardware workloads and original SPEC import/full workloads', 'P95 CPU modes, sustained load and cyclictest realtime latency']}
     put(target / 'RELEASE.json', json.dumps(metadata, ensure_ascii=False, indent=2) + '\n')

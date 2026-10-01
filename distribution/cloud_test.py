@@ -92,6 +92,7 @@ def migration_check(extension, package, private, redis, tasks, host, address):
     imported_path = APP / 'state' / source.name
     imported_bytes = imported_path.read_bytes()
     imported_path.write_text(json.dumps(dict(imported, task_id='COLLISION')))
+    assert run(*(command + ['--check']), good=False).returncode
     assert run(*command, good=False).returncode
     assert json.loads(imported_path.read_text())['task_id'] == 'COLLISION'
     imported_path.write_bytes(imported_bytes)

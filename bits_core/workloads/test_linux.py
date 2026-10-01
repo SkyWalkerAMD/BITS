@@ -239,7 +239,7 @@ class Workloads(unittest.TestCase):
 
     def test_17_mlc_original_payload_and_version(self):
         inventory = suite.check()
-        self.assertEqual('3', inventory['package_revision'])
+        self.assertEqual('4', inventory['package_revision'])
         self.assertEqual('3.13', inventory['sources']['mlc']['version'])
         self.assertEqual('included', inventory['sources']['mlc']['delivery'])
         archive = self.root / 'mlc-original.tar.gz'

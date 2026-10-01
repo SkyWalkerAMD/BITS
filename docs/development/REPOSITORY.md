@@ -1,6 +1,6 @@
 # 仓库目录约定
 
-按产品组件、文档、验证、兼容基线和私有研究分类。源码包名、导入路径与命令保持稳定，避免仅为改目录改变节点行为。
+按共享核心、产品接入、文档、验证和兼容基线分类。0.3.0 将共用实现迁入 bits_core；完整系统使用固定的新目录配置，旧 OCRUN 由独立适配保留原路径与协议。
 
 | 范围 | 目录 |
 | --- | --- |
@@ -8,7 +8,7 @@
 | 旧系统增强 | `legacy_plugin/`、`bits_core/results/` |
 | 节点与结果 | `bits_core/batch/`、`bits_core/reporting/`、`bits_core/workloads/` |
 | 接口与采集 | `sckocp_api/`、`bits_core/collector/`、`examples/` |
-| 兼容代码与早期实现 | `ocrun/`；仍被其他模块复用，不能整体删除 |
+| 早期实现 | `ocrun/`；由历史入口单独使用，完整 BITS / bits-o 核心不导入它 |
 | 验证与自动化 | `tests/`、`ci/`、`.github/workflows/`；组件测试保留在组件旁 |
 | 上游基线 | `integrations/mon-sensors/`，保留原字节和哈希 |
 | 私有研究 | 仅在独立私有归档，不进入公开 Git 历史 |
@@ -18,6 +18,9 @@
 
 | 原位置 | 当前位置 |
 | --- | --- |
+| mon_sensors_plugin / finish_addon | bits_core/collector / bits_core/batch |
+| report_addon / control_addon | bits_core/reporting / bits_core/results |
+| server_deploy / workload_suite | bits_core/center / bits_core/workloads |
 | 根目录部署、监控、报告手册 | `docs/deployment/`、`docs/monitoring/`、`docs/reports/` |
 | 组件 MANUAL / OPTIMIZATION | 对应的 `docs/` 分类 |
 | FLEET / OPERATIONS / README-EXPERIMENTAL | `docs/archive/agent-0.12.8/` |
