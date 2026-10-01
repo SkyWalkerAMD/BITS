@@ -898,7 +898,9 @@ function renderDetail() {
     live = el("section", undefined, "panel");
   process.append(el("h2", "执行步骤"));
   const timeline = el("ol", undefined, "steps-timeline");
-  const ended = ["delivered", "cancelled", "closed_incomplete"].includes(b.state);
+  const ended = ["delivered", "cancelled", "closed_incomplete"].includes(
+    b.state,
+  );
   b.plan.steps.forEach((s, index) => {
     const r = steps.find((v) => v.id === s.id),
       isActive = frame?.step_id === s.id && activeStates.includes(b.state),

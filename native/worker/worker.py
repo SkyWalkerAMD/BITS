@@ -30,8 +30,15 @@ import workload
 VERSION = "0.4.0-alpha.2"
 # 128 explicitly identified steps plus the initial preparing sample.
 report_sheet.MAX_GROUPS = 129
-STOP = threading.Event()
+STOP = False
 CURRENT = {"label": "Preparing", "step_id": None}
+
+
+def request_stop(*unused):
+    # systemd and the parent may signal at the same time. Python handlers can
+    # interrupt one another, so never acquire an Event/Condition lock here.
+    global STOP
+    STOP = True
 
 
 def result(directory, execution, report="not_generated", error="", steps=None, quality=None):
@@ -217,7 +224,7 @@ def execute(directory, value):
         sampling.health()
         result(directory, "running")
         for step, profile in zip(value["batch"]["plan"]["steps"], specs(value)):
-            if STOP.is_set():
+            if STOP:
                 outcome = "interrupted"
                 break
             CURRENT.update({"label": step["id"] + " " + step["tool"], "step_id": step["id"]})
@@ -232,13 +239,13 @@ def execute(directory, value):
                 result(directory, "running", steps=state["steps"])
 
             observed = workload.execute(profile, evidence / (step["id"] + ".log"), save_step,
-                                        health=sampling.health, cancelled=STOP.is_set)
+                                        health=sampling.health, cancelled=lambda: STOP)
             if observed["execution"] not in ("duration_reached", "finished") or not observed["cleanup_confirmed"]:
-                outcome = "interrupted" if STOP.is_set() else "failed"
+                outcome = "interrupted" if STOP else "failed"
                 failure = "Step {}: {}".format(step["id"], observed["execution"])
                 break
     except BaseException as exc:
-        outcome, failure = "interrupted" if STOP.is_set() else "failed", str(exc)[:1024]
+        outcome, failure = "interrupted" if STOP else "failed", str(exc)[:1024]
     finally:
         sampling.close()
         if sampling.error:
@@ -382,7 +389,7 @@ def main():
     if os.geteuid() != 0:
         raise ValueError("Node hardware worker requires root")
     for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
-        signal.signal(sig, lambda *args: STOP.set())
+        signal.signal(sig, request_stop)
     if len(sys.argv) != 3 or sys.argv[1] not in ("preflight", "execute", "recover", "report"):
         raise ValueError("Use the BITS node agent")
     action, directory = sys.argv[1], Path(sys.argv[2])

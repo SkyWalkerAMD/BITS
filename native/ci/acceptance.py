@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import signal
 import ssl
 import subprocess
 import sys
@@ -55,6 +56,36 @@ def wait_batch(batch_id, state, seconds=100):
 def new_batch(label, tools):
     return api("batches", {"node": "BITS-CLOUD", "label": label,
         "steps": [{"tool": tool, "seconds": seconds} for tool, seconds in tools]})
+
+
+def interrupt_node(batch_id):
+    # Exercise overlapping parent/systemd stop requests, as found on Alma 9.
+    # Pin only this isolated batch's installed worker, never signal by name.
+    expected = ["/opt/bits/native/0.4.0-alpha.2/worker/worker.py", "execute",
+                "/var/lib/bits/node/runs/" + batch_id]
+    pinned = []
+    for entry in Path("/proc").iterdir():
+        if not entry.name.isdigit():
+            continue
+        try:
+            args = (entry / "cmdline").read_bytes().decode().rstrip("\0").split("\0")
+            if args[-3:] == expected:
+                start = (entry / "stat").read_text().rsplit(")", 1)[1].split()[19]
+                pinned.append((entry, start))
+        except (FileNotFoundError, ProcessLookupError):
+            continue
+    assert len(pinned) == 1, pinned
+    entry, start = pinned[0]
+    with subprocess.Popen(["systemctl", "stop", "bits-node"]) as stop:
+        for unused in range(30):
+            try:
+                if (entry / "stat").read_text().rsplit(")", 1)[1].split()[19] != start:
+                    break
+                os.kill(int(entry.name), signal.SIGTERM)
+            except (FileNotFoundError, ProcessLookupError):
+                break
+            time.sleep(.01)
+        assert stop.wait(timeout=60) == 0
 
 
 def main():
@@ -175,16 +206,19 @@ def main():
     api("batches/" + cancelled["id"] + "/cancel", {"reason": "Isolated cancellation verification"})
     cancel_result = wait_batch(cancelled["id"], "delivered")
     assert cancel_result["result"]["execution"] == "interrupted", cancel_result
-    interrupted = new_batch("CLOUD-SERVICE-INTERRUPT", [("stress", 40)])
-    api("batches/" + interrupted["id"] + "/start", {})
-    wait_batch(interrupted["id"], "running")
-    time.sleep(3)
-    run("systemctl", "stop", "bits-node")
-    run("systemctl", "start", "bits-node")
-    interrupted = wait_batch(interrupted["id"], "delivered")
-    assert interrupted["result"]["execution"] == "interrupted", interrupted
-    assert len(interrupted["result"]["steps"]) == 1
-    assert interrupted["result"]["steps"][0]["cleanup_confirmed"]
+    restart_results = []
+    for attempt in range(3):
+        interrupted = new_batch("CLOUD-SERVICE-INTERRUPT-" + str(attempt), [("stress", 40)])
+        api("batches/" + interrupted["id"] + "/start", {})
+        wait_batch(interrupted["id"], "running")
+        time.sleep(3)
+        interrupt_node(interrupted["id"])
+        run("systemctl", "start", "bits-node")
+        interrupted = wait_batch(interrupted["id"], "delivered")
+        assert interrupted["result"]["execution"] == "interrupted", interrupted
+        assert len(interrupted["result"]["steps"]) == 1, interrupted
+        assert interrupted["result"]["steps"][0]["cleanup_confirmed"], interrupted
+        restart_results.append(interrupted["result"]["steps"][0])
     calls = [json.loads(line) for line in Path("/root/bits-ci-provider-calls.jsonl").read_text().splitlines()]
     assert calls and all(call in [["mon", "--json"], ["mon", "--cols=1"], ["info"]] for call in calls)
     run("systemctl", "stop", "bits-node")
@@ -219,6 +253,7 @@ def main():
         "os": Path("/etc/os-release").read_text(), "batch": finished["id"],
         "normal_steps": finished["result"]["steps"], "cancel_execution": cancel_result["result"]["execution"],
         "service_restart_execution": interrupted["result"]["execution"],
+        "service_restart_signal_burst_steps": restart_results,
         "live": {"steps": sorted(live_steps), "last_sample": live_last,
                  "quality": "synthetic readings; validity remains unknown"},
         "sckocp": "synthetic fixed mon/info only; Primary-filter tested",
@@ -237,4 +272,7 @@ if __name__ == "__main__":
         subprocess.call(["journalctl", "-u", "bits-center", "-u", "bits-node", "--no-pager", "-n", "100"])
         for path in Path("/var/lib/bits/node").rglob("worker.log"):
             print(str(path), path.read_text(errors="replace")[-10000:])
+        for path in Path("/var/lib/bits/node/runs").glob("*/execution.json"):
+            # Lifecycle evidence only. Never collect run.json or node credentials.
+            print(str(path), path.read_text(errors="replace")[-16000:])
         raise
