@@ -30,12 +30,16 @@ def main():
     parser.add_argument('--version', action='version', version='bits-center ' + common.VERSION)
     sub = parser.add_subparsers(dest='action')
     setup = sub.add_parser('setup')
-    setup.add_argument('--address', required=True)
-    setup.add_argument('--network', required=True)
+    setup.add_argument('--address')
+    setup.add_argument('--network')
+    setup.add_argument('--auto', action='store_true', help='Detect an existing private IPv4 and its subnet; never edit NICs')
+    setup.add_argument('--interface', help='Select an existing interface when using --auto')
     choice = setup.add_mutually_exclusive_group(required=True)
     choice.add_argument('--check', action='store_true')
     choice.add_argument('--apply', action='store_true')
     setup.add_argument('--skip-deps', action='store_true')
+    network_parser = sub.add_parser('network', help='Read existing network candidates without configuring services')
+    network_parser.add_argument('--json', action='store_true')
     sub.add_parser('rollback')
     sub.add_parser('check')
     sub.add_parser('publish-node')
@@ -45,8 +49,22 @@ def main():
     sub.add_parser('node-config', help='export a private connection file for a node')
     args = parser.parse_args()
     common.verify('center')
+    if args.action == 'network':
+        import network
+        value = network.inventory()
+        print(json.dumps(value, ensure_ascii=False, sort_keys=True) if args.json else network.display(value))
+        return
     installer = ['bash', str(ROOT / 'server/server_deploy/install.sh')]
     if args.action == 'setup':
+        if args.auto:
+            import network
+            options = (args.interface, args.address, args.network)
+            selected = network.plan(*options)
+            print(network.display(selected), file=sys.stderr, flush=True)
+            network.unchanged(selected, *options)
+            args.address, args.network = selected['address'], selected['network']
+        elif args.interface or not args.address or not args.network:
+            parser.error('Use --auto [--interface NAME], or supply both --address IP and --network CIDR')
         command = installer + ['--address', args.address, '--network', args.network,
                                '--check' if args.check else '--apply']
         if args.skip_deps:
@@ -65,7 +83,7 @@ def main():
             print(json.dumps({'status': 'not_configured', 'version': common.VERSION,
                               'next': 'bits-center setup --address IP --network CIDR --check'}))
     else:
-        parser.error('Choose setup, check, publish-node or rollback')
+        parser.error('Choose network, setup, check, publish-node or rollback')
 
 
 def publish():
@@ -86,6 +104,6 @@ def publish():
 if __name__ == '__main__':
     try:
         main()
-    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
         print('bits-center: ' + str(error), file=sys.stderr)
         sys.exit(1)

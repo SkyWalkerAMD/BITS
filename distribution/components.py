@@ -24,7 +24,10 @@ def main():
         commit = previous['head_sha']
         changes = subprocess.check_output(['git', 'diff', '--name-only', commit, os.environ['GITHUB_SHA']]).decode().splitlines()
         for name in changes:
-            if not (name.startswith('distribution/') or name in ('docs/deployment/DISTRIBUTION.md', '.github/workflows/distribution.yml')):
+            # Native wrapper code and its deployment/release documentation do
+            # not alter the separately built server or workload components.
+            if not (name.startswith(('distribution/', 'docs/releases/')) or name in (
+                    'docs/deployment/DISTRIBUTION.md', 'docs/deployment/BITS.md', '.github/workflows/distribution.yml')):
                 raise ValueError('Changed component code requires a full build: ' + name)
         jobs = api('/actions/runs/' + run + '/jobs?per_page=100')['jobs']
         selected = [j for j in jobs if j['name'].startswith(('tools /', 'center /'))]

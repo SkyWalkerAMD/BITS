@@ -11,7 +11,7 @@ import tarfile
 import tempfile
 
 SOURCE = Path(__file__).resolve().parents[1]
-VERSION = '0.2.4'
+VERSION = '0.2.5'
 NODE = '/opt/ocrun-node/' + VERSION
 CENTER = '/opt/ocrun-center/' + VERSION
 APP = '/var/lib/ocrun-node/app'
@@ -132,7 +132,7 @@ def node_stage(stage, tools, report):
 def center_stage(stage, node_packages, server):
     check_input(server)
     root = stage / CENTER.lstrip('/')
-    for name in ('center.py', 'common.py'):
+    for name in ('center.py', 'common.py', 'network.py'):
         copy(SOURCE / 'distribution' / name, root / name)
     for name in ('__init__.py', 'control.py', 'data.py', 'baseline.json'):
         copy(SOURCE / 'control_addon' / name, root / 'control_addon' / name)
@@ -237,6 +237,8 @@ def package(role, kind, stage, root, out):
             (top / directory).mkdir(parents=True, exist_ok=True)
         spec = top / 'SPECS' / (name + '.spec')
         requirements = 'bash, python3 >= 3.6, procps-ng, util-linux, findutils, curl, rsync'
+        if role == 'center':
+            requirements += ', iproute'
         extra = 'Conflicts: ocrun-node, ocrun-center, ocrun-plugin-node, ocrun-plugin-control, bits-o-node, bits-o-control\n'
         listed = prefix + '\n' + command + '\n'
         if role == 'node':
@@ -258,6 +260,8 @@ def package(role, kind, stage, root, out):
         control = stage / 'DEBIAN'
         control.mkdir()
         requirements = 'bash, python3 (>= 3.6), procps, util-linux, findutils, curl, rsync'
+        if role == 'center':
+            requirements += ', iproute2'
         conflicts = 'ocrun-node, ocrun-center, ocrun-plugin-node, ocrun-plugin-control, bits-o-node, bits-o-control'
         if role == 'node':
             requirements += ', libc6 (>= 2.31), libnuma1, libgmp10, libatomic1, libstdc++6, perl, redis-tools'

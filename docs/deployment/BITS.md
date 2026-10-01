@@ -58,6 +58,23 @@ bits-o results list
 
 ## 新完整系统
 
+从 **BITS 0.2.5** 起可自动识别已有网络，root 执行：
+
+```bash
+bits-center network
+bits-center setup --auto --check
+bits-center setup --auto --apply
+bits-center check
+```
+
+`network` 只读列出地址，也支持 `--json`。`setup --auto` 从处于启用状态的内网 IPv4 中选择服务地址，依据该地址的前缀计算允许访问的网段，展示计划后复用原安装器配置 TCP 80/873/6379、数据库认证及服务。它沿用网卡 IP、路由、网关和 DNS，不增加 DHCP、地址分配或 PXE。
+
+多张可用网卡时不猜测，预检和应用两条命令都加 `--interface ens192`（换成实际名称）。同一网卡有多个地址时再加 `--address IP`。回环、链路本地、公网地址及常见容器/隧道接口不参与自动选择。DHCP 地址会提示保留租约或另行配置固定地址；程序不会擅自把它改成静态地址。
+
+允许网段可以用 `--network CIDR` 显式缩小；它必须是包含服务地址的私有 IPv4 网段。自动推导小于 /16 的大网段会要求明确指定范围。多网段、路由隔离和外部防火墙仍按实际网络规划；自动检测不代表节点端到端连通已经验证。网络检测存在歧义或检测期间变化时，不开始应用配置。重复配置继续遵守已有地址、网段与文件完整性检查。
+
+原显式配置方式继续可用（0.2.4 也使用此方式）：
+
 安装 `bits-center` 后由管理员明确给出服务地址及允许网段：
 ```bash
 bits-center setup --address 内网IP --network 允许CIDR --check

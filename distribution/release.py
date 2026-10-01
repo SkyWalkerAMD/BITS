@@ -91,7 +91,7 @@ def main():
     documents = dict([('docs/deployment/BITS.md', 'README.md'), ('docs/workloads/MANUAL.md', 'WORKLOADS-MANUAL.md'),
                            ('docs/deployment/SERVER.md', 'SERVER-MANUAL.md'), ('docs/monitoring/SCKOCP-API.md', 'SCKOCP-API.md'),
                            ('docs/reports/ACCEPTANCE-REPORT.md', 'ACCEPTANCE-REPORT.md'), ('docs/plugins/CONTROL-READER.md', 'CONTROL-MANUAL.md'),
-                           ('docs/releases/0.2.4.md', 'OPTIMIZATION.md')])
+                           ('docs/releases/' + VERSION + '.md', 'OPTIMIZATION.md')])
     from build import document_bytes
     for original, name in documents.items():
         put(target / name, document_bytes(original, name, documents))

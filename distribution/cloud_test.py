@@ -15,8 +15,8 @@ import zipfile
 
 if os.environ.get('GITHUB_ACTIONS') != 'true' or os.geteuid() != 0:
     raise SystemExit('Disposable cloud Linux root only')
-NODE = Path('/opt/ocrun-node/0.2.4')
-CENTER = Path('/opt/ocrun-center/0.2.4')
+NODE = Path('/opt/ocrun-node/0.2.5')
+CENTER = Path('/opt/ocrun-center/0.2.5')
 APP = Path('/var/lib/ocrun-node/app')
 checks = []
 
@@ -59,7 +59,33 @@ def main():
     assert version.returncode in (0, 1) and b'3.13' in version.stdout + version.stderr
     assert not Path('/var/lib/ocrun-workloads/mlc-3.13').exists()
     passed('native node includes usable MLC 3.13 without an external import')
-    command = ['bits-center', 'setup', '--address', address, '--network', address + '/32', '--skip-deps']
+    # Selection rules run on every target Python, including EL8 Python 3.6.
+    run(sys.executable, '-I', '-B', '-c',
+        "import sys,unittest;sys.path.insert(0,'/src');unittest.main(module='distribution.test_network',verbosity=2)")
+    before_network = run('ip', '-j', '-4', 'address', 'show').stdout
+    candidates = data('bits-center', 'network', '--json')
+    assert candidates['read_only'] and not candidates['nic_changes']
+    usable = [entry for entry in candidates['interfaces'] if entry['eligible']]
+    assert len(usable) == 1 and usable[0]['address'] == address
+    discovered = json.loads(run('bits-center', 'setup', '--auto', '--skip-deps', '--check').stdout.decode().splitlines()[-1])
+    assert discovered['address'] == address and discovered['network'] == usable[0]['network']
+    assert not Path('/etc/ocrun-server/server.json').exists()
+    # A second private interface makes automatic selection ambiguous. Applying
+    # must fail before writing BITS configuration or starting any service.
+    run('ip', 'link', 'add', 'bitscheck0', 'type', 'dummy')
+    try:
+        run('ip', 'address', 'add', '192.168.253.10/24', 'dev', 'bitscheck0')
+        run('ip', 'link', 'set', 'bitscheck0', 'up')
+        ambiguous = run('bits-center', 'setup', '--auto', '--skip-deps', '--apply', good=False)
+        assert ambiguous.returncode and b'Multiple network candidates' in ambiguous.stderr
+        assert not Path('/etc/ocrun-server/server.json').exists()
+        selected = json.loads(run('bits-center', 'setup', '--auto', '--interface', usable[0]['interface'], '--skip-deps', '--check').stdout.decode().splitlines()[-1])
+        assert selected['address'] == address
+    finally:
+        run('ip', 'link', 'delete', 'bitscheck0')
+    assert run('ip', '-j', '-4', 'address', 'show').stdout == before_network
+    passed('automatic network discovery, multi-NIC refusal, explicit selection and read-only preflight preserve NIC configuration')
+    command = ['bits-center', 'setup', '--auto', '--network', address + '/32', '--skip-deps']
     run(*(command + ['--check']))
     assert not Path('/etc/ocrun-server/server.json').exists()
     run(*(command + ['--apply']))
@@ -315,7 +341,7 @@ def main():
     remover = ['rpm', '-e'] if extension == '.rpm' else ['dpkg', '-r']
     run(*(remover + ['ocrun-node', 'ocrun-center']))
     run(*(installer + new_packages))
-    assert data('bits-node', 'check')['version'] == '0.2.4'
+    assert data('bits-node', 'check')['version'] == '0.2.5'
     assert data('bits-o-workloads', 'list')['tools']['mlc']['delivery'] == 'included'
     assert not old_node.exists() and not Path('/opt/ocrun-center/0.2.2').exists()
     passed('published 0.2.2 migrates after explicit detach/removal; coinstallation and unmanaged paths are refused')

@@ -4,8 +4,8 @@
 
 | 用途 | EL 8 / 9 / 10：RPM | Debian 11 / 12 / 13、Ubuntu 22.04 / 24.04 / 26.04：DEB |
 | --- | --- | --- |
-| 新管理服务器 0.2.4 | [bits-center](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.2.4/bits-center-0.2.4-1.el8.x86_64.rpm) | [bits-center](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.2.4/bits-center_0.2.4-1_amd64.deb) |
-| 新节点 0.2.4，已含工具 | [bits-node](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.2.4/bits-node-0.2.4-1.el8.x86_64.rpm) | [bits-node](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.2.4/bits-node_0.2.4-1_amd64.deb) |
+| 新管理服务器 0.2.5 | [bits-center](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.2.5/bits-center-0.2.5-1.el8.x86_64.rpm) | [bits-center](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.2.5/bits-center_0.2.5-1_amd64.deb) |
+| 新节点 0.2.5，已含工具 | [bits-node](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.2.5/bits-node-0.2.5-1.el8.x86_64.rpm) | [bits-node](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.2.5/bits-node_0.2.5-1_amd64.deb) |
 | 旧 OCRUN 控制端增强 0.1.2 | [bits-o-control](https://github.com/SkyWalkerAMD/BITS/releases/download/bits-o-v0.1.2/bits-o-control-0.1.2-1.el8.x86_64.rpm) | [bits-o-control](https://github.com/SkyWalkerAMD/BITS/releases/download/bits-o-v0.1.2/bits-o-control_0.1.2-1_amd64.deb) |
 | 旧 OCRUN 节点增强 0.1.2 | [bits-o-node](https://github.com/SkyWalkerAMD/BITS/releases/download/bits-o-v0.1.2/bits-o-node-0.1.2-1.el8.x86_64.rpm) | [bits-o-node](https://github.com/SkyWalkerAMD/BITS/releases/download/bits-o-v0.1.2/bits-o-node_0.1.2-1_amd64.deb) |
 | 旧增强节点必需的工具库 0.1.0-3 | [bits-o-workloads](https://github.com/SkyWalkerAMD/BITS/releases/download/bits-o-v0.1.2/bits-o-workloads-0.1.0-3.el8.x86_64.rpm) | [bits-o-workloads](https://github.com/SkyWalkerAMD/BITS/releases/download/bits-o-v0.1.2/bits-o-workloads_0.1.0-3_amd64.deb) |
@@ -21,13 +21,13 @@
 先下载同一 Release 的 `SHA256SUMS` 核对所选文件，再在相应 Linux 机器以 root 安装，例如：
 
 ```bash
-dnf install ./bits-node-0.2.4-1.el8.x86_64.rpm
+dnf install ./bits-node-0.2.5-1.el8.x86_64.rpm
 ```
 
 或者：
 
 ```bash
-apt install ./bits-node_0.2.4-1_amd64.deb
+apt install ./bits-node_0.2.5-1_amd64.deb
 ```
 
 旧节点须在同一次包管理操作中提供 `bits-o-workloads` 和 `bits-o-node` 的同格式包。已经接入的旧安装先按手册停止、解除接入并保留备份，不用强制覆盖或降级。
@@ -36,7 +36,7 @@ apt install ./bits-node_0.2.4-1_amd64.deb
 
 ## 独立组件
 
-下列组件也在 [完整系统 0.2.4 的 Release](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.2.4) 直接提供，无需先下载整个大包：
+下列组件也在 [完整系统 0.2.5 的 Release](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.2.5) 直接提供，无需先下载整个大包：
 
 | 组件 | 独立附件 | 适用情况 |
 | --- | --- | --- |

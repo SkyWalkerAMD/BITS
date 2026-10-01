@@ -8,7 +8,7 @@ from pathlib import Path
 import stat
 import tempfile
 
-VERSION = '0.2.4'
+VERSION = '0.2.5'
 ROOT = Path(__file__).absolute().parent
 
 

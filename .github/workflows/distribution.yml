@@ -63,6 +63,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y rpm cpio
+          python3 -m unittest distribution.test_network -v
           tools=$(find native-input/tools -maxdepth 1 -name "*.$KIND" -type f)
           python3 -m distribution.build --role node --kind "$KIND" --tools "$tools" --report native-input/report/mon-sensors-report-py36-0.2.0.tar.gz --output native-dist
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -171,6 +172,6 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y rpm cpio
           python3 -m unittest ci.test_release_assets -v
-          python3 ci/prepare_bits_release.py system system-dist/bits-system-0.2.4
+          python3 ci/prepare_bits_release.py system system-dist/bits-system-0.2.5
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with: {name: 'bits-system-0.2.4-${{ github.run_id }}', path: system-dist/, retention-days: 90}
+        with: {name: 'bits-system-0.2.5-${{ github.run_id }}', path: system-dist/, retention-days: 90}

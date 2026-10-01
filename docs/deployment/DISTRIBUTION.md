@@ -1,6 +1,6 @@
-当前品牌为 BITS。首次部署与旧系统区别见 [简明部署手册](BITS.md)，旧包迁移和回滚见 [0.2.4 说明](../releases/0.2.4.md)。下述路径中的 ocrun 为保留的兼容目录名。
+当前品牌为 BITS。首次部署与旧系统区别见 [简明部署手册](BITS.md)，旧包迁移和回滚见 [0.2.5 说明](../releases/0.2.5.md)。下述路径中的 ocrun 为保留的兼容目录名。
 
-# BITS 0.2.4 原生发行包
+# BITS 0.2.5 原生发行包
 
 本版接口为 0.4.0、内部采集为 0.13.0。只读 `bits-center results` 允许有结果文件读取权限的普通账户使用；配置、发布和回滚仍需要 root。更新说明、旧版升级及现场验收见同包 OPTIMIZATION.md。
 
@@ -14,11 +14,11 @@
 
 ## 获取与校验
 
-从 BITS 的 v0.2.4 Release 下载对应 RPM/DEB 与 SHA256SUMS。完整归档另含 RELEASE.json 和分系统验证材料；私有云端构建使用 **BITS integrated distribution**，成功产物为 `bits-system-0.2.4-运行号`。
+从 BITS 的 v0.2.5 Release 下载对应 RPM/DEB 与 SHA256SUMS。完整归档另含 RELEASE.json 和分系统验证材料；私有云端构建使用 **BITS integrated distribution**，成功产物为 `bits-system-0.2.5-运行号`。
 
 ```bash
-tar -xzf bits-system-0.2.4.tar.gz
-cd bits-system-0.2.4
+tar -xzf bits-system-0.2.5.tar.gz
+cd bits-system-0.2.5
 sha256sum -c SHA256SUMS
 ```
 
@@ -26,8 +26,8 @@ SHA-256 从受信任的私有仓库运行获取，不等同于 RPM/GPG 签名；
 
 | 角色 | EL 8–10 | Debian 11–13 / Ubuntu 22.04、24.04、26.04 |
 | --- | --- | --- |
-| 管理端 | `bits-center-0.2.4-1.el8.x86_64.rpm` | `bits-center_0.2.4-1_amd64.deb` |
-| 节点端（含工具） | `bits-node-0.2.4-1.el8.x86_64.rpm` | `bits-node_0.2.4-1_amd64.deb` |
+| 管理端 | `bits-center-0.2.5-1.el8.x86_64.rpm` | `bits-center_0.2.5-1_amd64.deb` |
+| 节点端（含工具） | `bits-node-0.2.5-1.el8.x86_64.rpm` | `bits-node_0.2.5-1_amd64.deb` |
 
 RPM 使用 EL8 构建的工具基线；后缀 `.el8` 不代表只面向 EL8。Rocky/AlmaLinux 8/9/10、Debian 11/12/13、Ubuntu 三个 LTS 版本分别运行安装验收，以该次发行清单为准。RHEL 需要有效软件源订阅和另外验收；不泛化为所有 EL 衍生发行版。EL10 主机自身必须满足其发行版 CPU 要求。
 
@@ -39,9 +39,9 @@ RPM 使用 EL8 构建的工具基线；后缀 `.el8` 不代表只面向 EL8。Ro
 
 ```bash
 # Rocky / AlmaLinux
-dnf install ./bits-center-0.2.4-1.el8.x86_64.rpm
+dnf install ./bits-center-0.2.5-1.el8.x86_64.rpm
 # Debian / Ubuntu
-apt install ./bits-center_0.2.4-1_amd64.deb
+apt install ./bits-center_0.2.5-1_amd64.deb
 ```
 
 安装包本身不配置或启动服务。将下面示例 IP/网段换成**新管理服务器**实际内网地址和授权节点网段；不要使用既有生产服务器地址：
@@ -72,9 +72,9 @@ ocrun-server node-config --node TEST-NODE --output /root/TEST-NODE.json
 
 ```bash
 # Rocky / AlmaLinux
-dnf install ./bits-node-0.2.4-1.el8.x86_64.rpm
+dnf install ./bits-node-0.2.5-1.el8.x86_64.rpm
 # Debian / Ubuntu
-apt install ./bits-node_0.2.4-1_amd64.deb
+apt install ./bits-node_0.2.5-1_amd64.deb
 ```
 
 节点包与独立 `bits-o-workloads` 包互斥，因为已经包含同一工具清单。工具程序位于 `/opt/ocrun-workloads/0.1.0`，不会替换系统 `/usr/bin/stress` 等程序。安装 Python 依赖使用系统包管理器，不替换系统 Python。采集与收尾支持 Python 3.6+，原生报表只需包内纯 Python XLSX 库，避免跨 Python 版本共享 NumPy 二进制。
@@ -91,7 +91,7 @@ bits-node check
 
 配置中断后用同一份连接文件、编号和参数重新执行，会核验已准备的文件并继续；不同输入或被改动的文件会被保留并拒绝覆盖。配置完成后不会自动启动调度或压测。
 
-独立 `sckocp-api-0.3.2.run` 仍单独交付安装。节点包内使用同版接口模块，并不要求另起网络服务，也不会修改本机 sckocp。
+独立 `sckocp-api-0.4.0.run` 仍单独交付安装。节点包内使用同版接口模块，并不要求另起网络服务，也不会修改本机 sckocp。
 
 ## 3. 任务与结果
 
@@ -146,7 +146,7 @@ bits-o-workloads import-spec --archive /root/0730.tar.gz
 
 ## 5. 更新、回滚与卸载
 
-0.2.4 可用于新部署。原 `ocrun-node/ocrun-center` 0.2.2 的改名迁移必须先用原命令解除配置、移除旧包，再安装 BITS；不能把新包作为原名称的直接更新。已配置节点拒绝直接覆盖/卸载；未完成任务先处理状态；程序被手工改动或新版本目录含未知文件时拒绝覆盖。新包安装不自动恢复旧连接或重新启动压测。
+0.2.5 可用于新部署。原 `ocrun-node/ocrun-center` 0.2.2 的改名迁移必须先用原命令解除配置、移除旧包，再安装 BITS；不能把新包作为原名称的直接更新。已配置节点拒绝直接覆盖/卸载；未完成任务先处理状态；程序被手工改动或新版本目录含未知文件时拒绝覆盖。新包安装不自动恢复旧连接或重新启动压测。
 
 BITS 节点确认无运行批次并完成收尾后（原 0.2.2 使用 `ocrun-node` 代替 `bits-node`）：
 
@@ -158,7 +158,7 @@ bits-node detach
 
 `detach` 把配置、私有连接材料和应用状态转存到 `/var/lib/ocrun-node/detached-*`，日志和导入工具保留。`/etc` 与 `/var` 分区可以不同；先验证备份再移出应用，意外中断后用同一条 `detach` 恢复。移除旧角色包后，再安装新角色包并显式配置。历史记录在返回的备份目录保留，不能将旧状态文件直接混入新批次。
 
-若需回到 0.2.2，先完成收尾并 detach，然后卸载 0.2.4，安装从原 v0.2.2 Release 保留且核验过的旧包，再显式重新配置。不使用强制降级参数；原 v0.2.2 发布文件保持不变。独立工具套件升级/重新绑定详见 WORKLOADS-MANUAL.md。
+若需回到 0.2.2，先完成收尾并 detach，然后卸载 0.2.5，安装从原 v0.2.2 Release 保留且核验过的旧包，再显式重新配置。不使用强制降级参数；原 v0.2.2 发布文件保持不变。独立工具套件升级/重新绑定详见 WORKLOADS-MANUAL.md。
 
 管理端先明确停止部署（原 0.2.2 使用 `ocrun-center rollback`）：
 
