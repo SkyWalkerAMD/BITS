@@ -28,8 +28,13 @@ with sync_playwright() as p:
     page.locator("#detail-title").filter(has_text="BROWSER-DRAFT").wait_for()
     page.screenshot(path=str(out / "dashboard.png"), full_page=True)
     page.set_viewport_size({"width": 430, "height": 932})
-    page.screenshot(path=str(out / "dashboard-mobile.png"), full_page=True)
     assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), "page overflows mobile viewport"
+    assert page.locator("#batch-list .badge").evaluate_all(
+        "items => items.every(item => item.getBoundingClientRect().height < 40)"), "mobile status text became vertical"
+    row.get_by_text("开始", exact=True).scroll_into_view_if_needed()
+    assert row.get_by_text("开始", exact=True).is_visible()
+    page.locator("#batches .table-wrap").evaluate("element => element.scrollLeft = 0")
+    page.screenshot(path=str(out / "dashboard-mobile.png"), full_page=True)
     assert not errors, errors
     context.close()
     browser.close()
