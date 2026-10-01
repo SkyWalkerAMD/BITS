@@ -395,6 +395,7 @@ with sync_playwright() as p:
                 break
             page.wait_for_timeout(500)
         assert all(m["state"] != "draft" for m in group["members"])
+        expect(page.locator("#confirm-dialog")).not_to_be_visible()
         actual = next(m for m in group["members"] if m["node"] == "BITS-CLOUD")
         wait_batch(actual["id"], "delivered")
         peer_heartbeat()
@@ -423,6 +424,37 @@ with sync_playwright() as p:
         assert [box.input_value() for box in page.locator("#group-steps input").all()] == ["2", "2"]
         page.locator('#group-dialog button[data-close]').click()
         checks.append("saved plan reuse and responsive task group results")
+        # UI-only management reachability fixture; no IPMI traffic is sent.
+        def bmc_ui_save(route):
+            value = route.request.post_data_json
+            assert value["node"] == "LAB-002" and value["cipher"] == 17
+            assert value["password"] == "UI-ONLY-PASSWORD"
+            route.fulfill(status=200, content_type="application/json",
+                body=json.dumps({"node":"LAB-002", "status":"configured", "power_command_sent":False}))
+        def bmc_ui_states(route):
+            response = route.fetch()
+            value = response.json()
+            for n in value["nodes"]:
+                if n["node"] == "LAB-002":
+                    n.update(state="wakeable", can_select=True, agent_online=False,
+                        reason="BMC 可达，已关机；仅浏览器状态模拟",
+                        power={"configured":True, "address":"192.168.50.21", "state":"off",
+                            "checked_at":datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")})
+            route.fulfill(response=response, json=value)
+        page.route("**/api/v1/dispatch/bmc", bmc_ui_save)
+        page.locator(".dispatch-node").filter(has_text="LAB-002").get_by_role("button", name="绑定 BMC").click()
+        page.locator("#bmc-address").fill("192.168.50.21")
+        page.locator("#bmc-user").fill("operator")
+        page.locator("#bmc-password").fill("UI-ONLY-PASSWORD")
+        page.route("**/api/v1/dispatch/nodes", bmc_ui_states)
+        page.locator("#bmc-form button.primary").click()
+        expect(page.locator("#bmc-dialog")).not_to_be_visible()
+        expect(page.locator("#bmc-password")).to_have_value("")
+        expect(page.locator(".dispatch-node").filter(has_text="LAB-002")).to_contain_text("已关机 · 可唤醒")
+        page.screenshot(path=str(out / "dispatch-workspace.png"), full_page=True)
+        page.unroute("**/api/v1/dispatch/nodes", bmc_ui_states)
+        page.unroute("**/api/v1/dispatch/bmc", bmc_ui_save)
+        checks.append("BMC binding form clears secrets and separates OS connectivity from simulated powered-off BMC reachability")
         page.locator("#logout").click()
         expect(page.locator("#login-dialog")).to_be_visible()
         assert not errors, errors

@@ -22,7 +22,13 @@
       >
       <p class="nav-caption">工作空间</p>
       <nav aria-label="主导航">
-        <a href="#dispatch" data-nav="dispatch" aria-label="任务分发" title="任务分发"><span data-icon="batches"></span><span>任务分发</span></a>
+        <a
+          href="#dispatch"
+          data-nav="dispatch"
+          aria-label="任务分发"
+          title="任务分发"
+          ><span data-icon="batches"></span><span>任务分发</span></a
+        >
         <a
           href="#overview"
           data-nav="overview"
@@ -115,7 +121,7 @@
           <div class="actions">
             <button id="enroll"><span data-icon="plus"></span>添加节点</button
             ><button id="create" class="primary">
-              <span data-icon="plus"></span>新建批次
+              <span data-icon="plus"></span><span id="create-label">新建批次</span>
             </button>
           </div>
         </div>
@@ -264,11 +270,32 @@
           <div id="report-pagination" class="pagination"></div>
         </section>
         <section id="view-dispatch" hidden>
-          <div class="dispatch-intro"><div><p class="eyebrow">PLAN · WAKE · EXECUTE · VERIFY</p><h2>一次编排，多台协同</h2><p>选择可达节点，共用任务计划。每台机器独立执行、独立交付。</p></div><button id="group-create" class="primary">＋ 新建任务组</button></div>
-          <div class="toolbar"><h2>分发记录</h2><span class="muted">保存草稿后，明确确认开始</span></div>
-          <div id="dispatch-list" class="report-grid"></div><div id="dispatch-pagination" class="pagination"></div>
-          <div class="section-title"><h2>节点可达状态</h2><span class="muted">系统心跳与 BMC 状态分开判断</span></div>
-          <label class="search"><span data-icon="search"></span><input id="dispatch-search" type="search" placeholder="搜索节点或管理地址" aria-label="搜索分发节点" /></label>
+          <div class="dispatch-intro">
+            <div>
+              <p class="eyebrow">PLAN · WAKE · EXECUTE · VERIFY</p>
+              <h2>一次编排，多台协同</h2>
+              <p>选择可达节点，共用任务计划。每台机器独立执行、独立交付。</p>
+            </div>
+            <button id="group-create" class="primary">＋ 新建任务组</button>
+          </div>
+          <div class="toolbar">
+            <h2>分发记录</h2>
+            <span class="muted">保存草稿后，明确确认开始</span>
+          </div>
+          <div id="dispatch-list" class="report-grid"></div>
+          <div id="dispatch-pagination" class="pagination"></div>
+          <div class="section-title">
+            <h2>节点可达状态</h2>
+            <span class="muted">系统心跳与 BMC 状态分开判断</span>
+          </div>
+          <label class="search"
+            ><span data-icon="search"></span
+            ><input
+              id="dispatch-search"
+              type="search"
+              placeholder="搜索节点或管理地址"
+              aria-label="搜索分发节点"
+          /></label>
           <div id="dispatch-nodes" class="dispatch-fleet"></div>
         </section>
         <section id="view-group" hidden><div id="group-body"></div></section>
@@ -404,33 +431,133 @@ systemctl enable --now bits-node.service</pre
     </dialog>
     <dialog id="group-dialog" class="wide-dialog" aria-labelledby="group-title">
       <form id="group-form">
-        <div class="dialog-heading"><div><p class="eyebrow">BULK DISPATCH</p><h2 id="group-title">新建任务组</h2></div><button type="button" class="icon-button" data-close="group-dialog" aria-label="关闭任务组">×</button></div>
-        <div class="wizard-steps" id="group-wizard"></div>
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">BULK DISPATCH</p>
+            <h2 id="group-title">新建任务组</h2>
+          </div>
+          <button
+            type="button"
+            class="icon-button"
+            data-close="group-dialog"
+            aria-label="关闭任务组"
+          >
+            ×
+          </button>
+        </div>
+        <div class="wizard" id="group-wizard"></div>
         <div data-group-panel="0">
-          <label>任务组名称<input id="group-label" required pattern="[A-Za-z0-9][A-Za-z0-9_.-]{0,95}" maxlength="96" placeholder="例如 BURNIN-20261001" /></label>
-          <div class="toolbar"><label class="search"><input id="group-node-search" type="search" placeholder="搜索节点" aria-label="筛选可分发节点" /></label><button type="button" id="group-select-visible">选择可用节点</button><button type="button" id="group-clear">清空选择</button></div>
-          <p id="group-selection-count" class="list-meta" aria-live="polite"></p><div id="group-node-picker" class="group-node-picker"></div>
-          <p class="form-note">不可达、忙碌或禁用的节点无法选择。BMC 可达的关机节点可在确认开始后自动开机；节点程序须已安装并设置开机启动。</p>
+          <label
+            >任务组名称<input
+              id="group-label"
+              required
+              pattern="[A-Za-z0-9][A-Za-z0-9_.-]{0,95}"
+              maxlength="96"
+              placeholder="例如 BURNIN-20261001"
+          /></label>
+          <div class="toolbar">
+            <label class="search"
+              ><input
+                id="group-node-search"
+                type="search"
+                placeholder="搜索节点"
+                aria-label="筛选可分发节点" /></label
+            ><button type="button" id="group-select-visible">
+              选择可用节点</button
+            ><button type="button" id="group-clear">清空选择</button>
+          </div>
+          <p
+            id="group-selection-count"
+            class="list-meta"
+            aria-live="polite"
+          ></p>
+          <div id="group-node-picker" class="group-node-picker"></div>
+          <p class="form-note">
+            不可达、忙碌或禁用的节点无法选择。BMC
+            可达的关机节点可在确认开始后自动开机；节点程序须已安装并设置开机启动。
+          </p>
         </div>
         <div data-group-panel="1" hidden>
-          <label>复用已保存计划<select id="group-template"><option value="">自定义计划</option></select></label>
-          <div id="group-steps"></div><button type="button" id="group-add-step">＋ 添加步骤</button>
-          <label class="checkbox-label"><input type="checkbox" id="group-save-template" />同时保存为可复用模板（使用任务组名称）</label>
-          <p class="form-note">每个节点依次执行相同步骤，可重复添加同一工具。模板和草稿不会自行开始执行。</p>
+          <label
+            >复用已保存计划<select id="group-template">
+              <option value="">自定义计划</option>
+            </select></label
+          >
+          <div id="group-steps"></div>
+          <button type="button" id="group-add-step">＋ 添加步骤</button>
+          <label class="checkbox-label"
+            ><input
+              type="checkbox"
+              id="group-save-template"
+            />同时保存为可复用模板（使用任务组名称）</label
+          >
+          <p class="form-note">
+            每个节点依次执行相同步骤，可重复添加同一工具。模板和草稿不会自行开始执行。
+          </p>
         </div>
-        <div data-group-panel="2" hidden><div id="group-review" class="batch-review"></div><p class="form-note">此步仅保存草稿。下一页会再次检查选定节点，并明确确认开机与压测。</p></div>
-        <p id="group-error" class="error" role="alert"></p><div class="dialog-actions"><button type="button" id="group-back">上一步</button><button type="button" id="group-next" class="primary">下一步</button><button id="group-submit" class="primary" hidden>保存任务组草稿</button></div>
+        <div data-group-panel="2" hidden>
+          <div id="group-review" class="batch-review"></div>
+          <p class="form-note">
+            此步仅保存草稿。下一页会再次检查选定节点，并明确确认开机与压测。
+          </p>
+        </div>
+        <p id="group-error" class="error" role="alert"></p>
+        <div class="dialog-actions">
+          <button type="button" id="group-back">上一步</button
+          ><button type="button" id="group-next" class="primary">下一步</button
+          ><button id="group-submit" class="primary" hidden>
+            保存任务组草稿
+          </button>
+        </div>
       </form>
     </dialog>
     <dialog id="bmc-dialog" aria-labelledby="bmc-title">
-      <form id="bmc-form"><div class="dialog-heading"><h2 id="bmc-title">绑定 BMC / IPMI</h2><button type="button" class="icon-button" data-close="bmc-dialog" aria-label="关闭 BMC 配置">×</button></div>
+      <form id="bmc-form">
+        <div class="dialog-heading">
+          <h2 id="bmc-title">绑定 BMC / IPMI</h2>
+          <button
+            type="button"
+            class="icon-button"
+            data-close="bmc-dialog"
+            aria-label="关闭 BMC 配置"
+          >
+            ×
+          </button>
+        </div>
         <p id="bmc-node" class="muted"></p>
-        <label>独立管理 IPv4<input id="bmc-address" required placeholder="例如 192.168.10.21" autocomplete="off" /></label>
-        <label>IPMI 用户名<input id="bmc-user" required maxlength="16" autocomplete="off" /></label>
-        <label>IPMI 密码<input id="bmc-password" type="password" required maxlength="20" autocomplete="new-password" /></label>
-        <label>加密套件<select id="bmc-cipher"><option value="17">LANplus · Cipher 17（优先）</option><option value="3">LANplus · Cipher 3（兼容设备）</option></select></label>
-        <p class="form-note">请先核对节点与管理口的对应关系，使用具备电源控制权限的专用账户。凭据仅保存在中心，保存后只查询状态；仅任务组明确开始时允许开机，不提供重启或关机操作。</p>
-        <p id="bmc-error" class="error" role="alert"></p><button class="primary">保存绑定并检查状态</button>
+        <label
+          >独立管理 IPv4<input
+            id="bmc-address"
+            required
+            placeholder="例如 192.168.10.21"
+            autocomplete="off"
+        /></label>
+        <label
+          >IPMI 用户名<input
+            id="bmc-user"
+            required
+            maxlength="16"
+            autocomplete="off"
+        /></label>
+        <label
+          >IPMI 密码<input
+            id="bmc-password"
+            type="password"
+            required
+            maxlength="20"
+            autocomplete="new-password"
+        /></label>
+        <label
+          >加密套件<select id="bmc-cipher">
+            <option value="17">LANplus · Cipher 17（优先）</option>
+            <option value="3">LANplus · Cipher 3（兼容设备）</option>
+          </select></label
+        >
+        <p class="form-note">
+          请先核对节点与管理口的对应关系，使用具备电源控制权限的专用账户。凭据仅保存在中心，保存后只查询状态；仅任务组明确开始时允许开机，不提供重启或关机操作。
+        </p>
+        <p id="bmc-error" class="error" role="alert"></p>
+        <button class="primary">保存绑定并检查状态</button>
       </form>
     </dialog>
     <dialog

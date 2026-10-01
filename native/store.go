@@ -70,7 +70,10 @@ func OpenStore(dir string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
-	if err = migrateDispatch(db, dbpath); err != nil { db.Close(); return nil, err }
+	if err = migrateDispatch(db, dbpath); err != nil {
+		db.Close()
+		return nil, err
+	}
 	return &Store{db: db}, nil
 }
 func (s *Store) Close() error { return s.db.Close() }
@@ -219,7 +222,9 @@ func (s *Store) Mutate(id, kind string, fn func(*Batch) error) (Batch, error) {
 }
 func (s *Store) Arm(id string) (Batch, error) {
 	return s.Mutate(id, "start_authorized", func(b *Batch) error {
-		if b.GroupID!="" { return errors.New("此批次属于任务组，请从任务组检查并明确开始") }
+		if b.GroupID != "" {
+			return errors.New("此批次属于任务组，请从任务组检查并明确开始")
+		}
 		if b.State == "armed" {
 			return nil
 		} // Repeated click authorizes no second run.

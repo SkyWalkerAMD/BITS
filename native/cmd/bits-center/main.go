@@ -80,11 +80,13 @@ func run() error {
 		}
 		defer store.Close()
 		handler := bits.NewServer(store, cfg)
-		if e = handler.LoadPower(); e != nil { return e }
+		if e = handler.LoadPower(); e != nil {
+			return e
+		}
 		dispatchCtx, stopDispatch := context.WithCancel(context.Background())
-		dispatchDone:=make(chan struct{})
-		go func(){defer close(dispatchDone);handler.RunDispatch(dispatchCtx)}()
-		defer func(){stopDispatch();<-dispatchDone}()
+		dispatchDone := make(chan struct{})
+		go func() { defer close(dispatchDone); handler.RunDispatch(dispatchCtx) }()
+		defer func() { stopDispatch(); <-dispatchDone }()
 		server := handler.HTTPServer()
 		stop := make(chan os.Signal, 1)
 		signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
@@ -115,18 +117,27 @@ func run() error {
 		if *batch != "" {
 			path = "/api/v1/batches/" + *batch
 		}
-		if *group != "" { path = "/api/v1/dispatch/groups/"+*group }
+		if *group != "" {
+			path = "/api/v1/dispatch/groups/" + *group
+		}
 	case "dispatch-nodes":
 		path = "/api/v1/dispatch/nodes"
 	case "group-add", "group-start", "group-cancel", "bmc-import":
 		var value map[string]any
-		if err=bits.ReadCredential(*inputFile,&value);err!=nil{return err}
-		input=value;method="POST"
+		if err = bits.ReadCredential(*inputFile, &value); err != nil {
+			return err
+		}
+		input = value
+		method = "POST"
 		switch action {
-		case "group-add": path="/api/v1/dispatch/groups"
-		case "group-start": path="/api/v1/dispatch/groups/"+*group+"/start"
-		case "group-cancel": path="/api/v1/dispatch/groups/"+*group+"/cancel"
-		case "bmc-import": path="/api/v1/dispatch/bmc"
+		case "group-add":
+			path = "/api/v1/dispatch/groups"
+		case "group-start":
+			path = "/api/v1/dispatch/groups/" + *group + "/start"
+		case "group-cancel":
+			path = "/api/v1/dispatch/groups/" + *group + "/cancel"
+		case "bmc-import":
+			path = "/api/v1/dispatch/bmc"
 		}
 	case "node-add":
 		if *output == "" {

@@ -68,7 +68,7 @@ def prepare(mode, tag, local_package=None, base_image='debian:11'):
                         'libgmp10', 'libatomic1', 'libstdc++6', 'iputils-ping', 'dmidecode', 'passwd']
         elif mode == 'independent':
             packages = ['systemd', 'systemd-sysv', 'dbus', 'procps', 'iproute2', 'python3',
-                        'ca-certificates', 'coreutils', 'passwd', 'perl', 'libnuma1',
+                        'ca-certificates', 'coreutils', 'passwd', 'ipmitool', 'perl', 'libnuma1',
                         'libgmp10', 'libatomic1', 'libstdc++6']
         elif mode == 'security':
             packages = ['python3', 'python3-venv', 'tar', 'gzip', 'ca-certificates']

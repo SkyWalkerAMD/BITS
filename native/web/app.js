@@ -32,8 +32,16 @@ const labels = {
   terminated: "已停止",
 };
 const pageInfo = {
-  dispatch: ["任务分发", "DISPATCH WORKSPACE", "统一编排，按需开机，逐台跟进结果。"],
-  group: ["任务组详情", "GROUP WORKSPACE", "每台节点独立执行，所有结果集中跟进。"],
+  dispatch: [
+    "任务分发",
+    "DISPATCH WORKSPACE",
+    "统一编排，按需开机，逐台跟进结果。",
+  ],
+  group: [
+    "任务组详情",
+    "GROUP WORKSPACE",
+    "每台节点独立执行，所有结果集中跟进。",
+  ],
   overview: [
     "运行总览",
     "OPERATIONS OVERVIEW",
@@ -848,7 +856,7 @@ function openMonitor(id) {
 }
 function operationButtons(b) {
   const ops = el("div", undefined, "actions");
-  if (b.group_id) ops.append(link("返回任务组", "#group/"+b.group_id));
+  if (b.group_id) ops.append(link("返回任务组", "#group/" + b.group_id));
   if (b.state === "draft" && !b.group_id)
     ops.append(
       button(
@@ -864,7 +872,10 @@ function operationButtons(b) {
         "start-" + b.id,
       ),
     );
-  if (["draft", "waiting_boot", "armed", "running"].includes(b.state) && !b.cancel_requested)
+  if (
+    ["draft", "waiting_boot", "armed", "running"].includes(b.state) &&
+    !b.cancel_requested
+  )
     ops.append(
       button(
         b.state === "draft" ? "取消草稿" : "取消压测",
@@ -945,7 +956,7 @@ function renderBatches() {
       }
       const td = el("td");
       td.append(button("详情 →", () => openBatch(b.id), "", "details-" + b.id));
-      if (b.group_id) td.append(link("任务组", "#group/"+b.group_id));
+      if (b.group_id) td.append(link("任务组", "#group/" + b.group_id));
       if (b.state === "draft" && !b.group_id)
         td.append(
           button(
@@ -1752,6 +1763,7 @@ function renderMonitor() {
   replace(root, ...items);
 }
 function render() {
+	$("create-label").textContent = ["dispatch", "group"].includes(page) ? "新建任务组" : "新建批次";
   $("version").textContent =
     "BITS " + (snapshot.version || "") + " · 独立架构预览";
   $("nav-node-count").textContent = snapshot.nodes.length;
@@ -1774,10 +1786,13 @@ function route() {
   const hash = location.hash.slice(1),
     detail = hash.match(/^(batch|monitor|group)\/([a-f0-9]{32})$/);
   page = detail
-    ? detail[1] === "group" ? "group" : detail[1] === "monitor"
-      ? "monitor"
-      : "detail"
-    : Object.hasOwn(pageInfo, hash) && !["detail", "monitor", "group"].includes(hash)
+    ? detail[1] === "group"
+      ? "group"
+      : detail[1] === "monitor"
+        ? "monitor"
+        : "detail"
+    : Object.hasOwn(pageInfo, hash) &&
+        !["detail", "monitor", "group"].includes(hash)
       ? hash
       : "overview";
   const nextRouteKey = detail ? detail[0] : page;
@@ -1816,7 +1831,13 @@ function route() {
   document.querySelectorAll("[data-nav]").forEach((a) => {
     const match =
       a.dataset.nav ===
-      (page === "group" ? "dispatch" : page === "detail" ? "batches" : page === "monitor" ? "nodes" : page);
+      (page === "group"
+        ? "dispatch"
+        : page === "detail"
+          ? "batches"
+          : page === "monitor"
+            ? "nodes"
+            : page);
     a.classList.toggle("selected", match);
     if (match) a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");
@@ -1848,7 +1869,8 @@ async function sync(force = false) {
       snapshot = overview;
       lastOverview = Date.now();
     }
-    if (refreshOverview && (page === "dispatch" || page === "group")) await syncDispatch();
+    if (refreshOverview && (page === "dispatch" || page === "group"))
+      await syncDispatch();
     frames = new Map(live.frames.map((v) => [v.node, v]));
     for (const f of live.frames) {
       if (!f.sample) continue;
@@ -2073,7 +2095,7 @@ $("batch-back").onclick = () => {
   renderWizard();
 };
 $("add-step").onclick = () => addStep();
-$("create").onclick = () => newBatch();
+$("create").onclick = () => ["dispatch", "group"].includes(page) ? newGroup().catch(e=>notice(e.message,true)) : newBatch();
 $("guide-create").onclick = () => newBatch();
 $("enroll").onclick = () => {
   $("node-error").textContent = "";
