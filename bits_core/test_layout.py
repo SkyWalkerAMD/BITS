@@ -35,6 +35,7 @@ class LayoutTests(unittest.TestCase):
             names = {p.relative_to(app).as_posix() for p in app.rglob('*') if p.is_file()}
             self.assertTrue({'scheduler', 'batch', 'collect', 'collector.conf', 'installation.json'} <= names)
             self.assertFalse(any('mon-sensors' in n or n in ('ocb', 'oct') or n.endswith('hook.sh') for n in names))
+            self.assertFalse(any('mon_sensors_plugin/' in n or n.endswith('legacy_runtime.py') for n in names))
             manifest = json.loads((app / 'installation.json').read_text())
             self.assertEqual(names - {'installation.json'}, set(manifest['managed_files']))
             for name, expected in manifest['managed_files'].items():

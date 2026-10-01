@@ -46,6 +46,7 @@
     "bits_core/collector/adoption.py",
     "bits_core/collector/collector.py",
     "bits_core/collector/install.py",
+    "bits_core/collector/legacy_runtime.py",
     "bits_core/collector/runtime.py",
     "bits_core/layout.py",
     "bits_core/packaging.py",

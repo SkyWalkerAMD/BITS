@@ -25,7 +25,7 @@ class PluginInstallTests(unittest.TestCase):
         self.root = Path(temporary.name)
         self.source = self.root / "package"
         self.source.mkdir()
-        for name in installer.FILES:
+        for name in installer.FILES + tuple(installer.COMPATIBILITY_FILES.values()):
             path = self.source / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes((ROOT / name).read_bytes())
@@ -121,6 +121,29 @@ class PluginInstallTests(unittest.TestCase):
             stream.write(b'\n# local edit\n')
         with self.assertRaisesRegex(ValueError, 'Locally modified'):
             installer.install(self.app, self.source, modules_only=True)
+
+    def test_old_inventory_is_verified_before_filename_migration(self):
+        installer.install(self.app, self.source, 'sckocp')
+        helper = self.app / installer.HELPER
+        marker_path = helper / installer.MARKER
+        marker = json.loads(marker_path.read_text())
+        legacy_file = helper / 'mon_sensors_plugin/collector.py'
+        legacy_file.write_bytes(b'# previously managed legacy module\n')
+        marker['files']['mon_sensors_plugin/collector.py'] = hashlib.sha256(legacy_file.read_bytes()).hexdigest()
+        marker_path.write_text(json.dumps(marker))
+        with legacy_file.open('ab') as stream:
+            stream.write(b'# local customization\n')
+        before = self.snapshot(self.app)
+        with self.assertRaisesRegex(ValueError, 'Locally modified'):
+            installer.install(self.app, self.source, modules_only=True)
+        self.assertEqual(before, self.snapshot(self.app))
+        legacy_file.write_bytes(b'# previously managed legacy module\n')
+        # Force a new payload so the verified old helper is archived/replaced.
+        with (self.source / 'bits_core/collector/collector.py').open('ab') as stream:
+            stream.write(b'\n# new release\n')
+        installer.install(self.app, self.source, modules_only=True)
+        self.assertFalse(legacy_file.exists())
+        self.assertTrue((helper / 'mon_sensors_plugin/runtime.py').is_file())
 
     def test_automatic_upgrade_preserves_old_bridge_without_backend_file(self):
         path = self.app / "mon-sensors"

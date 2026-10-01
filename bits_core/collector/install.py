@@ -24,6 +24,12 @@ FILES = (ENTRY, "bits_layout.py", "bits_core/__init__.py", "bits_core/layout.py"
          "bits_core/collector/runtime.py",
          "sckocp_api/__init__.py", "sckocp_api/interface.py", "sckocp_api/provider.py",
          "sckocp_api/security.py")
+COMPATIBILITY_FILES = {
+    "mon_sensors_plugin/runtime.py": "bits_core/collector/legacy_runtime.py",
+}
+PREVIOUS_FILES = frozenset(FILES) | frozenset((
+    "mon_sensors_plugin/__init__.py", "mon_sensors_plugin/collector.py",
+    "mon_sensors_plugin/runtime.py"))
 MARKER = ".mon-sensors-plugin"
 BACKEND_FILE = ".mon-sensors-backend"
 PREVIOUS_BEGIN = "# BEGIN OCRUN SCKOCP MON-SENSORS BRIDGE v1"
@@ -376,6 +382,8 @@ def install(app, source, backend=None, check=False, adopt_original=False, module
         config_after = (backend + "\n").encode("ascii") if backend is not None else config_before
         prepared = originals if modules_only else patched(originals, headless=headless)
         payload = {name: _regular(source / name) for name in FILES}
+        payload.update({name: _regular(source / relative)
+                        for name, relative in COMPATIBILITY_FILES.items()})
         helper_name = '.bits-collector.d' if headless else HELPER
         entry_name = '.bits-collector' if headless else ENTRY
         launcher = _launcher(app, helper_name)
@@ -399,7 +407,7 @@ def install(app, source, backend=None, check=False, adopt_original=False, module
             if not isinstance(records, dict) or ENTRY not in records:
                 raise ValueError("Existing helper has an invalid installation record")
             for name, expected in records.items():
-                if name not in FILES or not isinstance(expected, str) or not re.fullmatch(r"[0-9a-f]{64}", expected):
+                if name not in PREVIOUS_FILES or not isinstance(expected, str) or not re.fullmatch(r"[0-9a-f]{64}", expected):
                     raise ValueError("Existing helper has an invalid installation record")
                 try:
                     installed = _regular(helper / name)

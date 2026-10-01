@@ -101,7 +101,8 @@ def source_package(output):
 def mon_sensors_package(output):
     files = ("install-mon-sensors-plugin.sh", "mon-sensors-plugin", "MON-SENSORS.md", "SCKOCP-API.md", "PACKAGES.md",
              "bits_core/collector/__init__.py", "bits_core/collector/collector.py", "bits_core/collector/install.py",
-             "bits_core/collector/runtime.py", "bits_core/collector/adoption.py")
+             "bits_core/collector/runtime.py", "bits_core/collector/adoption.py",
+             "bits_core/collector/legacy_runtime.py")
     source_files_package(output, files + ('bits_layout.py', 'bits_core/__init__.py', 'bits_core/layout.py') + API_CORE_FILES + BOOTSTRAP_FILES)
 
 
