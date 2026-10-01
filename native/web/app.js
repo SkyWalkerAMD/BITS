@@ -69,7 +69,9 @@ const iconPaths = {
   alert: ["M12 3 2 21h20zM12 9v5M12 17h.1"],
   check: ["M4 12l5 5L20 6"],
   menu: ["M4 6h16M4 12h16M4 18h16"],
-  refresh: ["M20 7v5h-5M4 17v-5h5M5.6 7a8 8 0 0 1 13-1L20 8M4 16l1.4 2a8 8 0 0 0 13-1"],
+  refresh: [
+    "M20 7v5h-5M4 17v-5h5M5.6 7a8 8 0 0 1 13-1L20 8M4 16l1.4 2a8 8 0 0 0 13-1",
+  ],
 };
 let snapshot = { nodes: [], batches: [], tools: [], version: "" };
 let frames = new Map(),
@@ -82,9 +84,13 @@ let page = "overview",
   selectedNode = null,
   nodeFilter = "all",
   nodePage = 0;
-let batchPage = 0, reportPage = 0;
-const routePositions = new Map(), inFlightActions = new Set();
-let routeKey = "", restorePosition = null, syncRequested = false;
+let batchPage = 0,
+  reportPage = 0;
+const routePositions = new Map(),
+  inFlightActions = new Set();
+let routeKey = "",
+  restorePosition = null,
+  syncRequested = false;
 let coreSocket = "all",
   coreMode = "map",
   corePage = 0;
@@ -103,33 +109,60 @@ const collator = new Intl.Collator("zh-CN", {
 });
 const mobileNavigation = window.matchMedia("(max-width: 830px)");
 let compactNavigation = false;
-try { compactNavigation = localStorage.getItem("bits.navigation.compact") === "true"; } catch {}
+try {
+  compactNavigation =
+    localStorage.getItem("bits.navigation.compact") === "true";
+} catch {}
 function navigation() {
-  const drawer = $("navigation-dialog"), sidebar = $("main-navigation");
+  const drawer = $("navigation-dialog"),
+    sidebar = $("main-navigation");
   if (mobileNavigation.matches) {
     if (sidebar.parentNode !== drawer) drawer.append(sidebar);
   } else {
     drawer.close();
-    if (sidebar.parentNode !== document.body) document.body.insertBefore(sidebar, drawer);
+    if (sidebar.parentNode !== document.body)
+      document.body.insertBefore(sidebar, drawer);
   }
-  document.body.classList.toggle("navigation-compact", compactNavigation && !mobileNavigation.matches);
+  document.body.classList.toggle(
+    "navigation-compact",
+    compactNavigation && !mobileNavigation.matches,
+  );
   const expanded = mobileNavigation.matches ? drawer.open : !compactNavigation;
   $("navigation-toggle").setAttribute("aria-expanded", String(expanded));
-  const name = mobileNavigation.matches ? "打开导航" : expanded ? "收起导航" : "展开导航";
+  const name = mobileNavigation.matches
+    ? "打开导航"
+    : expanded
+      ? "收起导航"
+      : "展开导航";
   $("navigation-toggle").setAttribute("aria-label", name);
   $("navigation-toggle").title = name;
 }
 function scrollToArea(selector) {
-  document.querySelector(selector)?.scrollIntoView({block: "start", behavior: "instant"});
+  document
+    .querySelector(selector)
+    ?.scrollIntoView({ block: "start", behavior: "instant" });
 }
 function renderPager(root, total, size, index, change) {
-  const count = Math.ceil(total / size), children = [];
+  const count = Math.ceil(total / size),
+    children = [];
   if (count > 1) {
-    const prev = button("← 上一页", () => change(index - 1), "", root.id + "-prev"),
+    const prev = button(
+        "← 上一页",
+        () => change(index - 1),
+        "",
+        root.id + "-prev",
+      ),
       next = button("下一页 →", () => change(index + 1), "", root.id + "-next");
     prev.disabled = index === 0;
     next.disabled = index + 1 >= count;
-    children.push(prev, el("span", `${index + 1} / ${count} · ${index * size + 1}–${Math.min(total, (index + 1) * size)} / ${total}`), next);
+    children.push(
+      prev,
+      el(
+        "span",
+        `${index + 1} / ${count} · ${index * size + 1}–${Math.min(total, (index + 1) * size)} / ${total}`,
+      ),
+      next,
+    );
   }
   replace(root, ...children);
 }
@@ -139,13 +172,16 @@ function formBusy(form, busy) {
   if (busy) {
     dialog.dataset.submitting = "true";
     form.setAttribute("aria-busy", "true");
-    const states = [...form.querySelectorAll("button,input,select,textarea")].map(e => [e, e.disabled]);
+    const states = [
+      ...form.querySelectorAll("button,input,select,textarea"),
+    ].map((e) => [e, e.disabled]);
     formStates.set(form, states);
     for (const [e] of states) e.disabled = true;
   } else {
     delete dialog.dataset.submitting;
     form.removeAttribute("aria-busy");
-    for (const [e, disabled] of formStates.get(form) || []) e.disabled = disabled;
+    for (const [e, disabled] of formStates.get(form) || [])
+      e.disabled = disabled;
     formStates.delete(form);
   }
 }
@@ -251,11 +287,20 @@ function replace(root, ...children) {
   const key = root.contains(document.activeElement)
     ? document.activeElement.dataset.focusKey
     : null;
-  const scrolls = [...root.querySelectorAll("[data-scroll-key]")].map(e => [e.dataset.scrollKey, e.scrollTop, e.scrollLeft]);
+  const scrolls = [...root.querySelectorAll("[data-scroll-key]")].map((e) => [
+    e.dataset.scrollKey,
+    e.scrollTop,
+    e.scrollLeft,
+  ]);
   root.replaceChildren(...children);
   for (const [name, top, left] of scrolls) {
-    const e = [...root.querySelectorAll("[data-scroll-key]")].find(e => e.dataset.scrollKey === name);
-    if (e) { e.scrollTop = top; e.scrollLeft = left; }
+    const e = [...root.querySelectorAll("[data-scroll-key]")].find(
+      (e) => e.dataset.scrollKey === name,
+    );
+    if (e) {
+      e.scrollTop = top;
+      e.scrollLeft = left;
+    }
   }
   if (key) {
     const b = [...root.querySelectorAll("[data-focus-key]")].find(
@@ -309,7 +354,8 @@ function metric(label, value, unit, places = 0) {
 }
 async function api(path, method = "GET", data) {
   const actionKey = method + " " + path;
-  if (method !== "GET" && inFlightActions.has(actionKey)) throw new Error("此操作正在提交，请等待结果。");
+  if (method !== "GET" && inFlightActions.has(actionKey))
+    throw new Error("此操作正在提交，请等待结果。");
   if (method !== "GET") inFlightActions.add(actionKey);
   const controller = new AbortController(),
     timer = setTimeout(() => controller.abort(), 10000);
@@ -324,7 +370,8 @@ async function api(path, method = "GET", data) {
     if (r.status === 401) {
       authenticated = false;
       connected = false;
-      for (const d of document.querySelectorAll("dialog[open]")) if (d.id !== "login-dialog") d.close();
+      for (const d of document.querySelectorAll("dialog[open]"))
+        if (d.id !== "login-dialog") d.close();
       if (!$("login-dialog").open) $("login-dialog").showModal();
       throw new Error("请登录工作台");
     }
@@ -355,7 +402,9 @@ function connection() {
   $("connection").textContent = fresh
     ? "实时同步 · 2 秒"
     : "连接中断 · 状态待确认";
-  $("connection").title = lastNetwork ? "浏览器最后同步：" + dateText(new Date(lastNetwork).toISOString()) : "等待首次同步";
+  $("connection").title = lastNetwork
+    ? "浏览器最后同步：" + dateText(new Date(lastNetwork).toISOString())
+    : "等待首次同步";
   $("connection-warning").hidden = fresh || !authenticated;
   return fresh;
 }
@@ -428,8 +477,14 @@ function trend(rows, field, mini = false) {
       .map((v) => v[field]);
   if (!values.length) {
     if (!mini) {
-      const t = svgEl("text", {x: w / 2, y: h / 2, "text-anchor": "middle", class: "trend-label"});
-      t.textContent = "尚无可绘制的采样"; s.append(t);
+      const t = svgEl("text", {
+        x: w / 2,
+        y: h / 2,
+        "text-anchor": "middle",
+        class: "trend-label",
+      });
+      t.textContent = "尚无可绘制的采样";
+      s.append(t);
     }
     return s;
   }
@@ -439,7 +494,7 @@ function trend(rows, field, mini = false) {
     minimum = lo - range * 0.1,
     maximum = hi + range * 0.1,
     scale = maximum - minimum,
-    times = rows.map(v => Date.parse(v.observed_at)),
+    times = rows.map((v) => Date.parse(v.observed_at)),
     timeAxis = times.every(Number.isFinite) && times.at(-1) > times[0],
     span = timeAxis ? times.at(-1) - times[0] : Math.max(1, rows.length - 1);
   if (!mini) {
@@ -458,24 +513,28 @@ function trend(rows, field, mini = false) {
           "stroke-dasharray": "3 4",
         }),
       );
-      const label = svgEl("text", {x: left - 7, y: y + 3, "text-anchor": "end", class: "trend-label"});
-      label.textContent = number(maximum - scale * i / 2, 1);
+      const label = svgEl("text", {
+        x: left - 7,
+        y: y + 3,
+        "text-anchor": "end",
+        class: "trend-label",
+      });
+      label.textContent = number(maximum - (scale * i) / 2, 1);
       s.append(label);
     }
   }
   let path = "",
-    last = false, lastPoint = null;
+    last = false,
+    lastPoint = null;
   rows.forEach((v, i) => {
     if (!v.available || typeof v[field] !== "number") {
       last = false;
       return;
     }
     if (i > 0 && timeAxis && times[i] - times[i - 1] > 10000) last = false;
-    const x = left + ((w - left - pad) * (timeAxis ? times[i] - times[0] : i)) / span,
-      y =
-        h -
-        pad -
-        ((v[field] - minimum) / scale) * (h - 2 * pad);
+    const x =
+        left + ((w - left - pad) * (timeAxis ? times[i] - times[0] : i)) / span,
+      y = h - pad - ((v[field] - minimum) / scale) * (h - 2 * pad);
     path += (last ? "L" : "M") + x.toFixed(1) + " " + y.toFixed(1);
     last = true;
     lastPoint = [x, y];
@@ -490,7 +549,15 @@ function trend(rows, field, mini = false) {
       "stroke-linejoin": "round",
     }),
   );
-  if (!mini && lastPoint) s.append(svgEl("circle", {cx: lastPoint[0], cy: lastPoint[1], r: 3, fill: "currentColor"}));
+  if (!mini && lastPoint)
+    s.append(
+      svgEl("circle", {
+        cx: lastPoint[0],
+        cy: lastPoint[1],
+        r: 3,
+        fill: "currentColor",
+      }),
+    );
   return s;
 }
 function nodeCard(n) {
@@ -715,7 +782,9 @@ function renderNodes() {
       empty("没有符合条件的节点", "调整名称或状态筛选，或添加新的节点。"),
     );
   renderPager($("node-pagination"), nodes.length, count, nodePage, (index) => {
-    nodePage = index; renderNodes(); scrollToArea("#view-nodes .toolbar");
+    nodePage = index;
+    renderNodes();
+    scrollToArea("#view-nodes .toolbar");
   });
   if (selectedNode) renderNodeDetail();
 }
@@ -837,8 +906,12 @@ function renderBatches() {
             : b.state === filter)),
     );
   const size = 25;
-  batchPage = Math.min(batchPage, Math.max(0, Math.ceil(items.length / size) - 1));
-  $("batch-count").textContent = items.length + " 个符合条件的批次 · 每页 " + size + " 个";
+  batchPage = Math.min(
+    batchPage,
+    Math.max(0, Math.ceil(items.length / size) - 1),
+  );
+  $("batch-count").textContent =
+    items.length + " 个符合条件的批次 · 每页 " + size + " 个";
   replace(
     $("batch-list"),
     ...items.slice(batchPage * size, (batchPage + 1) * size).map((b) => {
@@ -888,7 +961,9 @@ function renderBatches() {
     }),
   );
   renderPager($("batch-pagination"), items.length, size, batchPage, (index) => {
-    batchPage = index; renderBatches(); scrollToArea("#view-batches .toolbar");
+    batchPage = index;
+    renderBatches();
+    scrollToArea("#view-batches .toolbar");
   });
   if (!items.length) {
     const tr = el("tr"),
@@ -907,8 +982,12 @@ function renderReports() {
         (b.plan.label + " " + b.plan.node).toLowerCase().includes(q),
     );
   const size = 18;
-  reportPage = Math.min(reportPage, Math.max(0, Math.ceil(items.length / size) - 1));
-  $("report-count").textContent = items.length + " 份已交付报告 · 每页 " + size + " 份";
+  reportPage = Math.min(
+    reportPage,
+    Math.max(0, Math.ceil(items.length / size) - 1),
+  );
+  $("report-count").textContent =
+    items.length + " 份已交付报告 · 每页 " + size + " 份";
   replace(
     $("report-list"),
     ...items.slice(reportPage * size, (reportPage + 1) * size).map((b) => {
@@ -932,9 +1011,17 @@ function renderReports() {
       return d;
     }),
   );
-  renderPager($("report-pagination"), items.length, size, reportPage, (index) => {
-    reportPage = index; renderReports(); scrollToArea("#view-reports .toolbar");
-  });
+  renderPager(
+    $("report-pagination"),
+    items.length,
+    size,
+    reportPage,
+    (index) => {
+      reportPage = index;
+      renderReports();
+      scrollToArea("#view-reports .toolbar");
+    },
+  );
   if (!items.length)
     $("report-list").append(
       empty(
@@ -1280,9 +1367,20 @@ function renderMonitor() {
   sections.setAttribute("aria-label", "硬件信息分区");
   sections.dataset.scrollKey = "monitor-sections";
   sections.append(el("strong", b.plan.node, "monitor-context"));
-  for (const [label, selector] of [["整机概况", ".monitor-summary"], ["插槽信息", ".monitor-sockets"], ["逐核心", ".core-section"], ["趋势", ".monitor-trends"]]) {
-    const jump = button(label, () => scrollToArea(selector), "quiet", "jump-" + selector);
-    jump.disabled = !hardware && [".monitor-sockets", ".core-section"].includes(selector);
+  for (const [label, selector] of [
+    ["整机概况", ".monitor-summary"],
+    ["插槽信息", ".monitor-sockets"],
+    ["逐核心", ".core-section"],
+    ["趋势", ".monitor-trends"],
+  ]) {
+    const jump = button(
+      label,
+      () => scrollToArea(selector),
+      "quiet",
+      "jump-" + selector,
+    );
+    jump.disabled =
+      !hardware && [".monitor-sockets", ".core-section"].includes(selector);
     sections.append(jump);
   }
   items.push(sections);
@@ -1660,7 +1758,7 @@ function render() {
   if (page === "detail") renderDetail();
   if (page === "monitor") renderMonitor();
   if (restorePosition !== null && (!selected || detailData?.id === selected)) {
-    window.scrollTo({top: restorePosition, behavior: "instant"});
+    window.scrollTo({ top: restorePosition, behavior: "instant" });
     restorePosition = null;
   }
   $("back-to-top").hidden = window.scrollY < 400;
@@ -1680,7 +1778,8 @@ function route() {
   if (routeKey !== nextRouteKey) {
     if (routeKey) routePositions.set(routeKey, window.scrollY);
     // Retain useful back-navigation positions without an unbounded session cache.
-    if (routePositions.size > 80) routePositions.delete(routePositions.keys().next().value);
+    if (routePositions.size > 80)
+      routePositions.delete(routePositions.keys().next().value);
     restorePosition = routePositions.get(nextRouteKey) || 0;
     routeKey = nextRouteKey;
   }
@@ -1719,9 +1818,11 @@ function route() {
   if (authenticated) sync(true);
 }
 async function sync(force = false) {
-  if (syncing) { syncRequested ||= force; return; }
-  if (document.hidden || (!authenticated && $("login-dialog").open))
+  if (syncing) {
+    syncRequested ||= force;
     return;
+  }
+  if (document.hidden || (!authenticated && $("login-dialog").open)) return;
   syncing = true;
   $("refresh").disabled = true;
   $("refresh").setAttribute("aria-busy", "true");
@@ -1780,7 +1881,10 @@ async function sync(force = false) {
     syncing = false;
     $("refresh").disabled = false;
     $("refresh").removeAttribute("aria-busy");
-    if (syncRequested) { syncRequested = false; queueMicrotask(() => sync(true)); }
+    if (syncRequested) {
+      syncRequested = false;
+      queueMicrotask(() => sync(true));
+    }
   }
 }
 function confirmAction(title, text, reason, fn, danger = false) {
@@ -1974,9 +2078,18 @@ $("node-search").oninput = () => {
   nodePage = 0;
   renderNodes();
 };
-$("batch-search").oninput = () => { batchPage = 0; renderBatches(); };
-$("batch-filter").onchange = () => { batchPage = 0; renderBatches(); };
-$("report-search").oninput = () => { reportPage = 0; renderReports(); };
+$("batch-search").oninput = () => {
+  batchPage = 0;
+  renderBatches();
+};
+$("batch-filter").onchange = () => {
+  batchPage = 0;
+  renderBatches();
+};
+$("report-search").oninput = () => {
+  reportPage = 0;
+  renderReports();
+};
 $("node-filters")
   .querySelectorAll("button")
   .forEach(
@@ -2107,30 +2220,53 @@ $("node-form").onsubmit = async (e) => {
   }
 };
 window.addEventListener("hashchange", route);
-if ("scrollRestoration" in window.history) window.history.scrollRestoration = "manual";
+if ("scrollRestoration" in window.history)
+  window.history.scrollRestoration = "manual";
 $("refresh").onclick = () => sync(true);
-document.querySelector(".skip-link").onclick = e => {
-  e.preventDefault(); $("workspace").focus({preventScroll: true}); window.scrollTo({top: 0, behavior: "instant"});
+document.querySelector(".skip-link").onclick = (e) => {
+  e.preventDefault();
+  $("workspace").focus({ preventScroll: true });
+  window.scrollTo({ top: 0, behavior: "instant" });
 };
-$("back-to-top").onclick = () => { window.scrollTo({top: 0, behavior: "instant"}); $("workspace").focus({preventScroll: true}); };
+$("back-to-top").onclick = () => {
+  window.scrollTo({ top: 0, behavior: "instant" });
+  $("workspace").focus({ preventScroll: true });
+};
 $("navigation-toggle").onclick = () => {
   if (mobileNavigation.matches) $("navigation-dialog").showModal();
   else {
     compactNavigation = !compactNavigation;
-    try { localStorage.setItem("bits.navigation.compact", String(compactNavigation)); } catch {}
+    try {
+      localStorage.setItem(
+        "bits.navigation.compact",
+        String(compactNavigation),
+      );
+    } catch {}
   }
   navigation();
 };
 $("navigation-close").onclick = () => $("navigation-dialog").close();
 $("navigation-dialog").addEventListener("close", navigation);
-$("navigation-dialog").addEventListener("click", e => {
+$("navigation-dialog").addEventListener("click", (e) => {
   if (e.target === $("navigation-dialog")) $("navigation-dialog").close();
 });
-document.querySelectorAll("[data-nav], .brand").forEach(a => a.addEventListener("click", () => $("navigation-dialog").close()));
+document
+  .querySelectorAll("[data-nav], .brand")
+  .forEach((a) =>
+    a.addEventListener("click", () => $("navigation-dialog").close()),
+  );
 mobileNavigation.addEventListener("change", navigation);
-window.addEventListener("scroll", () => { $("back-to-top").hidden = window.scrollY < 400; }, {passive: true});
+window.addEventListener(
+  "scroll",
+  () => {
+    $("back-to-top").hidden = window.scrollY < 400;
+  },
+  { passive: true },
+);
 for (const d of document.querySelectorAll("dialog")) {
-  d.addEventListener("cancel", e => { if (d.dataset.submitting) e.preventDefault(); });
+  d.addEventListener("cancel", (e) => {
+    if (d.dataset.submitting) e.preventDefault();
+  });
 }
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) sync(true);
