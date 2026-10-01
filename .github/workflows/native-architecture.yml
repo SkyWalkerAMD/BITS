@@ -1,6 +1,10 @@
 name: Independent BITS architecture
 on:
   workflow_dispatch:
+    inputs:
+      full_matrix:
+        type: boolean
+        default: false
   push:
     branches: [codex/bits-independent-architecture]
     paths: ['native/**', '.github/workflows/native-architecture.yml', 'bits_core/workloads/suite.py']
@@ -18,20 +22,25 @@ jobs:
         with: {persist-credentials: false}
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
         with: {go-version: '1.27.1', cache: false}
-      - name: Resolve pinned database dependency and format review copy
+      - name: Verify locked dependencies and format review copy
         working-directory: native
         run: |
-          go mod tidy
+          go mod download
+          go mod verify
           gofmt -w .
           git diff -- . > /tmp/native-format.patch
       - name: Race, recovery, authentication and 200-node transaction tests
         working-directory: native
         run: |
           set -o pipefail
-          go test -race -count=1 -v ./... | tee /tmp/native-tests.txt
-          go vet ./...
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOAMD64=v1 go build -trimpath -o /tmp/bits-center ./cmd/bits-center
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOAMD64=v1 go build -trimpath -o /tmp/bits-node ./cmd/bits-node
+          go test -mod=readonly -race -count=1 -v ./... | tee /tmp/native-tests.txt
+          go vet -mod=readonly ./...
+          mkdir -p /tmp/native-bin
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOAMD64=v1 go build -mod=readonly -trimpath -o /tmp/native-bin/bits-center ./cmd/bits-center
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOAMD64=v1 go build -mod=readonly -trimpath -o /tmp/native-bin/bits-node ./cmd/bits-node
+          python3 ci/licenses.py /tmp/native-bin/licenses
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with: {name: 'independent-binaries-${{ github.run_id }}', path: /tmp/native-bin/, retention-days: 14}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
@@ -39,8 +48,52 @@ jobs:
           path: |
             /tmp/native-format.patch
             /tmp/native-tests.txt
-            /tmp/bits-center
-            /tmp/bits-node
             native/go.mod
             native/go.sum
           retention-days: 14
+  packages:
+    needs: protocol
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix: {kind: [rpm, deb]}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: {name: 'independent-binaries-${{ github.run_id }}', path: native-bin}
+      - name: Build only reviewed native payloads with pinned workload binaries
+        env: {GH_TOKEN: '${{ github.token }}', KIND: '${{ matrix.kind }}'}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm cpio
+          mkdir baseline
+          gh release download v0.3.0 --repo SkyWalkerAMD/BITS --pattern "bits-node*.$KIND" --dir baseline
+          python3 native/package.py --kind "$KIND" --binaries native-bin --baseline "$(find baseline -name "*.$KIND" -type f)" --output native-dist
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with: {name: 'independent-packages-${{ matrix.kind }}-${{ github.run_id }}', path: native-dist/, retention-days: 30}
+  linux:
+    needs: packages
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include: ${{ fromJSON(inputs.full_matrix && '[{"label":"rocky8","image":"rockylinux/rockylinux:8","kind":"rpm"},{"label":"rocky9","image":"rockylinux/rockylinux:9","kind":"rpm"},{"label":"rocky10","image":"rockylinux/rockylinux:10","kind":"rpm"},{"label":"alma8","image":"almalinux:8","kind":"rpm"},{"label":"alma9","image":"almalinux:9","kind":"rpm"},{"label":"alma10","image":"almalinux:10","kind":"rpm"},{"label":"debian11","image":"debian:11","kind":"deb"},{"label":"debian12","image":"debian:12","kind":"deb"},{"label":"debian13","image":"debian:13","kind":"deb"},{"label":"ubuntu22","image":"ubuntu:22.04","kind":"deb"},{"label":"ubuntu24","image":"ubuntu:24.04","kind":"deb"},{"label":"ubuntu26","image":"ubuntu:26.04","kind":"deb"}]' || '[{"label":"rocky8","image":"rockylinux/rockylinux:8","kind":"rpm"},{"label":"ubuntu22","image":"ubuntu:22.04","kind":"deb"}]') }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: {name: 'independent-packages-${{ matrix.kind }}-${{ github.run_id }}', path: native-dist}
+      - name: Real Linux installation, services, tool lifecycle and protected data boundary
+        env: {BASE_IMAGE: '${{ matrix.image }}'}
+        run: bash native/ci/cloud.sh
+      - name: Capture diagnostics
+        if: always()
+        run: |
+          mkdir -p .independent-results
+          docker logs bits-independent-test > .independent-results/boot.txt 2>&1 || true
+          docker rm -f bits-independent-test || true
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with: {name: 'independent-test-${{ matrix.label }}-${{ github.run_id }}', path: .independent-results/, include-hidden-files: true, retention-days: 30}

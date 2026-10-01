@@ -98,7 +98,7 @@ func ValidateArtifacts(m map[string]Artifact) error {
 	if len(m) < 1 || len(m) > 4096 { return errors.New("invalid artifact count") }
 	var total int64
 	for name, v := range m {
-		if !ValidName(name) || !digestRE.MatchString(v.SHA256) || v.Bytes < 0 || v.Bytes > 16<<30 {
+		if !ValidName(name) || name=="receipt.json" || !digestRE.MatchString(v.SHA256) || v.Bytes < 0 || v.Bytes > 16<<30 {
 			return errors.New("invalid artifact name, size or SHA-256")
 		}
 		total += v.Bytes

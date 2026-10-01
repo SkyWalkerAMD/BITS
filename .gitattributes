@@ -7,6 +7,12 @@
 *.c text eol=lf
 *.h text eol=lf
 *.inc text eol=lf
+*.go text eol=lf
+*.js text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+go.mod text eol=lf
+go.sum text eol=lf
 Makefile text eol=lf
 mon-sensors text eol=lf
 mon-sensors-plugin text eol=lf

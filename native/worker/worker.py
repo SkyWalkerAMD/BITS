@@ -20,6 +20,7 @@ sys.path.insert(0, str(ROOT / "vendor"))
 
 import common
 import collector
+import data_api
 import report_sheet
 import sckocp_api
 import streaming
@@ -48,13 +49,6 @@ def request(directory):
     return value
 
 
-def native_binary():
-    binary = shutil.which("sckocp", path="/usr/local/bin:/usr/bin")
-    if not binary:
-        raise ValueError("Install and activate the original sckocp first")
-    return binary
-
-
 def specs(value):
     selected = []
     for index, step in enumerate(value["batch"]["plan"]["steps"], 1):
@@ -77,7 +71,7 @@ def preflight(directory, value):
     if shutil.disk_usage(str(directory)).free < required:
         raise ValueError("Insufficient free space for this batch and report")
     import xlsxwriter
-    sample = sckocp_api.collect(native_binary(), 1, 20, "v1", details=True)
+    sample = data_api.sample(include_details=True)
     if sample["status"] != "ok":
         raise ValueError("Licensed sckocp preflight is unavailable: " + sample["status"])
     common.save(directory / "preflight.json", {"checked_at": common.now(), "required_free_bytes": required,
@@ -98,9 +92,10 @@ class Sampling:
     def capture(self):
         stream = None
         try:
-            binary, next_details, failures = native_binary(), 0, 0
+            next_details, failures = 0, 0
             while not self.done.is_set():
                 began = time.monotonic()
+                observed_step = dict(CURRENT)
                 if self.rows % 5000 == 0:
                     if stream is not None:
                         stream.flush()
@@ -110,20 +105,22 @@ class Sampling:
                     fd = os.open(str(self.directory / name),
                                  os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
                     stream = os.fdopen(fd, "w", encoding="utf-8")
-                envelope = sckocp_api.collect(binary, 1, 20, "v1")
+                include_details = time.monotonic() >= next_details
+                envelope = data_api.sample(include_details=include_details)
+                supplemental = envelope.pop("details", None)
                 if envelope["status"] != "ok":
                     envelope["data"] = None
                     failures += 1
                     self.unavailable += 1
                 else:
                     failures = 0
-                context = collector.os_context(CURRENT["label"])
+                context = collector.os_context(observed_step["label"])
                 record = {"schema": "bits-telemetry-v1", "sequence": self.rows + 1,
-                          "step_id": CURRENT["step_id"], "observed_at": common.now(),
+                          "step_id": observed_step["step_id"], "observed_at": common.now(),
                           "os": context, "provider": envelope,
                           "reading_quality": "reported-validity-and-age-unknown"}
-                if envelope["status"] == "ok" and time.monotonic() >= next_details:
-                    record["details"] = sckocp_api.provider.collect_details(binary, 1, 10)
+                if envelope["status"] == "ok" and supplemental is not None:
+                    record["details"] = supplemental
                     next_details = time.monotonic() + 30
                 encoded = json.dumps(record, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
                 if len(encoded.encode("utf-8")) > 2 << 20:
@@ -270,6 +267,11 @@ def report(directory, value):
         for name, meta in common.json_read(manifest).items():
             if common.file_hash(evidence / name) != meta:
                 raise ValueError("Sealed artifact changed: " + name)
+        # A crash can happen between the immutable manifest and result update.
+        # Restore only publication state from already sealed report evidence.
+        record = common.json_read(evidence / "report.json")
+        result(directory, state["execution"], report="generated", error=state.get("error", ""),
+               steps=state["steps"], quality=record["data_quality"])
         return
     statistics = report_sheet.Statistics()
     export = evidence / "monitor.mon"

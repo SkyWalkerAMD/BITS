@@ -134,3 +134,41 @@ func TestAgentNeverRepeatsExecution(t *testing.T){
 	if executed!=1{t.Fatal("execution duplicated",executed)}
 	b,_=server.Store.Batch(b.ID);if b.State!="delivered"{t.Fatal(b.State)}
 }
+func TestInterruptedIntentPublishesFailureWithoutRestart(t *testing.T){
+	server,_,client:=testServer(t);ctx:=context.Background()
+	b,_:=server.Store.Create(testPlan("N1"));b,_=server.Store.Arm(b.ID)
+	data:=t.TempDir();os.Chmod(data,0700);os.Mkdir(filepath.Join(data,"runs"),0700)
+	dir:=filepath.Join(data,"runs",b.ID);os.Mkdir(dir,0700)
+	run:=LocalRun{Batch:b,Phase:"prepared",Result:b.Result}
+	AtomicJSON(filepath.Join(dir,"run.json"),run)
+	agent:=&Agent{Config:NodeConfig{Node:"N1",KeepOn:true},Client:client,Data:data}
+	calls:=[]string{}
+	agent.Worker=func(ctx context.Context,action,dir string,tick func())error{
+		calls=append(calls,action)
+		if action!="recover"{t.Fatal("interrupted intent tried to launch",action)}
+		AtomicJSON(filepath.Join(dir,"result.json"),Result{Execution:"preflight_failed",Quality:"not_collected",Report:"not_generated",Error:"interrupted before execution"})
+		return fmt.Errorf("no execution evidence")
+	}
+	if err:=agent.Run(ctx,true);err!=nil{t.Fatal(err)}
+	if err:=agent.Run(ctx,true);err!=nil{t.Fatal(err)}
+	if len(calls)!=1{t.Fatal("recovery repeated work",calls)}
+	b,_=server.Store.Batch(b.ID)
+	if b.State!="needs_attention"||b.Result.Execution!="preflight_failed"{t.Fatal(b)}
+	if _,err:=server.Store.Arm(b.ID);err==nil{t.Fatal("failed attempt could be restarted")}
+}
+func TestPendingSurvivesDashboardHistoryAndNoopDoesNotGrowEvents(t *testing.T){
+	s:=testStore(t);s.AddNode("N1",Random(32));b,_:=s.Create(testPlan("N1"));b,_=s.Arm(b.ID)
+	before,_:=s.Events(b.ID)
+	for i:=0;i<8;i++{s.Arm(b.ID)}
+	after,_:=s.Events(b.ID);if len(before)!=len(after){t.Fatal("repeated click added duplicate events")}
+	for i:=0;i<505;i++{if _,e:=s.Create(testPlan("N1"));e!=nil{t.Fatal(e)}}
+	p,e:=s.Pending("N1");if e!=nil||p==nil||p.ID!=b.ID{t.Fatal("active batch hidden behind history limit",e)}
+}
+func TestReservedReceiptAndCredentialFieldsRejected(t *testing.T){
+	if e:=ValidateArtifacts(map[string]Artifact{"receipt.json":{SHA256:Random(32)}});e==nil{t.Fatal("node can replace center receipt")}
+	_,admin,_:=testServer(t)
+	for _,field:=range []string{"activation_code","license","rmal","sckocp_binary","environment","sckocp_args"}{
+		request:=map[string]any{"node":"N1","label":"GUARD","steps":[]map[string]any{{"tool":"stress","seconds":1}},field:"forbidden"}
+		if e:=admin.JSON(context.Background(),"POST","/api/v1/batches","",request,nil);e==nil{t.Fatal("permission-related request field accepted",field)}
+	}
+}

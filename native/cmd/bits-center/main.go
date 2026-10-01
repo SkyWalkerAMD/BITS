@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -52,7 +53,7 @@ func run()error{
 		server:=bits.NewServer(store,cfg).HTTPServer()
 		stop:=make(chan os.Signal,1);signal.Notify(stop,syscall.SIGTERM,syscall.SIGINT)
 		go func(){<-stop;ctx,cancel:=context.WithTimeout(context.Background(),30*time.Second);defer cancel();server.Shutdown(ctx)}()
-		return server.ListenAndServeTLS(cfg.Cert,cfg.Key)
+		e=server.ListenAndServeTLS(cfg.Cert,cfg.Key);if errors.Is(e,http.ErrServerClosed){return nil};return e
 	}
 	var admin bits.AdminConfig;if err:=bits.ReadJSON(*connection,&admin);err!=nil{return err}
 	client,err:=bits.NewClient(admin.URL,admin.Token,"",admin.CA);if err!=nil{return err}
@@ -62,6 +63,7 @@ func run()error{
 	case "node-add":
 		if *output==""{return errors.New("--output is required; node credentials are never printed")}
 		if _,e:=os.Lstat(*output);e==nil{return errors.New("existing output retained")}
+		if e:=bits.PrivateDir(filepath.Dir(*output));e!=nil{return e}
 		var cfg bits.NodeConfig
 		err=client.JSON(context.Background(),"POST","/api/v1/nodes","",map[string]any{"id":*node,"serial":*serial,"keep_on":*keepOn},&cfg)
 		if err==nil{err=bits.AtomicJSON(*output,cfg)}

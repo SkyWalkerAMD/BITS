@@ -22,6 +22,7 @@ type LocalRun struct {
 	Batch Batch "json:\"batch\""
 	Phase string "json:\"phase\""
 	Sequence int64 "json:\"sequence\""
+	Acknowledged int64 "json:\"acknowledged_sequence\""
 	Result Result "json:\"result\""
 	Artifacts map[string]Artifact "json:\"artifacts,omitempty\""
 }
@@ -29,6 +30,7 @@ type Agent struct {
 	Config NodeConfig
 	Client *Client
 	Data string
+	idleSince time.Time
 	// Production always uses the installed, verified local worker. This seam
 	// permits isolated lifecycle tests without running hardware tools.
 	Worker func(context.Context,string,string,func()) error
@@ -83,9 +85,11 @@ func (a *Agent) update(ctx context.Context,dir string,run *LocalRun)error{
 		before,_:=json.Marshal(run.Result);after,_:=json.Marshal(result)
 		if string(before)!=string(after){run.Result=result;run.Sequence++;if err=a.save(dir,run);err!=nil{return err}}
 	}
-	if run.Sequence==0{return nil}
-	return a.Client.JSON(ctx,"POST","/node/v1/batches/"+run.Batch.ID+"/result",run.Batch.Attempt,
+	if run.Sequence==0||run.Acknowledged==run.Sequence{return nil}
+	err:=a.Client.JSON(ctx,"POST","/node/v1/batches/"+run.Batch.ID+"/result",run.Batch.Attempt,
 		map[string]any{"sequence":run.Sequence,"result":run.Result},nil)
+	if err==nil{run.Acknowledged=run.Sequence;err=a.save(dir,run)}
+	return err
 }
 func (a *Agent) process(ctx context.Context,dir string,run *LocalRun,fresh bool)error{
 	base:="/node/v1/batches/"+run.Batch.ID
@@ -104,6 +108,7 @@ func (a *Agent) process(ctx context.Context,dir string,run *LocalRun,fresh bool)
 		err:=a.Worker(ctx,"execute",dir,func(){
 			var remote Batch
 			callCtx,cancel:=context.WithTimeout(ctx,5*time.Second);defer cancel()
+			a.Client.JSON(callCtx,"GET","/node/v1/poll","",nil,nil)
 			if a.Client.JSON(callCtx,"GET",base,"",nil,&remote)==nil&&remote.Cancel{AtomicJSON(filepath.Join(dir,"cancel.json"),map[string]bool{"cancel":true})}
 			a.update(callCtx,dir,run)
 		})
@@ -113,12 +118,20 @@ func (a *Agent) process(ctx context.Context,dir string,run *LocalRun,fresh bool)
 		if err!=nil{fmt.Fprintln(os.Stderr,"BITS workload ended with an error; finalizing available evidence:",err)}
 		run.Phase="finalizing";if err=a.save(dir,run);err!=nil{return err}
 	}else if run.Phase=="prepared"||run.Phase=="executing"{
+		if err:=a.Worker(ctx,"recover",dir,func(){});err!=nil{
+			var recovered Result
+			if e:=ReadJSON(filepath.Join(dir,"result.json"),&recovered);e==nil&&recovered.Execution=="preflight_failed"{
+				run.Phase="blocked";if e=a.save(dir,run);e!=nil{return e}
+				return a.update(ctx,dir,run)
+			}
+			// Keep the recovery phase durable until process cleanup is confirmed.
+			return err
+		}
 		run.Phase="finalizing";if err:=a.save(dir,run);err!=nil{return err}
-		if err:=a.Worker(ctx,"recover",dir,func(){});err!=nil{return err}
 	}
 	if run.Phase=="blocked"{
 		// Retry only publication of the existing failure. No implicit task retry.
-		return a.Client.JSON(ctx,"POST",base+"/result",run.Batch.Attempt,map[string]any{"sequence":run.Sequence,"result":run.Result},nil)
+		return a.update(ctx,dir,run)
 	}
 	if run.Phase=="finalizing"{
 		if err:=a.Worker(ctx,"report",dir,func(){});err!=nil{a.update(ctx,dir,run);return err}
@@ -176,7 +189,7 @@ func (a *Agent) once(ctx context.Context)error{
 			// Explicit operator closure frees the node while keeping all local
 			// evidence and the recorded failure.
 			var remote Batch
-			if e:=a.Client.JSON(ctx,"GET","/node/v1/batches/"+run.Batch.ID,"",nil,&remote);e==nil&&remote.State=="closed_incomplete"{
+			if e:=a.Client.JSON(ctx,"GET","/node/v1/batches/"+run.Batch.ID,"",nil,&remote);e==nil&&(remote.State=="closed_incomplete"||(remote.State=="cancelled"&&(run.Phase=="prepared"||run.Phase=="blocked"))){
 				run.Phase="done";run.Batch=remote;if err=a.save(dir,&run);err!=nil{return err};continue
 			}
 			return a.process(ctx,dir,&run,false)
@@ -190,6 +203,7 @@ func (a *Agent) once(ctx context.Context)error{
 	dir:=filepath.Join(runs,pending.Batch.ID)
 	if err=os.Mkdir(dir,0700);err!=nil{return errors.New("batch already has local evidence; it will not be run again")}
 	run:=LocalRun{Batch:*pending.Batch,Phase:"prepared",Result:pending.Batch.Result}
+	a.idleSince=time.Time{}
 	if err=AtomicJSON(filepath.Join(dir,"request.json"),map[string]any{"batch":pending.Batch,"serial":a.Config.Serial});err!=nil{return err}
 	return a.process(ctx,dir,&run,true)
 }
@@ -198,14 +212,43 @@ func (a *Agent) Run(ctx context.Context,once bool)error{
 	for{
 		err=a.once(ctx)
 		if once{return err}
-		if err!=nil{fmt.Fprintln(os.Stderr,"BITS:",err)}
-		select{case <-ctx.Done():return ctx.Err();case <-time.After(5*time.Second):}
+		pause:=5*time.Second
+		if err!=nil{fmt.Fprintln(os.Stderr,"BITS:",err);a.idleSince=time.Time{};pause=30*time.Second
+		}else if err=a.shutdownIfIdle(ctx);err!=nil{fmt.Fprintln(os.Stderr,"BITS shutdown:",err)}
+		select{case <-ctx.Done():return ctx.Err();case <-time.After(pause):}
 	}
+}
+func (a *Agent) shutdownIfIdle(ctx context.Context)error{
+	if a.Config.KeepOn{return nil}
+	entries,err:=os.ReadDir(filepath.Join(a.Data,"runs"));if err!=nil{return err}
+	found:=false
+	for _,entry:=range entries{
+		var run LocalRun
+		if err=ReadJSON(filepath.Join(a.Data,"runs",entry.Name(),"run.json"),&run);err!=nil{return err}
+		if run.Phase!="done"{a.idleSince=time.Time{};return nil}
+		if run.Batch.State=="delivered"&&run.Result.Execution=="completed"{found=true}
+		if run.Batch.State!="closed_incomplete"&&run.Result.Execution!="completed"{a.idleSince=time.Time{};return nil}
+	}
+	if !found{return nil}
+	if err=TrustedProgram("/usr/bin/who");err!=nil{return err}
+	whoCtx,cancel:=context.WithTimeout(ctx,3*time.Second);defer cancel()
+	users,err:=exec.CommandContext(whoCtx,"/usr/bin/who").Output()
+	if err!=nil||len(users)>0{a.idleSince=time.Time{};return err}
+	if a.idleSince.IsZero(){a.idleSince=time.Now();return nil}
+	if time.Since(a.idleSince)<30*time.Minute{return nil}
+	if err=TrustedProgram("/usr/bin/systemctl");err!=nil{return err}
+	// No pending evidence and no login session. Never power off due only to
+	// connectivity loss, a failed batch or time since machine boot.
+	return exec.CommandContext(ctx,"/usr/bin/systemctl","poweroff").Run()
 }
 func readProgramManifest(root string,inventory *map[string]string)error{
 	if err:=TrustedDirectory(root);err!=nil{return err}
+	if err:=TrustedProgramFile(filepath.Join(root,"MANIFEST.json"));err!=nil{return err}
 	raw,err:=os.ReadFile(filepath.Join(root,"MANIFEST.json"));if err!=nil{return err}
 	if err=json.Unmarshal(raw,inventory);err!=nil{return err}
+	for _,required:=range []string{"worker.py","data_api.py","workload.py","sckocp_api/interface.py","sckocp_api/provider.py","sckocp_api/security.py"}{
+		if !digestRE.MatchString((*inventory)[required]){return errors.New("required worker file missing from inventory")}
+	}
 	for name,expected:=range *inventory{
 		if filepath.IsAbs(name)||filepath.Clean(name)!=name||stringsUnsafe(name){return errors.New("invalid program manifest entry")}
 		path:=filepath.Join(root,name)

@@ -209,7 +209,7 @@ func (s *Server) batchDir(b Batch)(string,error){
 }
 func (s *Server) upload(w http.ResponseWriter,r *http.Request,b Batch,name string)error{
 	expected,ok:=b.Artifacts[name];if !ok||!ValidName(name){return errors.New("file is not in sealed manifest")}
-	lock,_:=s.uploads.LoadOrStore(b.ID,new(sync.Mutex));lock.(*sync.Mutex).Lock();defer lock.(*sync.Mutex).Unlock()
+	lock,_:=s.uploads.LoadOrStore(b.Plan.Node,new(sync.Mutex));lock.(*sync.Mutex).Lock();defer lock.(*sync.Mutex).Unlock()
 	dir,err:=s.batchDir(b);if err!=nil{return err}
 	final,part:=filepath.Join(dir,name),filepath.Join(dir,"."+name+".part")
 	if err=CheckFileIfExists(final);err!=nil{return err}
@@ -271,7 +271,7 @@ func (s *Server) commit(w http.ResponseWriter,r *http.Request,b Batch)error{
 	if len(b.Artifacts)==0{return errors.New("no sealed artifacts")}
 	a,_:=json.Marshal(hashes);e,_:=json.Marshal(b.Artifacts)
 	if string(a)!=string(e){return errors.New("node readback hashes differ from sealed artifacts")}
-	lock,_:=s.uploads.LoadOrStore(b.ID,new(sync.Mutex));lock.(*sync.Mutex).Lock();defer lock.(*sync.Mutex).Unlock()
+	lock,_:=s.uploads.LoadOrStore(b.Plan.Node,new(sync.Mutex));lock.(*sync.Mutex).Lock();defer lock.(*sync.Mutex).Unlock()
 	dir,err:=s.batchDir(b);if err!=nil{return err}
 	for name,expected:=range b.Artifacts{actual,err:=HashFile(filepath.Join(dir,name));if err!=nil{return err};if actual!=expected{return errors.New("stored artifact changed: "+name)}}
 	v,err:=s.Store.Mutate(b.ID,"delivery_verified",func(current *Batch)error{

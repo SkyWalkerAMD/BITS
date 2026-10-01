@@ -25,6 +25,14 @@ func OpenStore(dir string) (*Store, error) {
 	db, err := sql.Open("sqlite", dbpath)
 	if err != nil { return nil, err }
 	db.SetMaxOpenConns(1)
+	var tables int
+	if err=db.QueryRow("SELECT count(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").Scan(&tables);err!=nil{db.Close();return nil,err}
+	if tables>0{
+		var version string
+		if err=db.QueryRow("SELECT value FROM metadata WHERE key='schema'").Scan(&version);err!=nil||version!="1"{
+			db.Close();return nil,errors.New("unsupported existing database; no schema changes were made")
+		}
+	}
 	for _, statement := range []string{
 		"PRAGMA busy_timeout=10000", "PRAGMA journal_mode=WAL", "PRAGMA synchronous=FULL", "PRAGMA foreign_keys=ON",
 		"CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
@@ -97,8 +105,10 @@ func (s *Store) Create(p Plan) (Batch,error) {
 func (s *Store) Mutate(id,kind string, fn func(*Batch) error) (Batch,error) {
 	s.mu.Lock();defer s.mu.Unlock()
 	b,err:=s.Batch(id);if err!=nil{return b,err}
+	before,_:=json.Marshal(b)
 	if err=fn(&b);err!=nil{return b,err}
 	body,err:=json.Marshal(b);if err!=nil{return b,err}
+	if string(before)==string(body){return b,nil}
 	tx,err:=s.db.Begin();if err!=nil{return b,err};defer tx.Rollback()
 	_,err=tx.Exec("UPDATE batches SET state=?,body=? WHERE id=?",b.State,string(body),id)
 	if err==nil{err=event(tx,id,kind,b.State)}
@@ -123,7 +133,12 @@ func (s *Store) Claim(id,node,attempt string) (Batch,error) {
 	})
 }
 func (s *Store) Pending(node string) (*Batch,error) {
-	all,err:=s.Batches(node);if err!=nil{return nil,err}
+	// An armed batch must not disappear behind the dashboard's history limit.
+	var body string
+	err:=s.db.QueryRow("SELECT body FROM batches WHERE node=? AND state='armed'",node).Scan(&body)
+	if errors.Is(err,sql.ErrNoRows){return nil,nil};if err!=nil{return nil,err}
+	var selected Batch;if err=json.Unmarshal([]byte(body),&selected);err!=nil{return nil,err}
+	all:=[]Batch{selected}
 	for _,b:=range all{
 		if b.State=="armed" {
 			exp,_:=time.Parse(time.RFC3339Nano,b.Expires)

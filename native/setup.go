@@ -37,10 +37,19 @@ func InitializeCenter(configDir,data,address,cidr string,port int,apply bool)(ma
 	local,_:=net.InterfaceAddrs();found:=false
 	for _,a:=range local{v,_,e:=net.ParseCIDR(a.String());if e==nil&&v.Equal(ip){found=true}}
 	if !found{return nil,errors.New("selected address is not configured on this server")}
+	for _,tree:=range []string{configDir,data}{
+		if !filepath.IsAbs(tree)||filepath.Clean(tree)!=tree{return nil,errors.New("canonical absolute deployment directory required")}
+		entries,e:=os.ReadDir(tree)
+		if e==nil&&len(entries)>0{return nil,errors.New("nonempty deployment retained: "+tree)}
+		if e!=nil&&!os.IsNotExist(e){return nil,e}
+	}
+	adminDir:="/root/.bits";adminPath:=filepath.Join(adminDir,"admin.json")
+	if _,e:=os.Lstat(adminPath);e==nil||!os.IsNotExist(e){return nil,errors.New("existing administrator credential retained")}
 	for _,path:=range []string{filepath.Join(configDir,"config.json"),filepath.Join(configDir,"manifest.json"),filepath.Join(data,"center.sqlite")}{
 		if _,e:=os.Lstat(path);e==nil||!os.IsNotExist(e){return nil,errors.New("existing deployment retained: "+path)}
 	}
 	serverURL:="https://"+net.JoinHostPort(address,strconv.Itoa(port))
+	if port==443 { serverURL="https://"+address }
 	plan:=map[string]any{"address":address,"url":serverURL,"network":cidr,"data":data,"check":!apply,
 		"node_inbound_ports":[]int{},"center_tcp_ports":[]int{port},"database":"local SQLite",
 		"sckocp_activation_database":false,"existing_network_settings_modified":false}
@@ -69,9 +78,7 @@ func InitializeCenter(configDir,data,address,cidr string,port int,apply bool)(ma
 	if err=Atomic(cfg.Cert,certPEM);err!=nil{return nil,err};if err=Atomic(cfg.Key,keyPEM);err!=nil{return nil,err}
 	if err=AtomicJSON(filepath.Join(configDir,"config.json"),cfg);err!=nil{return nil,err}
 	// The administrator credential stays in a separate root-only location.
-	adminDir:="/root/.bits";if err=os.MkdirAll(adminDir,0700);err!=nil{return nil,err}
-	adminPath:=filepath.Join(adminDir,"admin.json")
-	if _,err=os.Lstat(adminPath);err==nil{return nil,errors.New("existing administrator credential retained")}
+	if err=os.MkdirAll(adminDir,0700);err!=nil{return nil,err}
 	if err=AtomicJSON(adminPath,AdminConfig{URL:serverURL,Token:token,CA:string(certPEM)});err!=nil{return nil,err}
 	if err=os.Mkdir(filepath.Join(data,"artifacts"),0700);err!=nil{return nil,err}
 	store,err:=OpenStore(data);if err!=nil{return nil,err};if err=store.Close();err!=nil{return nil,err}
