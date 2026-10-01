@@ -9,7 +9,7 @@ docker build --progress plain --build-arg BASE_IMAGE="$digest" -f native/ci/Dock
 docker run -d --name bits-independent-test --hostname BITS-CLOUD --cpus=2 --memory=3g --pids-limit=512 \
     -e container=docker --privileged --cgroupns=private \
     --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
-    --tmpfs /run --tmpfs /run/lock --tmpfs /tmp \
+    --tmpfs /run --tmpfs /run/lock --tmpfs /tmp:rw,exec,nosuid,nodev,mode=1777 \
     -v "$PWD:/src:ro" -v "$PWD/.independent-results:/results" \
     bits-independent-test /bin/bash -c 'mount -o remount,rw /sys/fs/cgroup; exec /sbin/init'
 for attempt in $(seq 1 60); do

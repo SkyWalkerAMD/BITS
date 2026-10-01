@@ -29,6 +29,13 @@ jobs:
           go mod verify
           gofmt -w .
           git diff -- . > /tmp/native-format.patch
+      - name: Check the explicit public source export
+        run: |
+          python3 - <<'PY'
+          import os
+          from distribution.source_export import export_sources
+          print(export_sources('/tmp/bits-reviewed-source.tar.gz', os.environ['GITHUB_SHA']))
+          PY
       - name: Race, recovery, authentication and 200-node transaction tests
         working-directory: native
         run: |
@@ -105,3 +112,18 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with: {name: 'independent-test-${{ matrix.label }}-${{ github.run_id }}', path: .independent-results/, include-hidden-files: true, retention-days: 30}
+  preview:
+    if: inputs.full_matrix
+    needs: [protocol, packages, linux]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: {pattern: 'independent-packages-*-${{ github.run_id }}', path: native-evidence}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: {pattern: 'independent-test-*-${{ github.run_id }}', path: native-evidence}
+      - name: Assemble reviewed source and same-run packages with evidence
+        run: python3 native/ci/release.py
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with: {name: 'bits-independent-preview-${{ github.run_id }}', path: native-release/, retention-days: 30}

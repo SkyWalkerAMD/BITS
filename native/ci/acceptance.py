@@ -78,6 +78,7 @@ def main():
             "args=sys.argv[1:]\n"
             "with open('/root/bits-ci-provider-calls.jsonl','a') as f: f.write(json.dumps(args)+'\\n')\n"
             "if os.path.exists('/root/bits-ci-provider-deny'): sys.exit(10)\n"
+            "if args==['info'] and os.path.exists('/root/bits-ci-provider-info-deny'): sys.exit(10)\n"
             "if args==['mon','--json']:\n"
             " time.sleep(0.2); print(" + repr(json.dumps(sample)) + ")\n"
             "elif args==['mon','--cols=1']: sys.stdout.buffer.write(" + repr(OVERVIEW.encode("utf-8")) + ")\n"
@@ -176,6 +177,16 @@ def main():
     assert not (Path("/var/lib/bits/node/runs") / denied["id"] / "execution.json").exists()
     api("batches/" + denied["id"] + "/close-incomplete", {"reason": "Synthetic native denial retained"})
     Path("/root/bits-ci-provider-deny").unlink()
+    write("/root/bits-ci-provider-info-deny", "CI supplement gate")
+    info_denied = new_batch("CLOUD-INFO-DENIAL", [("stress", 4)])
+    api("batches/" + info_denied["id"] + "/start", {})
+    info_denied = wait_batch(info_denied["id"], "needs_attention")
+    assert info_denied["result"]["execution"] == "preflight_failed", info_denied
+    assert not (Path("/var/lib/bits/node/runs") / info_denied["id"] / "execution.json").exists()
+    api("batches/" + info_denied["id"] + "/close-incomplete", {"reason": "Synthetic supplemental denial retained"})
+    Path("/root/bits-ci-provider-info-deny").unlink()
+    calls = [json.loads(line) for line in Path("/root/bits-ci-provider-calls.jsonl").read_text().splitlines()]
+    assert all(call in [["mon", "--json"], ["mon", "--cols=1"], ["info"]] for call in calls)
     ports = run("ss", "-lntp")
     assert ":6379 " not in ports and ":873 " not in ports
     summary = {"status": "passed", "version": "0.4.0-alpha.1", "python": sys.version,
@@ -184,7 +195,7 @@ def main():
         "service_restart_execution": interrupted["result"]["execution"],
         "sckocp": "synthetic fixed mon/info only; Primary-filter tested",
         "services": "real systemd, HTTPS, SQLite; no Redis/rsync",
-        "native_authorization_denial": "no workload, no permission-management call",
+        "native_authorization_denial": "base and supplemental denial: no workload, no permission-management call",
         "hardware_validated": False}
     write("/results/acceptance.json", json.dumps(summary, ensure_ascii=False, indent=2))
     shutil.copy2(str(evidence / "report.html"), "/results/report-preview.html")

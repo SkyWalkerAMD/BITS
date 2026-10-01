@@ -7,6 +7,7 @@ The native program remains solely responsible for authorization.
 import shutil
 
 from sckocp_api.interface import collect
+from sckocp_api.provider import GATE_STATUS
 
 
 def sample(include_details=False):
@@ -17,5 +18,14 @@ def sample(include_details=False):
         raise ValueError("Original sckocp data provider is unavailable")
     # collect accepts only mon JSON and fixed mon/info supplements. Its output
     # whitelist removes non-Primary timing groups before they reach BITS.
-    return collect(binary=binary, interval=1, timeout=20,
-                   native_format="v1", details=include_details)
+    value = collect(binary=binary, interval=1, timeout=20,
+                    native_format="v1", details=include_details)
+    # Authorization can change between the base read and a supplement. Do not
+    # retain the earlier successful reading after the native provider refused
+    # any part of this sample. There is no refresh or fallback path here.
+    for part in value.get("details", {}).get("parts", {}).values():
+        if part.get("status") in GATE_STATUS.values():
+            return {"schema": value["schema"], "status": part["status"],
+                    "observed_at": part["observed_at"], "data": None,
+                    "error": part["error"]}
+    return value

@@ -196,6 +196,7 @@
     "native/ci/image.sh",
     "native/ci/interface_tests.py",
     "native/ci/licenses.py",
+    "native/ci/release.py",
     "native/client.go",
     "native/cmd/bits-center/main.go",
     "native/cmd/bits-node/main.go",
