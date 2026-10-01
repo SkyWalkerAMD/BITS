@@ -62,7 +62,7 @@ class OriginalAdoptionRootTests(unittest.TestCase):
     def source(self):
         source = self.root / "package"
         source.mkdir(mode=0o755)
-        for relative in installer.FILES:
+        for relative in installer.FILES + tuple(installer.COMPATIBILITY_FILES.values()):
             path = source / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes((ROOT / relative).read_bytes())

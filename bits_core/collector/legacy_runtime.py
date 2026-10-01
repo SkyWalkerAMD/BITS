@@ -7,7 +7,11 @@ The native BITS node does not include this adapter.
 import importlib.util
 from pathlib import Path
 
-_target = Path(__file__).absolute().parents[1] / 'bits_core/collector/runtime.py'
+_here = Path(__file__).absolute()
+# Source import checks use the canonical filename; the legacy installer maps
+# this source to the historic filename. Neither choice is environment-driven.
+_target = (_here.with_name('runtime.py') if _here.name == 'legacy_runtime.py'
+           else _here.parents[1] / 'bits_core/collector/runtime.py')
 _spec = importlib.util.spec_from_file_location('_bits_legacy_runtime', str(_target))
 _runtime = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_runtime)
