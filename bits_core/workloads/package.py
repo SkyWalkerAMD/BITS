@@ -169,10 +169,7 @@ def package(work, out):
         top = work / 'rpmbuild'
         (top / 'SPECS').mkdir(parents=True)
         spec = top / 'SPECS/bits-o-workloads.spec'
-        spec.write_text('''Name: bits-o-workloads
-Version: 0.1.0
-Release: 3.el8
-Summary: Version-pinned OCRUN x86-64 workload suite
+        spec.write_text('Name: bits-o-workloads\nVersion: ' + VERSION + '\nRelease: ' + REVISION + '.el8\n' + '''Summary: Version-pinned OCRUN x86-64 workload suite
 License: GPLv2+ and GPLv3+ and GIMPS and LicenseRef-Intel-Limited-Tools
 BuildArch: x86_64
 Requires: python3 >= 3.6, perl, procps-ng, numactl-libs, gmp
@@ -200,9 +197,7 @@ cp -a ''' + str(stage) + '''/. %{buildroot}/
     else:
         control = stage / 'DEBIAN'
         control.mkdir()
-        (control / 'control').write_text('''Package: bits-o-workloads
-Version: 0.1.0-4
-Architecture: amd64
+        (control / 'control').write_text('Package: bits-o-workloads\nVersion: ' + VERSION + '-' + REVISION + '\n' + '''Architecture: amd64
 Maintainer: OCRUN local deployment
 Section: utils
 Priority: optional
@@ -219,7 +214,7 @@ Description: Version-pinned OCRUN workload suite
             p.relative_to(stage).as_posix() + '\n' for p in sorted(stage.rglob('*'))
             if p.is_file() and control not in p.parents))
         subprocess.run(['dpkg-deb', '-Zxz', '--uniform-compression', '--build', '--root-owner-group', str(stage),
-                        str(out / 'bits-o-workloads_0.1.0-4_amd64.deb')], check=True)
+                        str(out / ('bits-o-workloads_' + VERSION + '-' + REVISION + '_amd64.deb'))], check=True)
     packages = list(out.glob('*.rpm')) + list(out.glob('*.deb'))
     (out / 'SHA256SUMS').write_text(''.join(sha(p) + '  ' + p.name + '\n' for p in packages))
 

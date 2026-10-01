@@ -67,6 +67,14 @@ class Workloads(unittest.TestCase):
 
     def test_01_manifest_and_versions(self):
         spec = suite.check()
+        expected = spec['version'] + '-' + spec['package_revision']
+        if shutil.which('rpm'):
+            installed = command(['rpm', '-q', '--qf', '%{VERSION}-%{RELEASE}', 'bits-o-workloads']).strip()
+            self.assertEqual(expected + '.el8', installed)
+        else:
+            installed = command(['dpkg-query', '-W', '-f=${Version}', 'bits-o-workloads']).strip()
+            self.assertEqual(expected, installed)
+        self.details['native_package_version'] = installed
         for name, option, expected in [('stress', '--version', '1.0.7'),
                                        ('stress-ng', '--version', '0.22.01'),
                                        ('mprime', '-v', '30.19')]:

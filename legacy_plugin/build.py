@@ -12,6 +12,7 @@ import tempfile
 
 from . import VERSION
 from distribution.build import put, copy, launch, extract_own, sha, check_input
+from bits_core.workloads.package import VERSION as WORKLOAD_VERSION, REVISION as WORKLOAD_REVISION
 
 SOURCE = Path(__file__).resolve().parents[1]
 PREFIX = '/opt/ocrun-plugin/' + VERSION
@@ -58,7 +59,7 @@ def package(stage, role, kind, out):
             (top / d).mkdir(parents=True)
         depends = 'bash, findutils, (python3 >= 3.6 or platform-python >= 3.6)'
         if role == 'node':
-            depends += ', bits-o-workloads = 0.1.0-4.el8, rsync, curl, util-linux, procps-ng, (redis or valkey), iputils, dmidecode'
+            depends += ', bits-o-workloads = ' + WORKLOAD_VERSION + '-' + WORKLOAD_REVISION + '.el8, rsync, curl, util-linux, procps-ng, (redis or valkey), iputils, dmidecode'
         spec = top / 'SPECS/plugin.spec'
         spec.write_text('Name: ' + name + '\nVersion: ' + VERSION + '\nRelease: 1.el8\n'
             'Summary: Original OCRUN system enhancement (' + role + ')\nLicense: GPLv3+\nBuildArch: x86_64\n'
@@ -76,7 +77,7 @@ def package(stage, role, kind, out):
         control.mkdir()
         depends = 'bash, findutils, python3 (>= 3.6)'
         if role == 'node':
-            depends += ', bits-o-workloads (= 0.1.0-4), rsync, curl, util-linux, procps, redis-tools, iputils-ping, dmidecode'
+            depends += ', bits-o-workloads (= ' + WORKLOAD_VERSION + '-' + WORKLOAD_REVISION + '), rsync, curl, util-linux, procps, redis-tools, iputils-ping, dmidecode'
         put(control / 'control', 'Package: ' + name + '\nVersion: ' + VERSION + '-1\nArchitecture: amd64\n'
             'Maintainer: OCRUN local deployment\nSection: admin\nPriority: optional\nDepends: ' + depends + '\n'
             'Conflicts: bits-o-' + ('node' if role == 'control' else 'control') + ', bits-node, bits-center, ocrun-node, ocrun-center, ocrun-plugin-node, ocrun-plugin-control\n'
@@ -147,7 +148,7 @@ def build(baseline, output, tools):
                 put(root / 'PACKAGE.json', json.dumps({'role': role, 'version': VERSION, 'files': files,
                     'source_commit': os.environ['GITHUB_SHA'], 'workloads_source': os.environ['GITHUB_SHA'],
                     'component_versions': {'sckocp-api': component_builder.PUBLIC_API_VERSION,
-                        'collector': component_builder.PLUGIN_VERSION, 'finish': '0.3.0', 'report': '0.2.0', 'workloads': '0.1.0-4'},
+                        'collector': component_builder.PLUGIN_VERSION, 'finish': '0.3.0', 'report': '0.2.0', 'workloads': WORKLOAD_VERSION + '-' + WORKLOAD_REVISION},
                     'services_started_by_install': False}, sort_keys=True, indent=2))
                 if role == 'node' and kind == 'deb':
                     # Same hash-inventoried Python payload, for the first
