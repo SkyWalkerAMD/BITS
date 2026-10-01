@@ -1,5 +1,6 @@
 """Browser acceptance on the isolated Linux server; never export credentials."""
 import hashlib
+from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
@@ -198,6 +199,11 @@ with sync_playwright() as p:
                 original = h["cores"][0]
                 h["cores"] = [dict(original, cpu=i, socket=0 if i < 70 else 1, vid_v=None) for i in reversed(range(140))]
                 sample["extra_observed_at"] = "2020-01-01T00:00:00Z"
+                stamp = datetime.now(timezone.utc)
+                frame["history"] = [{"sequence":i + 1, "available":True,
+                    "observed_at":(stamp - timedelta(seconds=seconds)).isoformat().replace("+00:00", "Z"),
+                    "temp_c":30 + i, "package_w":100 + i}
+                    for i, seconds in enumerate((18, 4, 2))]
             route.fulfill(response=response, json=value)
         live_path = "**/api/v1/batches/" + batch_id + "/live"
         page.route(live_path, topology)
@@ -210,6 +216,10 @@ with sync_playwright() as p:
         assert page.locator(".core-table tbody tr").first.get_attribute("data-cpu") == "70"
         expect(page.locator("#monitor-status")).to_have_text("实时采集中")
         expect(page.locator(".monitor-extra-age.stale")).to_be_visible()
+        chart = page.locator(".monitor-trends .trend-chart").first
+        expect(chart.locator(".trend-label")).to_have_count(3)
+        assert chart.locator("path").get_attribute("d").count("M") == 2
+        checks.append("trend axes display measured ranges and leave a gap across missing sample time")
         page.unroute(live_path, topology)
         expect(page.locator(".socket-card")).to_have_count(1, timeout=12000)
         expect(page.locator(".core-table tbody tr")).to_have_count(24)
@@ -220,7 +230,7 @@ with sync_playwright() as p:
         expect(page.locator("#monitor-status")).to_have_text("实时采集中", timeout=15000)
         checks.append("hardware monitor disconnect preserves clearly marked last readings")
         # Viewport evidence, rather than a full-page stitch, proves fixed navigation.
-        page.set_viewport_size({"width":1024, "height":400})
+        page.set_viewport_size({"width":1024, "height":300})
         page.locator('a[data-nav="guide"]').scroll_into_view_if_needed()
         expect(page.locator('a[data-nav="guide"]')).to_be_in_viewport()
         assert page.locator("#main-navigation").bounding_box()["y"] == 0
@@ -325,7 +335,8 @@ with sync_playwright() as p:
             else:
                 route.continue_()
         page.route("**/api/v1/batches", hold_post)
-        page.locator("#batch-submit").click()
+        with page.expect_request(lambda request: request.method == "POST" and request.url.endswith("/api/v1/batches")):
+            page.locator("#batch-submit").click()
         expect(page.locator("#batch-form")).to_have_attribute("aria-busy", "true")
         expect(page.locator('#batch-dialog button[data-close]').first).to_be_disabled()
         page.keyboard.press("Escape")
