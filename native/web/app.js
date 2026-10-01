@@ -475,10 +475,10 @@ function nodeCard(n) {
         ? ["finalizing", "delivering"].includes(f?.phase)
           ? "采集已结束 · 正在交付"
           : freshSample(f)
-          ? "采样接收 " + ago(f.sample_received_at)
-          : f?.sample
-            ? "采样已过期 · " + ago(f.sample_received_at)
-            : "等待采样"
+            ? "采样接收 " + ago(f.sample_received_at)
+            : f?.sample
+              ? "采样已过期 · " + ago(f.sample_received_at)
+              : "等待采样"
         : n.last_seen
           ? "最后联系 " + ago(n.last_seen)
           : "尚未连接";
@@ -898,6 +898,7 @@ function renderDetail() {
     live = el("section", undefined, "panel");
   process.append(el("h2", "执行步骤"));
   const timeline = el("ol", undefined, "steps-timeline");
+  const ended = ["delivered", "cancelled", "closed_incomplete"].includes(b.state);
   b.plan.steps.forEach((s, index) => {
     const r = steps.find((v) => v.id === s.id),
       isActive = frame?.step_id === s.id && activeStates.includes(b.state),
@@ -912,7 +913,9 @@ function renderDetail() {
             : "状态过期"
           : r?.started_at
             ? "等待结果"
-            : "等待执行";
+            : ended
+              ? "未执行"
+              : "等待执行";
     head.append(
       el("strong", s.tool),
       badge(
@@ -967,7 +970,9 @@ function renderDetail() {
   });
   process.append(timeline);
   layout.append(process);
-  const running = activeStates.includes(b.state) && !["finalizing", "delivering"].includes(frame?.phase),
+  const running =
+      activeStates.includes(b.state) &&
+      !["finalizing", "delivering"].includes(frame?.phase),
     data = frame?.sample || {},
     rows = frame?.history || history.get(b.id) || [];
   root.dataset.liveSequence = String(frame?.sample?.sequence || 0);
@@ -1011,7 +1016,9 @@ function renderDetail() {
     el(
       "p",
       !frame?.sample
-        ? "等待采集。趋势只保留最近 180 个样本，完整数据见报告。"
+        ? ended
+          ? "实时缓存已释放或本批次未采集。完整数据与统计请查看报告。"
+          : "等待采集。趋势只保留最近 180 个样本，完整数据见报告。"
         : running
           ? freshSample(frame)
             ? "采样接收 " + ago(frame.sample_received_at)
@@ -1033,6 +1040,11 @@ function renderDetail() {
     el(
       "p",
       "所有值均为 sckocp 报告值；有效性与传感器读数年龄未知。缺失项显示 —。",
+      "field-help",
+    ),
+    el(
+      "p",
+      "多插槽汇总：温度、VCCIN、VID 取最高，TjMax 取最低；Pkg / DRAM 功耗求和，PSU 采用程序报告的整机输入。",
       "field-help",
     ),
   );
