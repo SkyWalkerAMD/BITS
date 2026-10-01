@@ -231,6 +231,7 @@
     "tests/test_plugin_install.py",
     "tests/test_plugin_python_compat.py",
     "tests/test_plugin_runtime.py",
+    "tests/sckocp_detail_fixture.py",
     "tests/test_protection.py",
     "tests/test_protocol.py",
     "tests/test_runtime.py",

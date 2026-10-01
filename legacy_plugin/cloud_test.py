@@ -211,7 +211,7 @@ def main():
         'mhz': 3000, 'temp_c': 55, 'vid_v': 1.1, 'c0_pct': 100, 'c6_pct': 0}]}
     sensor = Path('/usr/local/bin/sckocp')
     sys.path.insert(0, str(SRC / 'tests'))
-    from test_sckocp_details import INFO, OVERVIEW
+    from sckocp_detail_fixture import INFO, OVERVIEW
     sensor.write_text('#!' + sys.executable + '\nimport time,sys\ntime.sleep(.05)\nprint(' +
         repr(INFO) + ' if sys.argv[1:]==["info"] else ' + repr(OVERVIEW) +
         ' if sys.argv[1:]==["mon","--cols=1"] else ' + repr(json.dumps(payload)) + ')\n')

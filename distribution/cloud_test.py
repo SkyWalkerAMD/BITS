@@ -238,7 +238,7 @@ def main():
     provider = Path('/usr/local/bin/sckocp')
     sys.path.insert(0, '/src/tests')
     sys.path.insert(0, '/src')
-    from test_sckocp_details import INFO, OVERVIEW
+    from sckocp_detail_fixture import INFO, OVERVIEW
     provider.write_text('#!' + sys.executable + '\nimport time,sys\ntime.sleep(.05)\nprint(' +
         repr(INFO) + ' if sys.argv[1:]==["info"] else ' + repr(OVERVIEW) +
         ' if sys.argv[1:]==["mon","--cols=1"] else ' + repr(json.dumps(payload)) + ')\n')
@@ -394,7 +394,7 @@ def main():
     old_node = Path('/opt/ocrun-node/0.2.2')
     assert json.loads((old_node / 'PACKAGE.json').read_text())['version'] == '0.2.2'
     # Unknown files in a new version directory are never treated as owned by the old package.
-    NODE.mkdir()
+    NODE.mkdir(parents=True)
     sentinel = NODE / 'unmanaged.txt'
     sentinel.write_text('preserve unknown content')
     assert run(*(installer + [package]), good=False).returncode != 0
