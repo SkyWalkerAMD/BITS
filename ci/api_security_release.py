@@ -47,7 +47,7 @@ def main():
     names = {
         'public_api': 'sckocp-api-0.4.0.tar.gz',
         'public_api_installer': 'sckocp-api-0.4.0.run',
-        'mon_sensors_plugin': 'mon-sensors-plugin-0.13.0.tar.gz',
+        'bits_core/collector': 'mon-sensors-plugin-0.13.0.tar.gz',
         'mon_sensors_installer': 'mon-sensors-plugin-0.13.0.run',
     }
     for kind, name in names.items():

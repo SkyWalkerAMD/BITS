@@ -17,8 +17,8 @@ for path in sorted((ROOT / 'ocrun').glob('*.py')):
 for path in sorted((ROOT / 'sckocp_api').glob('*.py')):
     if path.stem != '__main__':
         importlib.import_module('sckocp_api.' + path.stem)
-for path in sorted((ROOT / 'mon_sensors_plugin').glob('*.py')):
-    importlib.import_module('mon_sensors_plugin.' + path.stem)
+for path in sorted((ROOT / 'bits_core/collector').glob('*.py')):
+    importlib.import_module('bits_core.collector.' + path.stem)
 from ocrun.common import identifier, read_json, write_json
 from ocrun.rediswire import Redis
 from ocrun.unpack import unpack

@@ -26,10 +26,10 @@ BITS 0.2.5 的云端验收覆盖 x86-64 的 Rocky/AlmaLinux 8/9/10、Debian 11/1
 
 | 目录 | 用途 |
 | --- | --- |
-| `distribution/`、`server_deploy/` | 完整系统打包、新管理服务器部署 |
-| `legacy_plugin/`、`control_addon/` | 旧系统增强入口、只读结果查看 |
-| `finish_addon/`、`report_addon/`、`workload_suite/` | 节点执行与收尾、报表、固定版本工具 |
-| `sckocp_api/`、`mon_sensors_plugin/` | 本地接口、采集与原 OCRUN 接入 |
+| `distribution/`、`bits_core/center/` | 完整系统打包、新管理服务器部署 |
+| `legacy_plugin/`、`bits_core/results/` | 旧系统增强入口、只读结果查看 |
+| `bits_core/batch/`、`bits_core/reporting/`、`bits_core/workloads/` | 节点执行与收尾、报表、固定版本工具 |
+| `sckocp_api/`、`bits_core/collector/` | 本地接口、采集与原 OCRUN 接入 |
 | `ocrun/` | 共用兼容代码及早期 Agent；见目录说明 |
 | `tests/`、`ci/`、`.github/workflows/` | 回归、Linux 云端夹具、自动化入口 |
 | `integrations/` | 原 OCRUN 兼容基线 |

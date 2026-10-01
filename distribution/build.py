@@ -11,10 +11,10 @@ import tarfile
 import tempfile
 
 SOURCE = Path(__file__).resolve().parents[1]
-VERSION = '0.2.5'
-NODE = '/opt/ocrun-node/' + VERSION
-CENTER = '/opt/ocrun-center/' + VERSION
-APP = '/var/lib/ocrun-node/app'
+VERSION = '0.3.0'
+NODE = '/opt/bits/node/' + VERSION
+CENTER = '/opt/bits/center/' + VERSION
+APP = '/var/lib/bits/node/app'
 
 
 def sha(path):
@@ -53,28 +53,34 @@ def launch(target, arguments=''):
 def template(root):
     app = root / 'template'
     sys.path.insert(0, str(SOURCE))
-    from mon_sensors_plugin.install import FILES
-    helper = app / '.bits-collector.d'
+    from bits_core.collector.install import FILES
+    from bits_core.layout import NATIVE as layout
+    from bits_core.packaging import write_layout
+    helper = app / layout.collector_dir
     for name in FILES:
-        put(helper / name, (SOURCE / name).read_bytes().replace(b'\r\n', b'\n'), name == 'mon-sensors-plugin')
-    plugin = launch(APP + '/.bits-collector.d/mon-sensors-plugin')
-    put(app / '.bits-collector', plugin, True)
-    put(helper / '.mon-sensors-plugin', json.dumps({'owner': 'mon-sensors-plugin-v1',
+        target = layout.collector_program if name == 'mon-sensors-plugin' else name
+        put(helper / target, (SOURCE / name).read_bytes().replace(b'\r\n', b'\n'), name == 'mon-sensors-plugin')
+    write_layout(helper, native=True)
+    collector_files = {p.relative_to(helper).as_posix(): sha(p) for p in helper.rglob('*') if p.is_file()}
+    plugin = launch(APP + '/' + layout.collector_dir + '/' + layout.collector_program)
+    put(app / layout.collector_entry, plugin, True)
+    put(helper / layout.collector_marker, json.dumps({'owner': 'mon-sensors-plugin-v1',
         'launcher_sha256': hashlib.sha256(plugin.encode()).hexdigest(),
-        'files': {n: sha(helper / n) for n in FILES}}))
-    put(app / '.mon-sensors-backend', 'sckocp\n')
-    finalizer = app / 'mon-sensors-finish.d'
-    names = ('common.py', 'finish.py', 'hook.sh', 'oct-hook.sh', 'node.py', 'queue.py', 'workload.py',
+        'layout': layout.name, 'files': collector_files}))
+    put(app / layout.backend, 'sckocp\n')
+    finalizer = app / layout.helper
+    names = ('common.py', 'finish.py', 'node.py', 'queue.py', 'workload.py',
              'operator_cli.py', 'install_guard.py', 'tools_adoption.py', 'report_sheet.py')
     for name in names:
-        put(finalizer / name, (SOURCE / 'finish_addon' / name).read_bytes().replace(b'\r\n', b'\n'))
+        put(finalizer / name, (SOURCE / 'bits_core/batch' / name).read_bytes().replace(b'\r\n', b'\n'))
     put(finalizer / 'security.py', (SOURCE / 'sckocp_api/security.py').read_bytes().replace(b'\r\n', b'\n'))
-    put(finalizer / 'suite.py', (SOURCE / 'workload_suite/suite.py').read_bytes().replace(b'\r\n', b'\n'))
-    put(app / 'ocb', '#!/bin/sh\nset -eu\n[ "${1:-run}" = run ] || exit 2\nexec /usr/bin/bits-node run\n', True)
-    put(app / 'mon-sensors-finish', launch(NODE + '/finish_entry.py',
-        APP + '/mon-sensors-finish.d/finish.py --app ' + APP), True)
+    put(finalizer / 'suite.py', (SOURCE / 'bits_core/workloads/suite.py').read_bytes().replace(b'\r\n', b'\n'))
+    write_layout(finalizer, native=True)
+    put(app / layout.scheduler, '#!/bin/sh\nset -eu\n[ "${1:-run}" = run ] || exit 2\nexec /usr/bin/bits-node run\n', True)
+    put(app / layout.entry, launch(NODE + '/finish_entry.py',
+        APP + '/' + layout.helper + '/finish.py --app ' + APP), True)
     managed = {p.relative_to(app).as_posix(): sha(p) for p in app.rglob('*') if p.is_file()}
-    put(app / '.mon-sensors-finish-install.json', json.dumps({'version': '0.2.6',
+    put(app / layout.install_marker, json.dumps({'version': '0.3.0', 'layout': layout.name,
         'app': APP, 'distribution': VERSION, 'managed_files': managed, 'detached': False}))
 
 
@@ -107,11 +113,26 @@ def node_stage(stage, tools, report):
             cp.stdout.close()
         if cp.wait():
             raise ValueError('Cannot unpack built workload RPM')
+    # Relocate only our verified package payload. Third-party program bytes
+    # remain unchanged; the native launcher/profile and manifest are rebuilt.
+    from bits_core.packaging import write_layout
+    old_tools = stage / 'opt/ocrun-workloads/0.1.0'
+    native_tools = stage / 'opt/bits/workloads/0.1.0'
+    native_tools.parent.mkdir(parents=True, exist_ok=True)
+    old_tools.rename(native_tools)
+    (stage / 'usr/bin/bits-o-workloads').unlink()
+    write_layout(native_tools, native=True)
+    workload_manifest = json.loads((native_tools / 'MANIFEST.json').read_text())
+    workload_manifest['layout'] = 'bits-v1'
+    workload_manifest['files']['bits_layout.py'] = {'sha256': sha(native_tools / 'bits_layout.py'),
+                                                  'bytes': (native_tools / 'bits_layout.py').stat().st_size}
+    put(native_tools / 'MANIFEST.json', json.dumps(workload_manifest, sort_keys=True, indent=2))
+    put(stage / 'usr/libexec/bits-workloads', launch('/opt/bits/workloads/0.1.0/cli.py'), True)
     root = stage / NODE.lstrip('/')
     for name in ('node.py', 'report.py', 'finish_entry.py', 'common.py'):
         copy(SOURCE / 'distribution' / name, root / name)
     for name in ('common.py', 'streaming.py'):
-        copy(SOURCE / 'report_addon' / name, root / 'report-engine' / name)
+        copy(SOURCE / 'bits_core/reporting' / name, root / 'report-engine' / name)
     # Reuse only the pure-Python XLSX writer, never old CPython/NumPy ABI wheels.
     with tempfile.TemporaryDirectory(prefix='ocrun-report-input-') as temporary:
         extract_own(report, Path(temporary))
@@ -122,9 +143,10 @@ def node_stage(stage, tools, report):
         provenance = json.loads((Path(temporary) / 'payload/PROVENANCE.json').read_text())
         put(root / 'REPORT-SOURCE.json', json.dumps([v for v in provenance if v['project'] == 'XlsxWriter']))
     for name in ('__init__.py', 'connection.py', 'safe.py', 'tasks.py', 'wire.py'):
-        copy(SOURCE / 'server_deploy' / name, root / 'center-code/server_deploy' / name)
+        copy(SOURCE / 'bits_core/center' / name, root / 'center-code/server_deploy' / name)
     template(root)
-    put(root / 'mon-sensors-report', launch(NODE + '/report.py'), True)
+    write_layout(root, native=True)
+    put(stage / 'usr/libexec/bits-report', launch(NODE + '/report.py'), True)
     put(stage / 'usr/bin/bits-node', launch(NODE + '/node.py'), True)
     return root
 
@@ -135,7 +157,7 @@ def center_stage(stage, node_packages, server):
     for name in ('center.py', 'common.py', 'network.py'):
         copy(SOURCE / 'distribution' / name, root / name)
     for name in ('__init__.py', 'control.py', 'data.py', 'baseline.json'):
-        copy(SOURCE / 'control_addon' / name, root / 'control_addon' / name)
+        copy(SOURCE / 'bits_core/results' / name, root / 'bits_core/results' / name)
     with tempfile.TemporaryDirectory(prefix='bits-center-input-') as temporary:
         extract_own(server, Path(temporary))
         candidates = list(Path(temporary).iterdir())
@@ -189,18 +211,18 @@ if [ -e PREFIX ] || [ -L PREFIX ] || [ -e COMMAND ] || [ -L COMMAND ]; then
  done
 fi
 '''.replace('PREVIOUS_PREFIX', '/opt/ocrun-' + role + '/0.2.2').replace('PREFIX', prefix).replace('COMMAND', command).replace('PACKAGE', package).replace('KIND', kind).replace('MANIFEST_FILE', 'PACKAGE.json')
-    active = ('[ ! -e /etc/ocrun-node/native.json ] || { echo "Detach this native node before package replacement/removal; results are retained." >&2; exit 1; }\n'
+    active = ('[ ! -e /etc/bits/node/native.json ] || { echo "Detach this native node before package replacement/removal; results are retained." >&2; exit 1; }\n'
               if role == 'node' else
-              '[ ! -e /etc/ocrun-server/manifest.json ] || { echo "Roll back this center deployment before package replacement/removal; data is retained." >&2; exit 1; }\n')
+              '[ ! -e /etc/bits/center/manifest.json ] || { echo "Roll back this center deployment before package replacement/removal; data is retained." >&2; exit 1; }\n')
     base = ('#!/bin/sh\nset -eu\nPATH=/usr/sbin:/usr/bin:/sbin:/bin\nexport PATH\n'
             'for tool in ps grep find; do\n'
             ' command -v "$tool" >/dev/null || { echo "Required safety tool missing: $tool" >&2; exit 1; }\n'
             'done\n') + active
     if role == 'node':
-        from workload_suite.package import GUARD
+        from bits_core.workloads.package import GUARD
         base += GUARD.split('export PATH\n', 1)[1]
         ownership += '''
-if [ -e /opt/ocrun-workloads/0.1.0 ] || [ -L /opt/ocrun-workloads/0.1.0 ] || [ -e /usr/bin/bits-o-workloads ] || [ -L /usr/bin/bits-o-workloads ]; then
+if [ -e /opt/bits/workloads/0.1.0 ] || [ -L /opt/bits/workloads/0.1.0 ] || [ -e /usr/libexec/bits-workloads ] || [ -L /usr/libexec/bits-workloads ]; then
  if [ 'KIND' = rpm ]; then
   rpm -q bits-node >/dev/null && rpm -V bits-node || exit 1
  else
@@ -210,8 +232,8 @@ if [ -e /opt/ocrun-workloads/0.1.0 ] || [ -L /opt/ocrun-workloads/0.1.0 ] || [ -
   [ -s "$inventory" ] || exit 1
   [ -z "$(dpkg --verify bits-node)" ] || exit 1
  fi
- [ ! -L /opt/ocrun-workloads/0.1.0 ] && [ ! -L /usr/bin/bits-o-workloads ] || exit 1
- unsafe=$(find /opt/ocrun-workloads/0.1.0 /usr/bin/bits-o-workloads -xdev \\( ! -user root -o -perm /7022 -o -type l -o -links +1 -type f \\) -print)
+ [ ! -L /opt/bits/workloads/0.1.0 ] && [ ! -L /usr/libexec/bits-workloads ] || exit 1
+ unsafe=$(find /opt/bits/workloads/0.1.0 /usr/libexec/bits-workloads -xdev \\( ! -user root -o -perm /7022 -o -type l -o -links +1 -type f \\) -print)
  [ -z "$unsafe" ] || exit 1
 fi
 '''.replace('KIND', kind)
@@ -244,7 +266,7 @@ def package(role, kind, stage, root, out):
         if role == 'node':
             requirements += ', perl, numactl-libs, gmp, (redis or valkey)'
             extra += 'Conflicts: ocrun-workloads, bits-o-workloads\n'
-            listed += '/opt/ocrun-workloads/0.1.0\n/usr/bin/bits-o-workloads\n'
+            listed += '/opt/bits/workloads/0.1.0\n/usr/libexec/bits-workloads\n/usr/libexec/bits-report\n'
         spec.write_text('Name: ' + name + '\nVersion: ' + VERSION + '\nRelease: 1.el8\n'
             'Summary: BITS integrated ' + role + '\nLicense: GPLv2+ and GPLv3+ and GIMPS and LicenseRef-Intel-Limited-Tools\nBuildArch: x86_64\n'
             'Requires: ' + requirements + '\nRequires(pre): procps-ng, findutils, grep\n' + extra +

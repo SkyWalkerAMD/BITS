@@ -13,9 +13,9 @@ POLICY = 'distribution/customer-sources.json'
 ROOT = Path(__file__).resolve().parents[1]
 PRIVATE = ('research/', 'ci/', 'integrations/sckocp', 'drafts/', '.git/', '.codex/', '.cloud-results/',
            'docs/security/SCKOCP-NATIVE-SECURITY.md', 'docs/security/SCKOCP-SERVER-MIGRATION.md')
-COMPONENTS = ('distribution/', 'legacy_plugin/', 'mon_sensors_plugin/', 'sckocp_api/',
-              'finish_addon/', 'report_addon/', 'control_addon/', 'server_deploy/',
-              'workload_suite/')
+COMPONENTS = ('bits_core/', 'distribution/', 'legacy_plugin/', 'bits_core/collector/', 'sckocp_api/',
+              'bits_core/batch/', 'bits_core/reporting/', 'bits_core/results/', 'bits_core/center/',
+              'bits_core/workloads/')
 
 
 def git(repository, *args):

@@ -12,7 +12,7 @@ on:
     branches: [main]
     paths:
       - 'ocrun/**'
-      - 'mon_sensors_plugin/**'
+      - 'bits_core/collector/**'
       - 'mon-sensors-plugin'
       - 'sckocp_api/**'
       - 'sckocp-api'
@@ -30,7 +30,7 @@ on:
   pull_request:
     paths:
       - 'ocrun/**'
-      - 'mon_sensors_plugin/**'
+      - 'bits_core/collector/**'
       - 'mon-sensors-plugin'
       - 'sckocp_api/**'
       - 'sckocp-api'

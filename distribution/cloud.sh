@@ -6,7 +6,7 @@ docker pull "$BASE_IMAGE"
 digest=$(docker image inspect "$BASE_IMAGE" --format '{{index .RepoDigests 0}}')
 printf '%s\n' "$digest" > .native-results/image.txt
 if [[ $BASE_IMAGE == debian:11 ]]; then
-    python3 workload_suite/debian11_ci.py native ocrun-native-image native-input 2>&1 | tee .native-results/install.txt
+    python3 bits_core/workloads/debian11_ci.py native ocrun-native-image native-input 2>&1 | tee .native-results/install.txt
 else
     docker build --progress plain --build-arg BASE_IMAGE="$digest" -f distribution/Dockerfile -t ocrun-native-image . 2>&1 | tee .native-results/install.txt
 fi

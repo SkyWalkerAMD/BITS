@@ -17,7 +17,7 @@ bash /root/mon-sensors-finish-0.2.4.run --app /root/ocrun --check
 bash /root/mon-sensors-finish-0.2.4.run --app /root/ocrun
 ```
 
-然后按服务端包 `server_deploy/MANUAL.md` 导出并导入私密连接文件。没有收到新服务器地址和专用连接文件时，不执行连接切换。
+然后按服务端包 `bits_core/center/MANUAL.md` 导出并导入私密连接文件。没有收到新服务器地址和专用连接文件时，不执行连接切换。
 
 撤回顺序：先用 `connect-node.sh --rollback` 恢复原中心连接，再撤回组件。不要在保留认证配置时降回不支持该配置的 0.2.1。
 

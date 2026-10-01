@@ -22,6 +22,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with: {persist-credentials: false, fetch-depth: 0}
       - run: |
+          python3 -c 'import ast,pathlib; [ast.parse(p.read_text(encoding="utf-8"),str(p)) for p in pathlib.Path(".").rglob("*.py") if ".git" not in p.parts]'
+          python3 -m unittest bits_core.test_layout bits_core.center.test_server -v
+          python3 build.py
+          PYTHONPATH=tests python3 -m unittest tests.test_plugin_runtime tests.test_plugin_install tests.test_plugin_adoption -v
           python3 ci/repository_layout.py
           python3 -m unittest distribution.test_source_export -v
           python3 -m unittest ci.test_release_assets -v

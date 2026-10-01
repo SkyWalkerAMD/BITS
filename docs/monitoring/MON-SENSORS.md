@@ -2,7 +2,7 @@
 
 `mon-sensors-plugin-0.12.12.tar.gz` 安装在**被测设备**上，为已有 0730 增加独立的 `mon-sensors-plugin` 命令。插件通过独立 `sckocp-api 0.3.2` 读取原版 sckocp 1.1.0/1.2.0 的 `mon --json`，沿用原激活检查，无需升级或给 sckocp 打补丁。
 
-新增采集和安装代码位于 `mon_sensors_plugin/`，安装后放在设备的 `mon-sensors-plugin.d/` 中。插件包不包含 `ocrun/` 业务模块。原 `mon-sensors` 保留主板采集功能，只增加一个可选转调入口；原有 `oct mon/killm/analyse/push` 继续使用。
+新增采集和安装代码位于 `bits_core/collector/`，安装后放在设备的 `mon-sensors-plugin.d/` 中。插件包不包含 `ocrun/` 业务模块。原 `mon-sensors` 保留主板采集功能，只增加一个可选转调入口；原有 `oct mon/killm/analyse/push` 继续使用。
 
 **管理服务器的操作系统和 0730 OCRUN 均不需要升级。** 保留旧任务调度、日志目录、11 列 `.mon` 和 `oct push` 的 rsync 上传方式。不要为此运行早期 Agent 的服务器安装器；它使用不同任务协议。当前完整系统和统一旧系统套件的入口见[安装导航](../README.md)。
 

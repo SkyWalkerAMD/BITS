@@ -9,8 +9,8 @@ import unittest
 from unittest import mock
 
 from sckocp_api import interface, provider
-from mon_sensors_plugin import collector
-from finish_addon import report_sheet
+from bits_core.collector import collector
+from bits_core.batch import report_sheet
 
 
 OVERVIEW = '''== GenuineIntel fam6  Per-socket Overview ==
@@ -238,7 +238,7 @@ class DetailsTests(unittest.TestCase):
 
 class PrivateCollectorTests(unittest.TestCase):
     def test_original_monitor_preserved_and_patch_repeat_safe(self):
-        from mon_sensors_plugin.install import patched, SCRIPTS
+        from bits_core.collector.install import patched, SCRIPTS
         root = Path(__file__).resolve().parents[1] / 'integrations/mon-sensors/upstream-0.9.24a'
         original = {name: (root / Path(name).name).read_bytes() for name in SCRIPTS}
         once = patched(original, headless=True)

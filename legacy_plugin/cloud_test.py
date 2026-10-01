@@ -16,7 +16,7 @@ if os.environ.get('GITHUB_ACTIONS') != 'true' or os.geteuid() != 0:
     raise SystemExit('Isolated cloud Linux root only')
 
 SRC = Path('/src')
-PREFIX = Path('/opt/ocrun-plugin/0.1.2')
+PREFIX = Path('/opt/ocrun-plugin/0.2.0')
 APP = Path('/root/ocrun')
 CONFIG = Path('/etc/ocrun-plugin/config.json')
 checks = []
@@ -155,7 +155,7 @@ def main():
     redis = subprocess.Popen([server, '--bind', '127.0.0.1', '--port', '6379', '--databases', '16',
                               '--save', '', '--appendonly', 'no'], stdout=subprocess.DEVNULL)
     sys.path.insert(0, str(SRC))
-    from server_deploy.wire import Redis
+    from bits_core.center.wire import Redis
     from legacy_plugin import tasks
     rdb = Redis()
     for unused in range(100):
@@ -236,7 +236,7 @@ def main():
     # Simulate process death after the collector atomically installed, before
     # the suite marked that step complete. No production fault injection flag.
     failure = '''import sys
-sys.path.insert(0, '/opt/ocrun-plugin/0.1.2')
+sys.path.insert(0, '/opt/ocrun-plugin/0.2.0')
 from legacy_plugin import attach, common
 original = common.run
 def interrupted(argv, *args, **kwargs):
@@ -331,10 +331,10 @@ attach.apply(common.config())
     portable = Path('/root/portable-plugin')
     portable.mkdir()
     # Our own cloud-built archive; exact bytes are part of SHA256SUMS.
-    with tarfile.open('/root/plugin-packages/bits-o-node-0.1.2-portable.tar.gz') as bundle:
+    with tarfile.open('/root/plugin-packages/bits-o-node-0.2.0-portable.tar.gz') as bundle:
         bundle.extractall(str(portable))
     unrelated = subprocess.Popen(['sleep', '300'])
-    run(sys.executable, '-I', '-B', portable / 'bits-o-node-0.1.2/entry.py', 'maintenance-stop')
+    run(sys.executable, '-I', '-B', portable / 'bits-o-node-0.2.0/entry.py', 'maintenance-stop')
     assert unrelated.poll() is None
     unrelated.terminate(); unrelated.wait(timeout=5)
     run('flock', '-n', APP / '.mon-sensors-finish/launch.lock', '/bin/true')
@@ -348,7 +348,7 @@ attach.apply(common.config())
     hook.write_bytes(original)
     run('bits-o', 'rollback', '--check')
     failure = '''import sys, os
-sys.path.insert(0, '/opt/ocrun-plugin/0.1.2')
+sys.path.insert(0, '/opt/ocrun-plugin/0.2.0')
 from legacy_plugin import attach, common
 original = os.rename
 def interrupted(source, target):

@@ -16,11 +16,12 @@ import time
 ROOT = Path(__file__).absolute().parent
 sys.path.insert(0, str(ROOT))
 import common
+from bits_layout import LAYOUT
 
-CONFIG = Path('/etc/ocrun-node')
-DATA = Path('/var/lib/ocrun-node')
+CONFIG = Path('/etc/bits/node')
+DATA = Path('/var/lib/bits/node')
 APP = DATA / 'app'
-LOGS = Path('/var/log/ocrun-node')
+LOGS = Path('/var/log/bits/node')
 NAME = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\Z')
 
 
@@ -51,7 +52,7 @@ def configured():
 
 
 def finish(arguments, **kwargs):
-    return call([APP / 'mon-sensors-finish'] + list(arguments), **kwargs)
+    return call([APP / LAYOUT.entry] + list(arguments), **kwargs)
 
 
 def queue_arguments(action, value, connection):
@@ -67,19 +68,19 @@ def active_scheduler():
             argv = (item / 'cmdline').read_bytes().split(b'\0')
         except (FileNotFoundError, ProcessLookupError):
             continue
-        if (os.fsencode(str(APP / 'ocb')) in argv or
+        if (os.fsencode(str(APP / LAYOUT.scheduler)) in argv or
                 (os.fsencode(str(ROOT / 'node.py')) in argv and b'run' in argv)):
             raise ValueError('This node scheduler is still running (PID {})'.format(item.name))
 
 
 def idle():
     active_scheduler()
-    spec = importlib.util.spec_from_file_location('native_suite', '/opt/ocrun-workloads/0.1.0/suite.py')
+    spec = importlib.util.spec_from_file_location('native_suite', '/opt/bits/workloads/0.1.0/suite.py')
     suite = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(suite)
     suite.require_idle(APP)
-    if (APP / '.mon-sensors-finish').exists():
-        for path in (APP / '.mon-sensors-finish').glob('*.json'):
+    if (APP / LAYOUT.state).exists():
+        for path in (APP / LAYOUT.state).glob('*.json'):
             state = common.load(path)
             if state.get('schema') == 'mon-sensors-finish-v1' and state.get('stage') not in ('complete', 'closed_incomplete'):
                 raise ValueError('Unfinished batch: ' + path.stem + '; use status and recover/retry')
@@ -90,8 +91,10 @@ def initialize(args):
     active_scheduler()
     if Path('/root/ocrun/ocb').exists():
         raise ValueError('Original OCRUN node exists. Use the compatibility components for that node; fresh-node initialization preserved it.')
+    if Path('/etc/ocrun-node/native.json').exists():
+        raise ValueError('A pre-0.3 BITS node is configured. Export and detach it before migration; its tasks and results were preserved.')
     sys.path.insert(0, str(ROOT / 'center-code'))
-    from server_deploy.connection import validate
+    from bits_core.center.connection import validate
     connection_bytes = common.read(Path(args.config).absolute(), private=True)
     connection = validate(json.loads(connection_bytes.decode('utf-8')))
     if connection['node'] != socket.gethostname():
@@ -105,7 +108,7 @@ def initialize(args):
         value, installed, unused = configured()
         if installed != connection or value['serial'] != args.serial or value['keep_on'] != args.keep_on:
             raise ValueError('Existing node configuration differs; preserved')
-        call(['/usr/bin/bits-o-workloads', 'bind', '--app', APP] + (['--check'] if args.check else []), stdout=subprocess.PIPE)
+        call(['/usr/libexec/bits-workloads', 'bind', '--app', APP] + (['--check'] if args.check else []), stdout=subprocess.PIPE)
         if not args.check and (DATA / 'setup.json').exists():
             (DATA / 'setup.json').unlink()
             common.sync_directory(DATA)
@@ -125,7 +128,7 @@ def initialize(args):
     if args.check:
         print(json.dumps(result))
         return
-    for path in (CONFIG, DATA, LOGS):
+    for path in (CONFIG.parent, DATA.parent, LOGS.parent, CONFIG, DATA, LOGS):
         common.mkdir(path)
     fd = os.open(str(DATA / '.setup.lock'), os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
     with os.fdopen(fd, 'r+b') as guard:
@@ -147,7 +150,7 @@ def initialize(args):
                 else:
                     target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
                     common.write(target, payload('template/' + relative.as_posix()), 0o755 if path.stat().st_mode & 0o111 else 0o600)
-            (stage / '.mon-sensors-finish').mkdir(mode=0o700)
+            (stage / LAYOUT.state).mkdir(mode=0o700)
             if APP.exists() or APP.is_symlink():
                 common.directory(APP)
                 expected = {p.relative_to(stage).as_posix(): common.digest(common.read(p))
@@ -170,7 +173,7 @@ def initialize(args):
             common.save(CONFIG / 'native.json', dict(result, status='configured', serial=args.serial,
                 keep_on=args.keep_on, connection_sha256=common.digest(connection_bytes), files=files,
                 package_sha256=common.digest(common.read(ROOT / 'PACKAGE.json'))))
-            call(['/usr/bin/bits-o-workloads', 'bind', '--app', APP], stdout=subprocess.PIPE)
+            call(['/usr/libexec/bits-workloads', 'bind', '--app', APP], stdout=subprocess.PIPE)
             journal.unlink()
             common.sync_directory(DATA)
             result['status'] = 'configured'
@@ -217,7 +220,7 @@ def run_batch():
 
 def stop_scheduler():
     value, connection, unused = configured()
-    for path in (APP / '.mon-sensors-finish').glob('*.json'):
+    for path in (APP / LAYOUT.state).glob('*.json'):
         state = common.load(path)
         if state.get('schema') == 'mon-sensors-finish-v1' and state.get('stage') not in ('complete', 'closed_incomplete'):
             raise ValueError('Batch still pending; use stop --case then explicit recovery')
@@ -336,10 +339,10 @@ def main():
     elif args.action == 'tools':
         if not args.args or args.args[0] not in ('list', 'check', 'import-spec'):
             raise ValueError('Use tools list/check/import-spec')
-        call(['/usr/bin/bits-o-workloads'] + args.args)
+        call(['/usr/libexec/bits-workloads'] + args.args)
     elif args.action == 'check' and not (CONFIG / 'native.json').exists():
-        tools = json.loads(call(['/usr/bin/bits-o-workloads', 'check'], stdout=subprocess.PIPE).stdout.decode('utf-8'))
-        report = json.loads(call([ROOT / 'mon-sensors-report', '--check'], stdout=subprocess.PIPE).stdout.decode('utf-8'))
+        tools = json.loads(call(['/usr/libexec/bits-workloads', 'check'], stdout=subprocess.PIPE).stdout.decode('utf-8'))
+        report = json.loads(call([LAYOUT.report, '--check'], stdout=subprocess.PIPE).stdout.decode('utf-8'))
         print(json.dumps({'status': 'not_configured', 'tools': tools, 'report': report,
             'next': 'bits-node configure --config PRIVATE.json --serial SERIAL', 'version': common.VERSION}))
     elif args.action == 'detach':

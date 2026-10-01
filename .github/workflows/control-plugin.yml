@@ -12,7 +12,7 @@ jobs:
         with: {persist-credentials: false, fetch-depth: 0}
       - name: Build only the independent controller reader
         run: |
-          python3 -m control_addon.build
+          python3 -m bits_core.results.build
           mkdir .control-baseline
           git archive 9bea07af01a1054bf3c3cf2d92cb416c7f5f630f | tar -x -C .control-baseline
           (cd .control-baseline && python3 -m control_addon.build)
@@ -55,7 +55,7 @@ jobs:
           set -o pipefail
           docker run --rm --network none -e GITHUB_ACTIONS=true -e OCRUN_SOURCE_COMMIT \
             -v "$GITHUB_WORKSPACE:/src:ro" -v "$GITHUB_WORKSPACE/.control-results:/results" \
-            ocrun-control-test bash -c 'py=/usr/libexec/platform-python; [ -x "$py" ] || py=/usr/bin/python3; exec "$py" -I -B /src/control_addon/cloud_test.py' \
+            ocrun-control-test bash -c 'py=/usr/libexec/platform-python; [ -x "$py" ] || py=/usr/bin/python3; exec "$py" -I -B /src/bits_core/results/cloud_test.py' \
             2>&1 | tee .control-results/tests.txt
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
@@ -68,6 +68,6 @@ jobs:
         with: {persist-credentials: false}
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with: {path: control-release-input}
-      - run: python3 -m control_addon.release
+      - run: python3 -m bits_core.results.release
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with: {name: 'mon-sensors-control-0.2.0-${{ github.run_id }}', path: control-release/, retention-days: 30}
+        with: {name: 'mon-sensors-control-0.3.0-${{ github.run_id }}', path: control-release/, retention-days: 30}

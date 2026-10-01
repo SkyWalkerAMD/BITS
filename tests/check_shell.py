@@ -13,7 +13,7 @@ for path in sorted(list(root.glob('*.sh')) + list((root / 'ci').glob('*.sh'))):
     if result.returncode:
         failed.append(path.name)
 for path in sorted(list((root / 'ocrun').glob('*.py')) + list((root / 'sckocp_api').glob('*.py')) +
-                   list((root / 'mon_sensors_plugin').glob('*.py'))):
+                   list((root / 'bits_core/collector').glob('*.py'))):
     ast.parse(path.read_text(encoding='utf8'), filename=str(path), feature_version=(3, 6))
 print('All runtime Python files parse with Python 3.6 grammar')
 sys.exit(bool(failed))

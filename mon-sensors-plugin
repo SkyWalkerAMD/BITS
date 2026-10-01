@@ -8,8 +8,9 @@ modules = os.path.join(entry_directory, "mon-sensors-plugin.d")
 # The installed shell launcher runs this private source with Python -I. That
 # mode deliberately omits the script directory, so add only our own location.
 sys.path.insert(0, modules if os.path.isdir(modules) else entry_directory)
-from mon_sensors_plugin.collector import _arguments, main
-from mon_sensors_plugin import runtime
+from bits_core.collector.collector import _arguments, main
+from bits_core.collector import runtime
+from bits_layout import LAYOUT
 
 
 def entry(argv=None):
@@ -19,11 +20,11 @@ def entry(argv=None):
     if argv[:1] == ["--guard-run"]:
         return runtime.main(["--run"] + argv[1:])
     args = _arguments(argv)
-    if os.path.basename(entry_directory) == '.bits-collector.d' and args.stop_app is None and (args.logfile == 'view' or args.once):
+    if (LAYOUT.native or os.path.basename(entry_directory) == '.bits-collector.d') and args.stop_app is None and (args.logfile == 'view' or args.once):
         print('BITS collector is internal to a batch; use sckocp to view hardware.', file=sys.stderr)
         return 2
     if (args.stop_app is None and not args.once and args.logfile != "view" and
-            os.path.basename(entry_directory) in ("mon-sensors-plugin.d", ".bits-collector.d")):
+            os.path.basename(entry_directory) in ("mon-sensors-plugin.d", ".bits-collector.d", LAYOUT.collector_dir)):
         app = os.path.dirname(entry_directory)
         try:
             guarded = runtime.guard_valid(app)

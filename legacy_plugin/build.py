@@ -58,7 +58,7 @@ def package(stage, role, kind, out):
             (top / d).mkdir(parents=True)
         depends = 'bash, findutils, (python3 >= 3.6 or platform-python >= 3.6)'
         if role == 'node':
-            depends += ', bits-o-workloads = 0.1.0-3.el8, rsync, curl, util-linux, procps-ng, (redis or valkey), iputils, dmidecode'
+            depends += ', bits-o-workloads = 0.1.0-4.el8, rsync, curl, util-linux, procps-ng, (redis or valkey), iputils, dmidecode'
         spec = top / 'SPECS/plugin.spec'
         spec.write_text('Name: ' + name + '\nVersion: ' + VERSION + '\nRelease: 1.el8\n'
             'Summary: Original OCRUN system enhancement (' + role + ')\nLicense: GPLv3+\nBuildArch: x86_64\n'
@@ -76,7 +76,7 @@ def package(stage, role, kind, out):
         control.mkdir()
         depends = 'bash, findutils, python3 (>= 3.6)'
         if role == 'node':
-            depends += ', bits-o-workloads (= 0.1.0-3), rsync, curl, util-linux, procps, redis-tools, iputils-ping, dmidecode'
+            depends += ', bits-o-workloads (= 0.1.0-4), rsync, curl, util-linux, procps, redis-tools, iputils-ping, dmidecode'
         put(control / 'control', 'Package: ' + name + '\nVersion: ' + VERSION + '-1\nArchitecture: amd64\n'
             'Maintainer: OCRUN local deployment\nSection: admin\nPriority: optional\nDepends: ' + depends + '\n'
             'Conflicts: bits-o-' + ('node' if role == 'control' else 'control') + ', bits-node, bits-center, ocrun-node, ocrun-center, ocrun-plugin-node, ocrun-plugin-control\n'
@@ -102,7 +102,7 @@ def build(baseline, output, tools):
         # Pure-Python Excel writer comes from the already tested native DEB.
         subprocess.run(['dpkg-deb', '-x', str(previous / 'ocrun-node_0.2.2-1_amd64.deb'), str(tmp / 'native')], check=True)
         native = tmp / 'native/opt/ocrun-node/0.2.2'
-        subprocess.run([sys.executable, str(SOURCE / 'finish_addon/build.py')], check=True)
+        subprocess.run([sys.executable, str(SOURCE / 'bits_core/batch/build.py')], check=True)
         import build as component_builder
         component_builder.mon_sensors_package(tmp / 'collector.tar.gz')
         for role in ('control', 'node'):
@@ -112,8 +112,8 @@ def build(baseline, output, tools):
                 for module, names in (
                     ('legacy_plugin', ('__init__.py', 'common.py', 'cli.py', 'tasks.py', 'node.py', 'attach.py')),
                     ('distribution', ('common.py',)),
-                    ('server_deploy', ('__init__.py', 'tasks.py', 'wire.py')),
-                    ('control_addon', ('__init__.py', 'control.py', 'data.py', 'baseline.json'))):
+                    ('bits_core/center', ('__init__.py', 'tasks.py', 'wire.py')),
+                    ('bits_core/results', ('__init__.py', 'control.py', 'data.py', 'baseline.json'))):
                     for name in names:
                         copy(SOURCE / module / name, root / module / name)
                 put(root / 'distribution/__init__.py', '')
@@ -123,8 +123,8 @@ def build(baseline, output, tools):
                     extract_own(tmp / 'collector.tar.gz', root / 'components/collector')
                     put(root / 'components/collector/install-plugin-entry.py',
                         'import sys\nfrom pathlib import Path\nsys.path.insert(0,str(Path(__file__).absolute().parent))\n'
-                        'from mon_sensors_plugin.install import main\nraise SystemExit(main())\n')
-                    extract_own(SOURCE / 'finish-dist/mon-sensors-finish-0.2.6.tar.gz', root / 'components/finish')
+                        'from bits_core.collector.install import main\nraise SystemExit(main())\n')
+                    extract_own(SOURCE / 'finish-dist/mon-sensors-finish-0.3.0.tar.gz', root / 'components/finish')
                     for child in ('vendor', 'report-engine'):
                         shutil.copytree(str(native / child), str(root / child))
                     report = (SOURCE / 'distribution/report.py').read_text().replace('import common as native', 'from legacy_plugin import common as native')
@@ -147,7 +147,7 @@ def build(baseline, output, tools):
                 put(root / 'PACKAGE.json', json.dumps({'role': role, 'version': VERSION, 'files': files,
                     'source_commit': os.environ['GITHUB_SHA'], 'workloads_source': os.environ['GITHUB_SHA'],
                     'component_versions': {'sckocp-api': component_builder.PUBLIC_API_VERSION,
-                        'collector': component_builder.PLUGIN_VERSION, 'finish': '0.2.6', 'report': '0.2.0', 'workloads': '0.1.0-3'},
+                        'collector': component_builder.PLUGIN_VERSION, 'finish': '0.3.0', 'report': '0.2.0', 'workloads': '0.1.0-4'},
                     'services_started_by_install': False}, sort_keys=True, indent=2))
                 if role == 'node' and kind == 'deb':
                     # Same hash-inventoried Python payload, for the first

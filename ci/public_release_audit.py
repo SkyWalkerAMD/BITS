@@ -132,7 +132,7 @@ def main():
                 path.write_bytes(bundle.extractfile(member).read())
     additions = prepare(root, ROOT / 'audit-assets')
     # Native MLC license is inspected, not executed.
-    with tarfile.open(str(ROOT / 'workload_suite/vendor/mlc.tar.gz')) as bundle:
+    with tarfile.open(str(ROOT / 'bits_core/workloads/vendor/mlc.tar.gz')) as bundle:
         pdf = OUT / 'MLC-LICENSE.pdf'
         license_bytes = bundle.extractfile('Intel Memory Latency Tools Outbound License Agreement.pdf').read()
         pdf.write_bytes(license_bytes)

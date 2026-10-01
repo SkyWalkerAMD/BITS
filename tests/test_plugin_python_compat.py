@@ -12,9 +12,9 @@ import tempfile
 import unittest
 from unittest import mock
 
-from mon_sensors_plugin import collector
-from mon_sensors_plugin import install as installer
-from mon_sensors_plugin import runtime
+from bits_core.collector import collector
+from bits_core.collector import install as installer
+from bits_core.collector import runtime
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,7 +32,7 @@ class PluginPythonCompatibilityTests(unittest.TestCase):
         source.mkdir()
         platform = self.root / "platform-python"
         platform.symlink_to(sys.executable)
-        for package in ("mon_sensors_plugin", "sckocp_api"):
+        for package in ("bits_core/collector", "sckocp_api"):
             directory = source / package
             directory.mkdir()
             (directory / "__init__.py").write_text("")
@@ -57,7 +57,7 @@ command() {
 source "$1"
 installer_python "$2" "$3" --check
 '''
-        for package in ("mon_sensors_plugin", "sckocp_api"):
+        for package in ("bits_core/collector", "sckocp_api"):
             with self.subTest(package=package):
                 candidates = self.root / (package + ".candidates")
                 env = dict(os.environ, COMPAT_PLATFORM_PYTHON=str(platform),
@@ -99,7 +99,7 @@ installer_python "$2" "$3" --check
         installer.install(app, source, backend="legacy")
         poison = self.root / "poison"
         poison.mkdir()
-        for package in ("mon_sensors_plugin", "sckocp_api"):
+        for package in ("bits_core/collector", "sckocp_api"):
             (poison / package).mkdir()
             (poison / package / "__init__.py").write_text("raise RuntimeError('UNTRUSTED IMPORT')\n")
         env = dict(os.environ, PATH=str(poison), PYTHONPATH=str(poison),

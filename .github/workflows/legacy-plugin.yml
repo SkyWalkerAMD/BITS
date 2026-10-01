@@ -104,9 +104,9 @@ jobs:
           python3 ci/prepare_bits_release.py legacy legacy-release
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: 'bits-o-0.1.2-${{ github.run_id }}'
+          name: 'bits-o-0.2.0-${{ github.run_id }}'
           retention-days: 90
           path: |
             legacy-release/
-            bits-o-0.1.2.tar.gz
-            bits-o-0.1.2.tar.gz.sha256
+            bits-o-0.2.0.tar.gz
+            bits-o-0.2.0.tar.gz.sha256

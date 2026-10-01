@@ -1,6 +1,6 @@
-"""Compatibility import; implementation is maintained in mon_sensors_plugin."""
+"""Compatibility import; implementation is maintained in bits_core.collector."""
 import sys
-from mon_sensors_plugin import collector as _collector
+from bits_core.collector import collector as _collector
 
 if __name__ == "__main__":
     sys.exit(_collector.main())

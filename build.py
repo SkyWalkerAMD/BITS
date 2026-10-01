@@ -13,7 +13,7 @@ from urllib.parse import quote, unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parent
 VERSION = "0.12.8"
-PLUGIN_VERSION = "0.13.0"
+PLUGIN_VERSION = "0.14.0"
 PUBLIC_API_VERSION = "0.4.0"
 API_CORE_FILES = ("sckocp_api/__init__.py", "sckocp_api/interface.py", "sckocp_api/provider.py",
                   "sckocp_api/security.py")
@@ -83,7 +83,7 @@ def source_package(output):
         paths = [ROOT / name for name in ("install-server.sh", "install-client.sh", "install-deps.sh", "install-mon-sensors-plugin.sh", "install-sckocp-api.sh", "installer-python.sh", "mon-sensors-plugin", "sckocp-api", "README.md", "FLEET.md", "OPERATIONS.md", "SCKOCP.md", "SCKOCP-API.md", "MON-SENSORS.md", "PACKAGES.md")]
         paths += [ROOT / "README-EXPERIMENTAL.md", ROOT / "DISTRIBUTION.md"]
         paths += sorted((ROOT / "ocrun").glob("*.py"))
-        paths += sorted((ROOT / "mon_sensors_plugin").glob("*.py"))
+        paths += sorted((ROOT / "bits_core/collector").glob("*.py"))
         paths += [ROOT / name for name in API_FILES]
         paths += sorted((ROOT / "systemd").glob("*.service"))
         files = [p.relative_to(ROOT).as_posix() for p in paths]
@@ -100,9 +100,9 @@ def source_package(output):
 
 def mon_sensors_package(output):
     files = ("install-mon-sensors-plugin.sh", "mon-sensors-plugin", "MON-SENSORS.md", "SCKOCP-API.md", "PACKAGES.md",
-             "mon_sensors_plugin/__init__.py", "mon_sensors_plugin/collector.py", "mon_sensors_plugin/install.py",
-             "mon_sensors_plugin/runtime.py", "mon_sensors_plugin/adoption.py")
-    source_files_package(output, files + API_CORE_FILES + BOOTSTRAP_FILES)
+             "bits_core/collector/__init__.py", "bits_core/collector/collector.py", "bits_core/collector/install.py",
+             "bits_core/collector/runtime.py", "bits_core/collector/adoption.py")
+    source_files_package(output, files + ('bits_layout.py', 'bits_core/__init__.py', 'bits_core/layout.py') + API_CORE_FILES + BOOTSTRAP_FILES)
 
 
 def sckocp_api_package(output):
@@ -201,7 +201,7 @@ def main():
     release = {"version": VERSION, "plugin_version": PLUGIN_VERSION, "runtime": metadata(runtime)}
     overlay = destination / ("mon-sensors-plugin-" + PLUGIN_VERSION + ".tar.gz")
     mon_sensors_package(overlay)
-    release["mon_sensors_plugin"] = metadata(overlay)
+    release["bits_core/collector"] = metadata(overlay)
     api = destination / ("ocrun-sckocp-api-" + VERSION + ".tar.gz")
     sckocp_api_package(api)
     release["sckocp_api"] = metadata(api)

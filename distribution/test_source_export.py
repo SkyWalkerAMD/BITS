@@ -30,8 +30,8 @@ class CustomerSourceTests(unittest.TestCase):
             with tarfile.open(str(first)) as archive:
                 names = archive.getnames()
                 self.assertFalse(any(n.startswith(('research/', 'ci/', 'integrations/sckocp', 'drafts/', '.git/')) for n in names))
-                self.assertIn('workload_suite/vendor/stress.tar.gz', names)
-                self.assertIn('workload_suite/vendor/stress-ng.tar.gz', names)
+                self.assertIn('bits_core/workloads/vendor/stress.tar.gz', names)
+                self.assertIn('bits_core/workloads/vendor/stress-ng.tar.gz', names)
                 self.assertIn('sckocp_api/security.py', names)
                 manifest = json.load(archive.extractfile('SOURCE-MANIFEST.json'))
                 self.assertEqual(commit, manifest['source_commit'])

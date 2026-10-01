@@ -10,7 +10,7 @@ import sys
 from types import SimpleNamespace
 
 from . import VERSION, common, tasks
-from server_deploy.wire import Redis
+from bits_core.center.wire import Redis
 
 
 def host(value):
@@ -30,7 +30,7 @@ def configure(args):
              'source_commit': spec['source_commit']}
     if not 1 <= args.rdb_port <= 65535:
         raise ValueError('Invalid Redis port')
-    from control_addon.data import Reader
+    from bits_core.results.data import Reader
     with Reader(app) as reader:
         value['environment_sha256'] = reader.digest('oc.env')['sha256']
         env = reader.read('oc.env').decode('utf-8')
@@ -44,7 +44,7 @@ def configure(args):
     if original('RDBSVR1') != args.rdb_server or args.rdb_port != 6379:
         raise ValueError('Redis endpoint must match original RDBSVR1 and port 6379')
     if args.role == 'control':
-        from control_addon.control import check
+        from bits_core.results.control import check
         result = check(app, args.results_root)
         if not result['original_files_match']:
             common.display(result, True)
@@ -94,7 +94,7 @@ def control_tasks(cfg, args):
         raise ValueError('Use the configured control account: ' + cfg['operator'])
     if args.node not in cfg['allowed_nodes']:
         raise ValueError('Node is not explicitly enabled in this plugin configuration')
-    from control_addon.data import Reader
+    from bits_core.results.data import Reader
     with Reader(cfg['app']) as reader:
         if reader.digest('oc.env')['sha256'] != cfg['environment_sha256']:
             raise ValueError('Original control configuration changed; review configure --check')
@@ -104,7 +104,7 @@ def control_tasks(cfg, args):
     if args.operation == 'add':
         return tasks.submit(redis, args.node, args.id, args.task, args.time, args.check)
     if args.operation == 'archive':
-        from control_addon.control import inspect
+        from bits_core.results.control import inspect
         with Reader(cfg['results_root']) as reader:
             result = inspect(reader, args.receipt, True, None)
             receipt = json.loads(reader.read(args.receipt).decode())
@@ -121,7 +121,7 @@ def setup(args):
     spec = common.verify()
     role = spec['role']
     app = args.app or ('/home/ocuser/ocrun' if role == 'control' else '/root/ocrun')
-    from control_addon.data import Reader
+    from bits_core.results.data import Reader
     with Reader(app) as reader:
         env = reader.read('oc.env').decode('utf-8')
     endpoints = re.findall(r'^RDBSVR1=([A-Za-z0-9.-]+)\s*$', env, re.M)
@@ -256,7 +256,7 @@ def main(argv=None):
         common.display({'status': 'unconfigured', 'backup': str(backup), 'tasks_or_results_deleted': False}, True)
         return 0
     if args.command == 'check' and cfg['role'] == 'control':
-        from control_addon.control import check
+        from bits_core.results.control import check
         value = check(cfg['app'], cfg['results_root'])
         value.update(plugin_version=VERSION, allowed_nodes=cfg['allowed_nodes'],
                      task_database='existing protocol; no server changes')
@@ -281,7 +281,7 @@ def main(argv=None):
     if args.command == 'results':
         if cfg['role'] != 'control':
             raise ValueError('Use status --case on the node; results is a control command')
-        from control_addon.control import main as reader
+        from bits_core.results.control import main as reader
         if not args.args or args.args[0] not in ('list', 'show', 'verify', 'sample'):
             raise ValueError('Use results list/show/verify/sample')
         return reader(args.args + ['--results-root', cfg['results_root']])
@@ -330,6 +330,6 @@ def entry():
     try:
         return main()
     except (OSError, ValueError, KeyError, TypeError) as exc:
-        from control_addon.control import clean
+        from bits_core.results.control import clean
         print('bits-o: ' + clean(exc), file=sys.stderr)
         return 2

@@ -72,7 +72,7 @@ done
 vm 'test -f /var/lib/cloud/instance/boot-finished; mkdir -p /src /fixture /results'
 tar --owner=0 --group=0 -czf .vm-private/source.tar.gz server_deploy finish_addon sckocp_api ci/server_deploy_test.py ci/server_image.sh
 scp -i .vm-private/key -P 2222 -o BatchMode=yes -o UserKnownHostsFile=.vm-private/known_hosts .vm-private/source.tar.gz server-dist/ocrun-server-0.1.3.tar.gz root@127.0.0.1:/root/
-vm 'tar -xzf /root/source.tar.gz -C /src; tar -xzf /root/ocrun-server-0.1.3.tar.gz -C /root; cp /src/server_deploy/dependencies.sh /fixture/dependencies.sh'
+vm 'tar -xzf /root/source.tar.gz -C /src; tar -xzf /root/ocrun-server-0.1.3.tar.gz -C /root; cp /src/bits_core/center/dependencies.sh /fixture/dependencies.sh'
 vm 'GITHUB_ACTIONS=true OCRUN_CLOUD_VM=1 bash /src/ci/server_image.sh' 2>&1 | tee .vm-results/packages.txt
 if [[ ${OCRUN_SELINUX_TRACE:-false} == true ]]; then
     # Disposable VM diagnostics only: expose suppressed denials without granting

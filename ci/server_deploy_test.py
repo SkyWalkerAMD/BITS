@@ -14,8 +14,8 @@ if os.environ.get("GITHUB_ACTIONS") != "true" or os.geteuid() != 0:
     raise SystemExit("Disposable cloud root environment required")
 source = Path("/root/ocrun-server-0.1.3")
 sys.path.insert(0, str(source))
-from server_deploy import install, platforms, render, safe, tasks
-from server_deploy.wire import Redis, ProtocolError
+from bits_core.center import install, platforms, render, safe, tasks
+from bits_core.center.wire import Redis, ProtocolError
 
 checks = []
 
@@ -38,7 +38,7 @@ def main():
     platform = platforms.profile(platforms.read_release())
     config = render.configuration(address, network, platform)
     manifest = install.package(source)
-    binary = ["bash", str(source / "server_deploy/install.sh"), "--address", address, "--network", network, "--skip-deps"]
+    binary = ["bash", str(source / "bits_core/center/install.sh"), "--address", address, "--network", network, "--skip-deps"]
     run("nft", "add", "table", "inet", "ocrun_fixture")
     run(*(binary + ["--check"]))
     assert not Path("/etc/ocrun-server/server.json").exists()
@@ -80,7 +80,7 @@ def main():
     record("task management uses unchanged DB0/IDS/DATES/TASKS/duration layout")
     # The exact Lua scripts used by the field-tested finalizer, not a rewritten
     # new-architecture queue. Only the workload itself is simulated here.
-    tree = ast.parse(Path("/src/finish_addon/queue.py").read_text())
+    tree = ast.parse(Path("/src/bits_core/batch/queue.py").read_text())
     lua = {node.targets[0].id: ast.literal_eval(node.value) for node in tree.body if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name) and node.targets[0].id in ("SNAPSHOT", "CLAIM", "UPDATE")}
     try:
         Redis(host=address).call("PING")
@@ -107,7 +107,7 @@ def main():
     record("authenticated legacy node role cannot use CONFIG admin command")
     # Actual node client implementation with its isolated child environment;
     # a synthetic oc.env exercises connection changes without running workloads.
-    from server_deploy import connection, node_connect
+    from bits_core.center import connection, node_connect
     fixture = Path('/root/node-connect-fixture')
     fixture.mkdir()
     env_before = b'LOGSVR1=192.0.2.1\nLOGSVR2=192.0.2.2\nRDBSVR1=192.0.2.3\nRDBSVR2=192.0.2.4\n'
@@ -128,7 +128,7 @@ def main():
     sys.argv = previous_args
     sys.path[:0] = ['/src/finish_addon', '/src/sckocp_api']
     import importlib.util
-    spec = importlib.util.spec_from_file_location('authenticated_original_queue', '/src/finish_addon/queue.py')
+    spec = importlib.util.spec_from_file_location('authenticated_original_queue', '/src/bits_core/batch/queue.py')
     node_queue = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(node_queue)
     current_node = socket.gethostname()
@@ -173,7 +173,7 @@ def main():
     assert (fixture / 'oc.env').stat().st_uid == 201
     assert not Path('/etc/ocrun-node/connection.json').exists()
     record('interrupted private connection import rolls back without changing original ownership or starting tasks')
-    from server_deploy.publish import publish
+    from bits_core.center.publish import publish
     installer = Path('/root/mon-sensors-finish-0.2.2.run')
     installer.write_bytes(b'#!/bin/sh\nexit 99\n')
     installer.chmod(0o600)

@@ -26,9 +26,9 @@ def main():
     source = export_sources(output / 'customer-source.tar.gz', commit)
     run(sys.executable, 'build.py')
     run(sys.executable, 'tests/check_dist.py', '--runtime-only')
-    run(sys.executable, '-m', 'server_deploy.build')
-    run(sys.executable, '-m', 'control_addon.build')
-    run(sys.executable, 'report_addon/build_offline.py')
+    run(sys.executable, '-m', 'bits_core.center.build')
+    run(sys.executable, '-m', 'bits_core.results.build')
+    run(sys.executable, 'bits_core/reporting/build_offline.py')
     # The legacy builder verifies the pinned release checksum and source commit,
     # preserves that provenance and exposes its original tool packages unchanged.
     run(sys.executable, '-m', 'legacy_plugin.build', '--baseline',
@@ -58,7 +58,7 @@ def main():
                 '--server', str(server), '--nodes', *map(str, nodes), '--output', str(native), env=env)
 
     # Relocated documents keep the member names expected by offline consumers.
-    required = [('server-dist', 'server_deploy/MANUAL.md'),
+    required = [('server-dist', 'bits_core/center/MANUAL.md'),
                 ('report-dist', 'README.md'), ('finish-dist', 'README.md'),
                 ('control-dist', 'CONTROL-MANUAL.md')]
     for directory, suffix in required:

@@ -33,23 +33,23 @@ tar -xzf ocrun-server-0.1.3.tar.gz && cd ocrun-server-0.1.3
 先查看系统依赖方案，不安装：
 
 ```bash
-bash server_deploy/dependencies.sh --check
+bash bits_core/center/dependencies.sh --check
 ```
 
 安装系统仓库依赖；不会替换系统 Python，不重写仓库，也不自动切换已启用的其他 Redis 模块流：
 
 ```bash
-bash server_deploy/dependencies.sh --install
+bash bits_core/center/dependencies.sh --install
 ```
 
 ```bash
-bash server_deploy/install.sh --address 192.168.50.10 --network 192.168.50.0/24 --check
+bash bits_core/center/install.sh --address 192.168.50.10 --network 192.168.50.0/24 --check
 ```
 
 预期 `status=checked`。端口占用、未知已有文件、其他 OCRUN 架构、缺少依赖均会阻止安装。预检不启动服务；只建立并短暂持有安装互斥锁。
 
 ```bash
-bash server_deploy/install.sh --address 192.168.50.10 --network 192.168.50.0/24 --apply
+bash bits_core/center/install.sh --address 192.168.50.10 --network 192.168.50.0/24 --apply
 ```
 
 ```bash
@@ -111,11 +111,11 @@ tar -xzf /root/ocrun-server-0.1.3.tar.gz -C /root
 ```
 
 ```bash
-bash /root/ocrun-server-0.1.3/server_deploy/connect-node.sh --app /root/ocrun --config /root/TEST-001.connection.json --check
+bash /root/ocrun-server-0.1.3/bits_core/center/connect-node.sh --app /root/ocrun --config /root/TEST-001.connection.json --check
 ```
 
 ```bash
-bash /root/ocrun-server-0.1.3/server_deploy/connect-node.sh --app /root/ocrun --config /root/TEST-001.connection.json --apply
+bash /root/ocrun-server-0.1.3/bits_core/center/connect-node.sh --app /root/ocrun --config /root/TEST-001.connection.json --apply
 ```
 
 工具校验节点名、root 私密文件、已验证的原 `oc.env` 哈希和收尾版本，备份原文件及属主权限，仅修改服务器地址并加载私密凭据。遇到未知或手工改过的 `oc.env` 会保留现场并拒绝；不要手动忽略检查。已有未完成收尾时不得切换中心。导入不会启动任何任务，重复导入相同文件安全。
@@ -161,7 +161,7 @@ journalctl --no-pager -n 80 -u ocrun-server-db -u ocrun-server-http -u ocrun-ser
 中心撤回前先让连接它的测试节点完成任务并撤回连接。随后在原解压材料目录以 root 执行：
 
 ```bash
-bash server_deploy/install.sh --rollback
+bash bits_core/center/install.sh --rollback
 ```
 
 数据、已发布材料、账户、系统依赖和 SELinux 标签规则保留供审计/重装。不会删除其他 nft 表，不清空全局防火墙，不关闭 SELinux。
@@ -169,7 +169,7 @@ bash server_deploy/install.sh --rollback
 节点撤回连接：
 
 ```bash
-bash /root/ocrun-server-0.1.3/server_deploy/connect-node.sh --app /root/ocrun --rollback
+bash /root/ocrun-server-0.1.3/bits_core/center/connect-node.sh --app /root/ocrun --rollback
 ```
 
 然后才可按收尾组件手册降回原版本。原 `oc.env` 内容与权限恢复；工具不会自动启动旧调度。

@@ -15,9 +15,9 @@ import zipfile
 
 if os.environ.get('GITHUB_ACTIONS') != 'true' or os.geteuid() != 0:
     raise SystemExit('Disposable cloud Linux root only')
-NODE = Path('/opt/ocrun-node/0.2.5')
-CENTER = Path('/opt/ocrun-center/0.2.5')
-APP = Path('/var/lib/ocrun-node/app')
+NODE = Path('/opt/bits/node/0.3.0')
+CENTER = Path('/opt/bits/center/0.3.0')
+APP = Path('/var/lib/bits/node/app')
 checks = []
 
 
@@ -48,13 +48,13 @@ def main():
         assert json.loads((root / 'PACKAGE.json').read_text())['source_commit'] == os.environ['OCRUN_SOURCE_COMMIT']
     assert data('bits-center', 'check')['status'] == 'not_configured'
     assert data('bits-node', 'check')['status'] == 'not_configured'
-    assert not Path('/etc/ocrun-server/server.json').exists()
+    assert not Path('/etc/bits/center/server.json').exists()
     assert not APP.exists()
     passed('native package installation has matching revision and does not configure services or start tasks')
     tools = data('bits-o-workloads', 'list')
     assert tools['package_revision'] == '3'
     assert tools['tools']['mlc'] == {'version': '3.13', 'delivery': 'included'}
-    mlc = Path('/opt/ocrun-workloads/0.1.0/mlc/mlc')
+    mlc = Path('/opt/bits/workloads/0.1.0/mlc/mlc')
     version = run(mlc, '-h', good=False)
     assert version.returncode in (0, 1) and b'3.13' in version.stdout + version.stderr
     assert not Path('/var/lib/ocrun-workloads/mlc-3.13').exists()
@@ -69,7 +69,7 @@ def main():
     assert len(usable) == 1 and usable[0]['address'] == address
     discovered = json.loads(run('bits-center', 'setup', '--auto', '--skip-deps', '--check').stdout.decode().splitlines()[-1])
     assert discovered['address'] == address and discovered['network'] == usable[0]['network']
-    assert not Path('/etc/ocrun-server/server.json').exists()
+    assert not Path('/etc/bits/center/server.json').exists()
     # A second private interface makes automatic selection ambiguous. Applying
     # must fail before writing BITS configuration or starting any service.
     run('ip', 'link', 'add', 'bitscheck0', 'type', 'dummy')
@@ -78,7 +78,7 @@ def main():
         run('ip', 'link', 'set', 'bitscheck0', 'up')
         ambiguous = run('bits-center', 'setup', '--auto', '--skip-deps', '--apply', good=False)
         assert ambiguous.returncode and b'Multiple network candidates' in ambiguous.stderr
-        assert not Path('/etc/ocrun-server/server.json').exists()
+        assert not Path('/etc/bits/center/server.json').exists()
         selected = json.loads(run('bits-center', 'setup', '--auto', '--interface', usable[0]['interface'], '--skip-deps', '--check').stdout.decode().splitlines()[-1])
         assert selected['address'] == address
     finally:
@@ -87,7 +87,7 @@ def main():
     passed('automatic network discovery, multi-NIC refusal, explicit selection and read-only preflight preserve NIC configuration')
     command = ['bits-center', 'setup', '--auto', '--network', address + '/32', '--skip-deps']
     run(*(command + ['--check']))
-    assert not Path('/etc/ocrun-server/server.json').exists()
+    assert not Path('/etc/bits/center/server.json').exists()
     run(*(command + ['--apply']))
     assert data('bits-center', 'check')['status'] == 'ok'
     packages = [json.loads(line) for line in run('bits-center', 'publish-node').stdout.decode().splitlines()]
@@ -97,9 +97,9 @@ def main():
         assert hashlib.sha256(opener.open(item['url'], timeout=15).read()).hexdigest() == item['sha256']
     passed('native center activates real systemd services and publishes both complete node package formats by exact hash')
     sys.path.insert(0, str(CENTER / 'server'))
-    from server_deploy import safe, tasks
-    from server_deploy.wire import Redis, ProtocolError
-    config = safe.load('/etc/ocrun-server/server.json')
+    from bits_core.center import safe, tasks
+    from bits_core.center.wire import Redis, ProtocolError
+    config = safe.load('/etc/bits/center/server.json')
     redis = Redis(password=config['password'])
     try:
         Redis(host=address).call('PING')
@@ -140,9 +140,9 @@ def main():
         os.rename = rename
     assert (APP.parent / 'setup.json').exists()
     run(*configure)
-    before = sha(Path('/etc/ocrun-node/native.json'))
+    before = sha(Path('/etc/bits/node/native.json'))
     run(*configure)
-    assert sha(Path('/etc/ocrun-node/native.json')) == before
+    assert sha(Path('/etc/bits/node/native.json')) == before
     run('bits-node', 'check')
     assert not (APP / 'mon-sensors').exists()
     assert not (APP / 'mon-sensors-plugin').exists()
@@ -256,7 +256,7 @@ def main():
     assert snapshot == {name: sha(remote / name) for name in files}
     passed('configured native node refuses package replacement and retains evidence')
     pending = data(APP / 'mon-sensors-finish', 'begin', '--mon',
-                   '/var/log/ocrun-node/' + host + '_CLOUD-SERIAL_PENDING_cloud.mon',
+                   '/var/log/bits/node/' + host + '_CLOUD-SERIAL_PENDING_cloud.mon',
                    '--remote', address + '::logs/' + host + '_CLOUD-SERIAL', '--task-id', 'PENDING', '--task-time', 'cloud')
     assert run('bits-node', 'detach', good=False).returncode != 0
     run('bits-node', 'close-incomplete', '--case', pending['case'], '--reason', 'cloud empty fixture deliberately closed')
@@ -276,7 +276,7 @@ def main():
         os.rename = rename
     detached = data('bits-node', 'detach')
     assert Path(detached['backup']).is_dir()
-    assert all((Path('/var/log/ocrun-node') / n).exists() for n in files)
+    assert all((Path('/var/log/bits/node') / n).exists() for n in files)
     passed('unfinished batches block detach; explicit closure and interrupted detach recovery preserve data')
     changed = NODE / 'MANUAL.md'
     original = changed.read_bytes()
@@ -311,7 +311,7 @@ def main():
         run('dpkg', '-r', 'bits-node', 'bits-center')
     assert not Path('/usr/bin/bits-node').exists()
     assert not Path('/usr/bin/bits-center').exists()
-    assert all((Path('/var/log/ocrun-node') / n).exists() for n in files)
+    assert all((Path('/var/log/bits/node') / n).exists() for n in files)
     passed('native removal after explicit detach and center rollback retains task results')
     # Install actual published v0.2.2, then upgrade the detached roles to this build.
     old_packages = sorted(Path('/src/previous-native').glob('*' + extension))
@@ -319,7 +319,7 @@ def main():
     assert len(old_packages) == len(new_packages) == 2
     installer = ['rpm', '-U'] if extension == '.rpm' else ['dpkg', '-i']
     run(*(installer + old_packages))
-    old_node = Path('/opt/ocrun-node/0.2.2')
+    old_node = Path('/opt/bits/node/0.2.2')
     assert json.loads((old_node / 'PACKAGE.json').read_text())['version'] == '0.2.2'
     # Unknown files in a new version directory are never treated as owned by the old package.
     NODE.mkdir()
@@ -341,16 +341,16 @@ def main():
     remover = ['rpm', '-e'] if extension == '.rpm' else ['dpkg', '-r']
     run(*(remover + ['ocrun-node', 'ocrun-center']))
     run(*(installer + new_packages))
-    assert data('bits-node', 'check')['version'] == '0.2.5'
+    assert data('bits-node', 'check')['version'] == '0.3.0'
     assert data('bits-o-workloads', 'list')['tools']['mlc']['delivery'] == 'included'
-    assert not old_node.exists() and not Path('/opt/ocrun-center/0.2.2').exists()
+    assert not old_node.exists() and not Path('/opt/bits/center/0.2.2').exists()
     passed('published 0.2.2 migrates after explicit detach/removal; coinstallation and unmanaged paths are refused')
     # Rollback uses explicit removal and the original retained artifacts, not forced downgrade.
     remover = ['rpm', '-e'] if extension == '.rpm' else ['dpkg', '-r']
     run(*(remover + ['bits-node', 'bits-center']))
     run(*(installer + old_packages))
     assert json.loads((old_node / 'PACKAGE.json').read_text())['version'] == '0.2.2'
-    assert all((Path('/var/log/ocrun-node') / n).exists() for n in files)
+    assert all((Path('/var/log/bits/node') / n).exists() for n in files)
     run(*(remover + ['ocrun-node', 'ocrun-center']))
     passed('explicit package rollback to published 0.2.2 preserves historical result files')
     Path('/results/native.json').write_text(json.dumps({'status': 'passed', 'source_commit': os.environ['OCRUN_SOURCE_COMMIT'],

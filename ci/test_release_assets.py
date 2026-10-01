@@ -19,7 +19,7 @@ class PublicationTests(unittest.TestCase):
                       'example/report-print-preview.pdf']
         self.names += ['standalone/' + n for n in (
             'sckocp-api-0.3.2.run', 'mon-sensors-plugin-0.12.12.run',
-            'mon-sensors-finish-0.2.5.run', 'mon-sensors-control-0.2.0.run',
+            'mon-sensors-finish-0.2.5.run', 'mon-sensors-control-0.3.0.run',
             'mon-sensors-report-py36-0.2.0.run', 'ocrun-workloads-0.1.0-3.el8.x86_64.rpm',
             'ocrun-workloads_0.1.0-3_amd64.deb')]
         packages = {}

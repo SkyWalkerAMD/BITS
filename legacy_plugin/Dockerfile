@@ -1,6 +1,6 @@
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
-COPY server_deploy/dependencies.sh /fixture/dependencies.sh
+COPY bits_core/center/dependencies.sh /fixture/dependencies.sh
 COPY ci/server_image.sh /fixture/server_image.sh
 COPY legacy-dist /root/plugin-packages
 RUN GITHUB_ACTIONS=true bash /fixture/server_image.sh && \

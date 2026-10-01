@@ -28,7 +28,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Build package on cloud Linux
-        run: python3 -m server_deploy.build
+        run: python3 -m bits_core.center.build
       - name: Verify native services, SELinux and reboot persistence
         env:
           OCRUN_SELINUX_TRACE: ${{ inputs.selinux_trace || false }}

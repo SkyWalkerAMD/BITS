@@ -5,7 +5,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'report_addon/**'
+      - 'bits_core/reporting/**'
       - '.github/workflows/report-offline.yml'
 
 permissions:
@@ -22,8 +22,8 @@ jobs:
           persist-credentials: false
       - name: Build pinned offline dependencies and installer
         run: |
-          /usr/bin/python3 report_addon/build_offline.py
-          bash -n report_addon/install.sh
+          /usr/bin/python3 bits_core/reporting/build_offline.py
+          bash -n bits_core/reporting/install.sh
           mkdir -p .report-results
       - name: Prepare disposable Rocky 8 image
         run: |
@@ -43,7 +43,7 @@ jobs:
           set -o pipefail
           docker run --rm --network none -e GITHUB_ACTIONS=true \
             -v "$GITHUB_WORKSPACE:/src:ro" -v "$GITHUB_WORKSPACE/.report-results:/results" \
-            ocrun-report-rocky8 /usr/libexec/platform-python -I -B /src/report_addon/cloud_test.py \
+            ocrun-report-rocky8 /usr/libexec/platform-python -I -B /src/bits_core/reporting/cloud_test.py \
             2>&1 | tee .report-results/report-addon.txt
       - name: Publish cloud validation summary
         if: always()

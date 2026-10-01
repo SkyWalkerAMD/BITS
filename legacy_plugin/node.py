@@ -17,7 +17,7 @@ def finish(cfg, args, capture=False):
 def preflight(cfg, capture=False):
     # The old scheduler sources this file. Detect a configuration change since
     # setup instead of silently preflighting against different servers.
-    from control_addon.data import Reader
+    from bits_core.results.data import Reader
     with Reader(cfg['app']) as reader:
         if reader.digest('oc.env')['sha256'] != cfg['environment_sha256']:
             raise ValueError('oc.env changed since configuration; review it and configure again')

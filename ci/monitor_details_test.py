@@ -22,7 +22,7 @@ out.mkdir(exist_ok=True)
 if not result.wasSuccessful():
     raise SystemExit(1)
 from test_sckocp_details import preview_record
-from finish_addon.report_sheet import render
+from bits_core.batch.report_sheet import render
 record = preview_record()
 (out / 'report-preview.json').write_text(json.dumps(record, ensure_ascii=False, indent=2))
 (out / 'report-preview.html').write_bytes(render(record))

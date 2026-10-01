@@ -16,15 +16,15 @@ def main():
         arguments = sys.argv[1:]
         if arguments[0] == 'tasks':
             arguments[0] = 'task'
-        return subprocess.run(['/usr/local/bin/ocrun-server'] + arguments, check=True).returncode
+        return subprocess.run(['/usr/local/libexec/bits-center-service'] + arguments, check=True).returncode
     if len(sys.argv) > 1 and sys.argv[1] == 'results':
         common.verify('center', require_root=False)
-        from control_addon.control import main as results
+        from bits_core.results.control import main as results
         # The default matches the center's published results directory. No
         # service or task mutation is involved; normal file permissions apply.
         args = sys.argv[2:]
         if args and '--results-root' not in args and '--help' not in args:
-            args += ['--results-root', '/srv/ocrun/logs']
+            args += ['--results-root', '/srv/bits/results']
         raise SystemExit(results(args))
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--version', action='version', version='bits-center ' + common.VERSION)
@@ -54,7 +54,7 @@ def main():
         value = network.inventory()
         print(json.dumps(value, ensure_ascii=False, sort_keys=True) if args.json else network.display(value))
         return
-    installer = ['bash', str(ROOT / 'server/server_deploy/install.sh')]
+    installer = ['bash', str(ROOT / 'server/bits_core/center/install.sh')]
     if args.action == 'setup':
         if args.auto:
             import network
@@ -77,8 +77,8 @@ def main():
     elif args.action == 'rollback':
         subprocess.run(installer + ['--rollback'], check=True)
     elif args.action == 'check':
-        if Path('/etc/ocrun-server/manifest.json').exists():
-            subprocess.run(['/usr/local/bin/ocrun-server', 'check'], check=True)
+        if Path('/etc/bits/center/manifest.json').exists():
+            subprocess.run(['/usr/local/libexec/bits-center-service', 'check'], check=True)
         else:
             print(json.dumps({'status': 'not_configured', 'version': common.VERSION,
                               'next': 'bits-center setup --address IP --network CIDR --check'}))
@@ -90,9 +90,9 @@ def publish():
     # The server's existing publication routine verifies filename, contents and
     # existing releases, then writes public data. Credentials never enter here.
     sys.path.insert(0, str(ROOT / 'server'))
-    from server_deploy import safe
-    from server_deploy.publish import publish as put
-    config = safe.load('/etc/ocrun-server/server.json')
+    from bits_core.center import safe
+    from bits_core.center.publish import publish as put
+    config = safe.load('/etc/bits/center/server.json')
     packages = common.load(ROOT / 'NODE-PACKAGES.json')
     for filename, checksum in sorted(packages.items()):
         if Path(filename).name != filename:

@@ -30,7 +30,7 @@ BITS / BITS-o 的安装、任务启动、状态和恢复见 [当前简明手册]
 | shell 后台启动返回0掩盖负载提前退出 | 独立监督程序记录真实退出码、时长、停止原因和清理结果 | workload.py |
 | 按进程名称批量 kill -9 | 核对属于本次会话的进程身份，先TERM，再有界升级；不调用原 oct killa | workload.py |
 | 调度被杀后负载/采集遗留 | Linux父进程死亡通知让监督程序清理本轮负载和采集；状态保持待处理 | node.py / workload.py |
-| 几天日志超出25万行或512MiB | 流式校验；大报表每25万行拆工作表，完整数据保留，趋势每1000条汇总 | finish.py / report_addon/streaming.py |
+| 几天日志超出25万行或512MiB | 流式校验；大报表每25万行拆工作表，完整数据保留，趋势每1000条汇总 | finish.py / bits_core/reporting/streaming.py |
 | 缺少磁盘预算 | 启动前按时长与CPU数估算，运行中保留512MiB磁盘余量；触发保护停止负载 | node.py |
 | optional Memtest目录缺失刷错误、旧上传返回码掩盖失败 | 可选目录缺失提示跳过，必要rsync错误保留退出码，失败阻止后续关机 | oct-hook.sh / install.py |
 | 状态只有大段JSON | status --human 和 status --case；分别记录执行、数据质量、报表、交付 | finish.py |

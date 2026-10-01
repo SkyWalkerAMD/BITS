@@ -8,7 +8,7 @@ import difflib
 import json
 import secrets
 
-from server_deploy.tasks import name as protocol_name, task_list
+from bits_core.center.tasks import name as protocol_name, task_list
 
 CATALOG = ['stress', 'stress-ng', 'mlc', 'mbw', 'cyclictest', 'unixbench', 'cpu2017'] + [
     'p95-{}_m{}'.format(instruction, size)

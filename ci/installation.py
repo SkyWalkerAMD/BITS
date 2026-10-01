@@ -95,7 +95,7 @@ def main():
     broken = WORK / 'broken-release'
     broken.mkdir()
     shutil.copytree(str(ROOT / 'ocrun'), str(broken / 'ocrun'))
-    shutil.copytree(str(ROOT / 'mon_sensors_plugin'), str(broken / 'mon_sensors_plugin'))
+    shutil.copytree(str(ROOT / 'bits_core/collector'), str(broken / 'bits_core/collector'))
     shutil.copytree(str(ROOT / 'sckocp_api'), str(broken / 'sckocp_api'))
     shutil.copytree(str(ROOT / 'systemd'), str(broken / 'systemd'))
     shutil.copyfile(str(ROOT / 'install-client.sh'), str(broken / 'install-client.sh'))

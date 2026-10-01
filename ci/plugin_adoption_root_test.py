@@ -18,8 +18,8 @@ if (sys.platform != "linux" or os.geteuid() != 0 or
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from mon_sensors_plugin import adoption
-from mon_sensors_plugin import install as installer
+from bits_core.collector import adoption
+from bits_core.collector import install as installer
 
 BASELINE = ROOT / "integrations/mon-sensors/upstream"
 

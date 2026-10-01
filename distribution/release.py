@@ -7,7 +7,7 @@ import sys
 import tarfile
 
 from distribution.build import sha, copy, put, check_input, VERSION
-from server_deploy.platforms import MATRIX
+from bits_core.center.platforms import MATRIX
 from distribution.source_export import export_sources
 from build import PUBLIC_API_VERSION, PLUGIN_VERSION
 
@@ -54,7 +54,7 @@ def main():
     bridge = inputs / ('workload-bridge-' + component_run)
     for relative in ('dist/sckocp-api-' + PUBLIC_API_VERSION + '.run',
                      'dist/mon-sensors-plugin-' + PLUGIN_VERSION + '.run',
-                     'finish-dist/mon-sensors-finish-0.2.6.run'):
+                     'finish-dist/mon-sensors-finish-0.3.0.run'):
         copy(bridge / relative, target / 'standalone' / Path(relative).name)
     regression = inputs / ('workload-regression-' + component_run)
     copy(regression / 'mon-sensors-report-py36-0.2.0.run', target / 'standalone/mon-sensors-report-py36-0.2.0.run')
@@ -67,10 +67,10 @@ def main():
         raise ValueError('Report visual checks did not pass')
     for name in ('report-preview.html', 'report-preview.json', 'report-preview.png', 'report-print-preview.pdf', 'report-visual.json'):
         copy(regression / name, target / 'example' / name)
-    control = inputs / ('mon-sensors-control-0.2.0-' + run)
+    control = inputs / ('mon-sensors-control-0.3.0-' + run)
     if json.loads((control / 'RELEASE.json').read_text())['source_commit'] != commit:
         raise ValueError('Controller reader has different source')
-    copy(control / 'mon-sensors-control-0.2.0.run', target / 'standalone/mon-sensors-control-0.2.0.run')
+    copy(control / 'mon-sensors-control-0.3.0.run', target / 'standalone/mon-sensors-control-0.3.0.run')
     copy(control / 'RELEASE.json', target / 'validation/control-reader.json')
     for kind in ('rpm', 'deb'):
         source = inputs / ('workload-' + kind + '-' + component_run)

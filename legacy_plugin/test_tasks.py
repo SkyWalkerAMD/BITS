@@ -8,7 +8,7 @@ import time
 import unittest
 
 from . import tasks
-from server_deploy.wire import Redis
+from bits_core.center.wire import Redis
 
 
 class TasksTests(unittest.TestCase):

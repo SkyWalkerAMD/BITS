@@ -8,4 +8,4 @@ source "$SOURCE/installer-python.sh"
 if [[ $# -gt 0 && $1 != -* ]]; then
     set -- --app "$1" "${@:2}"
 fi
-installer_python mon_sensors_plugin.install "$SOURCE" "$@"
+installer_python bits_core.collector.install "$SOURCE" "$@"

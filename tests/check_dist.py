@@ -50,7 +50,7 @@ for kind in (('runtime',) if args.runtime_only else ('runtime', 'tools')):
         if kind == 'runtime':
             for name in ('install-sckocp-api.sh', 'installer-python.sh', 'sckocp_api/install.py'):
                 assert name in paths, 'Missing automated installer file ' + name
-            for name in ('ocrun/agent.py', 'ocrun/cpu_burn.py', 'ocrun/admin.py', 'ocrun/sckocp.py', 'ocrun/sckocp_metrics.py', 'ocrun/mon_sensors.py', 'mon_sensors_plugin/__init__.py', 'mon_sensors_plugin/collector.py', 'mon_sensors_plugin/install.py', 'sckocp_api/provider.py', 'sckocp_api/__init__.py', 'sckocp_api/interface.py', 'sckocp_api/cli.py', 'sckocp_api/__main__.py', 'sckocp-api', 'mon-sensors-plugin', 'install-mon-sensors-plugin.sh', 'install-server.sh', 'install-client.sh', 'README.md', 'SCKOCP.md', 'SCKOCP-API.md', 'MON-SENSORS.md', 'PACKAGES.md'):
+            for name in ('ocrun/agent.py', 'ocrun/cpu_burn.py', 'ocrun/admin.py', 'ocrun/sckocp.py', 'ocrun/sckocp_metrics.py', 'ocrun/mon_sensors.py', 'bits_core/collector/__init__.py', 'bits_core/collector/collector.py', 'bits_core/collector/install.py', 'sckocp_api/provider.py', 'sckocp_api/__init__.py', 'sckocp_api/interface.py', 'sckocp_api/cli.py', 'sckocp_api/__main__.py', 'sckocp-api', 'mon-sensors-plugin', 'install-mon-sensors-plugin.sh', 'install-server.sh', 'install-client.sh', 'README.md', 'SCKOCP.md', 'SCKOCP-API.md', 'MON-SENSORS.md', 'PACKAGES.md'):
                 assert name in paths, 'Missing runtime file ' + name
                 check_content(bundle, name)
             assert 'sckocp_api/security.py' in paths
@@ -64,7 +64,7 @@ for kind in (('runtime',) if args.runtime_only else ('runtime', 'tools')):
 
 # These archives must remain usable independently, without bundling OCRUN's
 # control plane into the device plugin or hardware consumer SDK.
-for kind, entry in (('mon_sensors_plugin', 'mon-sensors-plugin'), ('public_api', 'sckocp-api')):
+for kind, entry in (('bits_core/collector', 'mon-sensors-plugin'), ('public_api', 'sckocp-api')):
     item = manifest[kind]
     path = root / 'dist' / item['file']
     assert path.stat().st_size == item['bytes']
@@ -82,7 +82,7 @@ for kind, entry in (('mon_sensors_plugin', 'mon-sensors-plugin'), ('public_api',
         for name in names:
             check_content(bundle, name)
         if kind == 'public_api':
-            assert not any(name.startswith('mon_sensors_plugin/') for name in names)
+            assert not any(name.startswith('bits_core/collector/') for name in names)
             assert {'install-sckocp-api.sh', 'installer-python.sh', 'sckocp_api/install.py',
                     'sckocp_api/bootstrap.py'}.issubset(names)
             expected_modules = {'sckocp_api/' + name for name in (
@@ -92,13 +92,13 @@ for kind, entry in (('mon_sensors_plugin', 'mon-sensors-plugin'), ('public_api',
                 'installer-python.sh', 'sckocp-api', 'install-sckocp-api.sh',
                 'SCKOCP-API.md', 'docs/API-SECURITY.md', 'examples/read-sckocp.py'}
         else:
-            assert {'mon_sensors_plugin/collector.py', 'mon_sensors_plugin/install.py',
-                    'mon_sensors_plugin/runtime.py', 'mon_sensors_plugin/adoption.py',
+            assert {'bits_core/collector/collector.py', 'bits_core/collector/install.py',
+                    'bits_core/collector/runtime.py', 'bits_core/collector/adoption.py',
                     'install-mon-sensors-plugin.sh', 'installer-python.sh', 'sckocp_api/interface.py'}.issubset(names)
     print(kind + ': independent archive, entrypoint, content and checksum PASS')
 
 for kind, archive_kind in (('public_api_installer', 'public_api'),
-                           ('mon_sensors_installer', 'mon_sensors_plugin')):
+                           ('mon_sensors_installer', 'bits_core/collector')):
     item = manifest[kind]
     installer = (root / 'dist' / item['file']).read_bytes()
     assert len(installer) == item['bytes']

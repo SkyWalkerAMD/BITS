@@ -12,7 +12,7 @@ import time
 import unittest
 from unittest import mock
 
-from mon_sensors_plugin import runtime
+from bits_core.collector import runtime
 
 
 RUNTIME = str(Path(runtime.__file__).resolve())
@@ -211,13 +211,13 @@ class PluginRuntimeTests(unittest.TestCase):
         source = Path(RUNTIME).parents[1]
         helper = self.app / "mon-sensors-plugin.d"
         helper.mkdir()
-        for package in ("mon_sensors_plugin", "sckocp_api"):
+        for package in ("bits_core/collector", "sckocp_api"):
             shutil.copytree(str(source / package), str(helper / package),
                             ignore=shutil.ignore_patterns("__pycache__"))
         # Hold open the real cleanup-to-exit window after the lock is released
         # and signal handlers restored. The old legacy fallback re-signalled
         # this already-cleaned supervisor, turning its intended 143 into -15.
-        runtime_copy = helper / 'mon_sensors_plugin/runtime.py'
+        runtime_copy = helper / 'bits_core/collector/runtime.py'
         cleanup = ('        for signum, handler in previous.items():\n'
                    '            signal.signal(signum, handler)\n')
         code = runtime_copy.read_text()

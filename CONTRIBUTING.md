@@ -4,7 +4,7 @@
 
 ## 文件归属
 
-产品代码放对应组件；使用说明放 `docs/`；历史记录放 `docs/archive/`。云端夹具放 `ci/`，自动化入口留在 `.github/workflows/`。私有原生源码仅留在独立私有仓库，禁止合入此公开仓库；原 OCRUN 兼容基线放 `integrations/mon-sensors/`。第三方工具固定来源、许可和哈希留在 `workload_suite/`，不加入重复二进制。
+产品代码放对应组件；使用说明放 `docs/`；历史记录放 `docs/archive/`。云端夹具放 `ci/`，自动化入口留在 `.github/workflows/`。私有原生源码仅留在独立私有仓库，禁止合入此公开仓库；原 OCRUN 兼容基线放 `integrations/mon-sensors/`。第三方工具固定来源、许可和哈希留在 `bits_core/workloads/`，不加入重复二进制。
 
 ## 验证
 

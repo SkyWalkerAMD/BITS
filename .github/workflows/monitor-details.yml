@@ -39,7 +39,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y fonts-noto-cjk poppler-utils
           python3 -m pip install playwright==1.55.0
-          python3 finish_addon/visual_check.py .details-results
+          python3 bits_core/batch/visual_check.py .details-results
           pdftoppm -scale-to 1600 -png .details-results/report-print-preview.pdf .details-results/page
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()

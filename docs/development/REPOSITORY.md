@@ -4,10 +4,10 @@
 
 | 范围 | 目录 |
 | --- | --- |
-| 完整系统 | `distribution/`、`server_deploy/` |
-| 旧系统增强 | `legacy_plugin/`、`control_addon/` |
-| 节点与结果 | `finish_addon/`、`report_addon/`、`workload_suite/` |
-| 接口与采集 | `sckocp_api/`、`mon_sensors_plugin/`、`examples/` |
+| 完整系统 | `distribution/`、`bits_core/center/` |
+| 旧系统增强 | `legacy_plugin/`、`bits_core/results/` |
+| 节点与结果 | `bits_core/batch/`、`bits_core/reporting/`、`bits_core/workloads/` |
+| 接口与采集 | `sckocp_api/`、`bits_core/collector/`、`examples/` |
 | 兼容代码与早期实现 | `ocrun/`；仍被其他模块复用，不能整体删除 |
 | 验证与自动化 | `tests/`、`ci/`、`.github/workflows/`；组件测试保留在组件旁 |
 | 上游基线 | `integrations/mon-sensors/`，保留原字节和哈希 |

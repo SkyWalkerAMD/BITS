@@ -75,7 +75,7 @@ def main():
     api_run = artifact("public_api_installer")
     plugin_run = artifact("mon_sensors_installer")
     api_tar = artifact("public_api")
-    plugin_tar = artifact("mon_sensors_plugin")
+    plugin_tar = artifact("bits_core/collector")
 
     def checked(name, function):
         try:

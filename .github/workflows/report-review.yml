@@ -27,7 +27,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y poppler-utils fonts-noto-cjk
           python3 -m pip install playwright==1.55.0
-          python3 finish_addon/visual_check.py input
+          python3 bits_core/batch/visual_check.py input
           mkdir review
           pdfinfo input/report-print-preview.pdf > review/pdf-info.txt
           pdftoppm -scale-to 1600 -png input/report-print-preview.pdf review/page

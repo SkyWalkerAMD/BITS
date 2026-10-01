@@ -142,7 +142,7 @@ bits-o-workloads import-spec --archive /root/0730.tar.gz --check
 bits-o-workloads import-spec --archive /root/0730.tar.gz
 ```
 
-必须是 `SOURCES.json` 中固定 SHA-256 对应的原始归档，不能仅按文件名判断。SPEC 从原 0730 中提取原始文件，不升级到其他版本。未导入时 SPEC 任务预检拒绝执行。完整清单及上游链接见 `WORKLOADS-MANUAL.md`/仓库 `workload_suite/MANUAL.md`。
+必须是 `SOURCES.json` 中固定 SHA-256 对应的原始归档，不能仅按文件名判断。SPEC 从原 0730 中提取原始文件，不升级到其他版本。未导入时 SPEC 任务预检拒绝执行。完整清单及上游链接见 `WORKLOADS-MANUAL.md`/仓库 `bits_core/workloads/MANUAL.md`。
 
 ## 5. 更新、回滚与卸载
 

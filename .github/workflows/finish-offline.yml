@@ -5,7 +5,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'finish_addon/**'
+      - 'bits_core/batch/**'
       - '.github/workflows/finish-offline.yml'
 
 permissions:
@@ -24,8 +24,8 @@ jobs:
       - name: Build offline packages in cloud
         run: |
           /usr/bin/python3 build.py
-          /usr/bin/python3 report_addon/build_offline.py
-          /usr/bin/python3 finish_addon/build.py
+          /usr/bin/python3 bits_core/reporting/build_offline.py
+          /usr/bin/python3 bits_core/batch/build.py
           mkdir .baseline
           git archive 2b1e0fe31aab59a389fc9d4d9f3cdb508b2a3c6b | tar -x -C .baseline
           (cd .baseline && /usr/bin/python3 report_addon/build_offline.py && /usr/bin/python3 finish_addon/build.py)
@@ -43,8 +43,8 @@ jobs:
           git archive 39117329c101616ca5263b89e3865a3fbd30388e | tar -x -C .previous023
           git archive de94f341a2fd4f085ad9d85a71992bc394f5b4c6 | tar -x -C .previous024
           for v in .previous023 .previous024; do (cd "$v" && /usr/bin/python3 finish_addon/build.py); done
-          bash -n finish_addon/hook.sh
-          bash -n finish_addon/install.sh
+          bash -n bits_core/batch/hook.sh
+          bash -n bits_core/batch/install.sh
           mkdir -p .finish-results
       - name: Prepare disposable Rocky 8 image
         run: |
@@ -64,7 +64,7 @@ jobs:
           set -o pipefail
           docker run --rm --network none -e GITHUB_ACTIONS=true \
             -v "$GITHUB_WORKSPACE:/src:ro" -v "$GITHUB_WORKSPACE/.finish-results:/results" \
-            ocrun-finish-rocky8 /usr/libexec/platform-python -I -B /src/finish_addon/cloud_test.py \
+            ocrun-finish-rocky8 /usr/libexec/platform-python -I -B /src/bits_core/batch/cloud_test.py \
             2>&1 | tee .finish-results/finish-addon.txt
       - name: Verify report security and small-report compatibility
         if: always()
@@ -73,7 +73,7 @@ jobs:
           set -o pipefail
           docker run --rm --network none -e GITHUB_ACTIONS=true \
             -v "$GITHUB_WORKSPACE:/src:ro" -v "$GITHUB_WORKSPACE/.finish-results:/results" \
-            ocrun-finish-rocky8 /usr/libexec/platform-python -I -B /src/report_addon/cloud_test.py \
+            ocrun-finish-rocky8 /usr/libexec/platform-python -I -B /src/bits_core/reporting/cloud_test.py \
             2>&1 | tee .finish-results/report-addon.txt
       - name: Publish validation summary
 
@@ -89,7 +89,7 @@ jobs:
           set -o pipefail
           docker run --rm --network none -e GITHUB_ACTIONS=true \
             -v "$GITHUB_WORKSPACE:/src:ro" -v "$GITHUB_WORKSPACE/.finish-results:/results" \
-            ocrun-finish-rocky8 /usr/libexec/platform-python -I -B /src/finish_addon/upgrade_test.py \
+            ocrun-finish-rocky8 /usr/libexec/platform-python -I -B /src/bits_core/batch/upgrade_test.py \
             2>&1 | tee .finish-results/upgrade.txt
       - name: Publish final summary
         if: always()
@@ -98,7 +98,7 @@ jobs:
             cat .finish-results/finish-addon.json >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Package verified node upgrade
-        run: /usr/bin/python3 finish_addon/release.py
+        run: /usr/bin/python3 bits_core/batch/release.py
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:

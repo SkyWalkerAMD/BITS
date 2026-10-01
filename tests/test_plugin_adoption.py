@@ -5,7 +5,7 @@ from pathlib import Path
 import unittest
 from unittest import mock
 
-from mon_sensors_plugin import adoption
+from bits_core.collector import adoption
 
 
 BASELINE = Path(__file__).resolve().parents[1] / "integrations/mon-sensors/upstream"

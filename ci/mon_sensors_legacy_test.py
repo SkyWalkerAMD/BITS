@@ -166,7 +166,7 @@ class Fixture:
         assert result.returncode == 0, self.diagnostics.read_text(encoding="utf-8")
 
     def monitor_pids(self):
-        from mon_sensors_plugin.collector import _script_argument
+        from bits_core.collector.collector import _script_argument
         markers = {str(self.app / "mon-sensors-plugin"),
                    str(self.app / "mon-sensors-plugin.d" / "mon-sensors-plugin")}
         result = []
@@ -271,7 +271,7 @@ def main():
                     assert result.returncode == code and label in result.stdout + result.stderr, result.stderr
                 result = subprocess.run([sys.executable, "-c",
                     "import importlib.util; assert importlib.util.find_spec('ocrun') is None; "
-                    "import mon_sensors_plugin.collector; import mon_sensors_plugin.install"],
+                    "import bits_core.collector.collector; import bits_core.collector.install"],
                     cwd=str(package), env=environment, timeout=10,
                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
                 assert result.returncode == 0, result.stderr
@@ -520,7 +520,7 @@ def main():
             checked("installed plugin command runs independently while original mon-sensors preserves selected legacy behavior", installed_command)
 
             def entrypoint_collision():
-                from mon_sensors_plugin import install as plugin_install
+                from bits_core.collector import install as plugin_install
                 device = fixture("entrypoint-collision", "v1")
                 before = {name: (device.app / name).read_bytes() for name in plugin_install.SCRIPTS}
                 entry = device.app / "mon-sensors-plugin"
@@ -780,7 +780,7 @@ def main():
                 previous = fixture("upgrade")
                 previous.install()
                 previous.legacy_stubs()
-                from mon_sensors_plugin import install as legacy_install
+                from bits_core.collector import install as legacy_install
                 path = previous.app / "mon-sensors"
                 text = path.read_text(encoding="utf-8")
                 assert text.count(legacy_install.DISPATCH) == 1
@@ -804,7 +804,7 @@ def main():
             def refuse_modified_bridge():
                 modified = fixture("modified-bridge")
                 modified.install()
-                from mon_sensors_plugin import install as legacy_install
+                from bits_core.collector import install as legacy_install
                 path = modified.app / "mon-sensors"
                 text = path.read_text(encoding="utf-8").replace(legacy_install.DISPATCH,
                     legacy_install.PREVIOUS_DISPATCH.replace("${MON_SENSORS_BACKEND:-auto}", "custom-provider"))
@@ -832,8 +832,8 @@ def main():
             def installation_rollback():
                 before = {name: (recovery.app / name).read_bytes()
                           for name in ("oct", "ocb", "mon-sensors", "py/mon-analyse-log.py", "oc.env")}
-                spec = importlib.util.spec_from_file_location("mon_sensors_plugin.packaged_install",
-                                                              str(package / "mon_sensors_plugin" / "install.py"))
+                spec = importlib.util.spec_from_file_location("bits_core.collector.packaged_install",
+                                                              str(package / "bits_core/collector" / "install.py"))
                 installer = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(installer)
                 original_replace = os.replace
@@ -861,7 +861,7 @@ def main():
             checked("a failed overlay activation restores scripts and permits a clean retry", installation_rollback)
 
             def entrypoint_write_rollback():
-                from mon_sensors_plugin import install as plugin_install
+                from bits_core.collector import install as plugin_install
                 device = fixture("entrypoint-write-rollback", "v1")
                 before = {name: (device.app / name).read_bytes() for name in plugin_install.SCRIPTS}
                 actual_atomic = plugin_install._atomic
@@ -1020,7 +1020,7 @@ def main():
             checked("persistent device selection switches both ways and explicit environment override takes precedence", device_switching)
 
             def upgrade_v2_bridge():
-                from mon_sensors_plugin import install as legacy_install
+                from bits_core.collector import install as legacy_install
                 older = fixture("v2-bridge", "v1")
                 older.install()
                 path = older.app / "mon-sensors"
@@ -1031,7 +1031,7 @@ def main():
             checked("previous opt-in v2 bridge upgrades to original-compatible device adapter", upgrade_v2_bridge)
 
             def upgrade_v3_bridge():
-                from mon_sensors_plugin import install as plugin_install
+                from bits_core.collector import install as plugin_install
                 device = fixture("v3-bridge", "v1")
                 device.install("sckocp")
                 device.env.pop("MON_SENSORS_BACKEND")
@@ -1060,7 +1060,7 @@ def main():
             checked("installed 0.12.5 v3 bridge migrates to the plugin while preserving selection and retired helper files", upgrade_v3_bridge)
 
             def configuration_rollback():
-                from mon_sensors_plugin import install as legacy_install
+                from bits_core.collector import install as legacy_install
                 device = fixture("config-rollback", "v1")
                 device.install("legacy")
                 config_path = device.app / legacy_install.BACKEND_FILE

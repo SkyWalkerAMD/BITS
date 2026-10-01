@@ -35,19 +35,19 @@ jobs:
         run: |
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import json, os
-          from server_deploy.platforms import MATRIX
+          from bits_core.center.platforms import MATRIX
           mode = os.environ['MATRIX_MODE'] or 'quick'
           selected = [dict(label=label, image=image) for label, image in MATRIX if mode == 'full' or (mode == 'debian11' and label == 'debian11') or (mode == 'quick' and label in ('rocky8','rocky10','ubuntu22','debian13'))]
           print('value=' + json.dumps({'include': selected}))
           PY
       - name: Validate pure input rules and build the release in Linux
         run: |
-          python3 -m unittest server_deploy.test_server -v
-          bash -n server_deploy/install.sh
-          bash -n server_deploy/dependencies.sh
-          bash -n server_deploy/guard.sh
+          python3 -m unittest bits_core.center.test_server -v
+          bash -n bits_core/center/install.sh
+          bash -n bits_core/center/dependencies.sh
+          bash -n bits_core/center/guard.sh
           bash -n ci/server_image.sh
-          python3 -m server_deploy.build
+          python3 -m bits_core.center.build
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: server-package-${{ github.run_id }}
@@ -88,7 +88,7 @@ jobs:
           fi
           set -o pipefail
           if test "$BASE_IMAGE" = debian:11; then
-            python3 workload_suite/debian11_ci.py server ocrun-server-test 2>&1 | tee .server-results/packages.txt
+            python3 bits_core/workloads/debian11_ci.py server ocrun-server-test 2>&1 | tee .server-results/packages.txt
           else
             docker build --progress plain --build-arg BASE_IMAGE="$base_digest" -f ci/server.Dockerfile -t ocrun-server-test . 2>&1 | tee .server-results/packages.txt
           fi
@@ -110,7 +110,7 @@ jobs:
         run: |
           set -o pipefail
           address=$(docker inspect ocrun-server-test --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
-          docker exec -w /src ocrun-server-test python3 -B -m unittest server_deploy.test_server -v 2>&1 | tee .server-results/unit.txt
+          docker exec -w /src ocrun-server-test python3 -B -m unittest bits_core.center.test_server -v 2>&1 | tee .server-results/unit.txt
           docker exec -e GITHUB_ACTIONS=true ocrun-server-test python3 -I -B /src/ci/server_deploy_test.py "$address" 2>&1 | tee .server-results/services.txt
           if curl --noproxy '*' -fsS --max-time 3 "http://$address/config/ocrun-version.txt" >/dev/null; then
             echo 'Host outside configured /32 network unexpectedly reached the resource service' >&2

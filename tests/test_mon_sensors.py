@@ -11,7 +11,7 @@ import unittest
 from unittest import mock
 
 import sckocp_api
-from mon_sensors_plugin import collector as mon_sensors
+from bits_core.collector import collector as mon_sensors
 from sckocp_api import provider as sckocp
 from test_sckocp import payload, metric
 from test_sckocp_original_api import original_payload

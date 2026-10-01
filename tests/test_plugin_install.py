@@ -11,7 +11,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from mon_sensors_plugin import install as installer
+from bits_core.collector import install as installer
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -101,7 +101,7 @@ class PluginInstallTests(unittest.TestCase):
         scripts = {n: (self.app / n).read_bytes() for n in installer.SCRIPTS}
         info = {n: (self.app / n).stat().st_ino for n in installer.SCRIPTS}
         # Simulate a newer collector payload, leaving the installed manifest intact.
-        with (self.source / 'mon_sensors_plugin/collector.py').open('ab') as stream:
+        with (self.source / 'bits_core/collector/collector.py').open('ab') as stream:
             stream.write(b'\n# updated module\n')
         before = self.snapshot(self.app)
         installer.install(self.app, self.source, modules_only=True, check=True)
@@ -116,7 +116,7 @@ class PluginInstallTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'existing managed plugin'):
             installer.install(self.app, self.source, modules_only=True)
         installer.install(self.app, self.source)
-        module = self.app / installer.HELPER / 'mon_sensors_plugin/collector.py'
+        module = self.app / installer.HELPER / 'bits_core/collector/collector.py'
         with module.open('ab') as stream:
             stream.write(b'\n# local edit\n')
         with self.assertRaisesRegex(ValueError, 'Locally modified'):

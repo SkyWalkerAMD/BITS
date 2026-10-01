@@ -64,7 +64,7 @@ jobs:
           docker image inspect "$BASE_IMAGE" --format '{{json .RepoDigests}}' > .api-security-results/image.json
           docker build --build-arg BASE_IMAGE="$BASE_IMAGE" -t api-security -f ci/api-security.Dockerfile . || {
             [ "$BASE_IMAGE" = debian:11 ] || exit 1
-            python3 -m workload_suite.debian11_ci security api-security
+            python3 -m bits_core.workloads.debian11_ci security api-security
           }
           docker run --rm --network none --cpus 2 --memory 2g --pids-limit 512 \
             -e GITHUB_ACTIONS=true -e GITHUB_SHA="$GITHUB_SHA" -e PYTHONDONTWRITEBYTECODE=1 \
