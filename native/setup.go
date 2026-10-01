@@ -75,6 +75,17 @@ func InitializeCenter(configDir, data, address, cidr string, port int, apply boo
 		if e != nil && !os.IsNotExist(e) {
 			return nil, e
 		}
+		parent := filepath.Dir(tree)
+		if info, e := os.Lstat(parent); e == nil {
+			if err = TrustedDirectory(parent); err != nil {
+				return nil, err
+			}
+			if info.Mode().Perm()&0001 == 0 {
+				return nil, errors.New("existing parent does not allow service traversal; permissions retained: " + parent)
+			}
+		} else if !os.IsNotExist(e) {
+			return nil, e
+		}
 	}
 	adminDir := "/root/.bits"
 	adminPath := filepath.Join(adminDir, "admin.json")
@@ -102,7 +113,19 @@ func InitializeCenter(configDir, data, address, cidr string, port int, apply boo
 	}
 	uid, _ := strconv.Atoi(account.Uid)
 	gid, _ := strconv.Atoi(account.Gid)
-	for _, p := range []string{filepath.Dir(configDir), configDir, filepath.Dir(data), data} {
+	for _, p := range []string{filepath.Dir(configDir), filepath.Dir(data)} {
+		if _, e := os.Lstat(p); os.IsNotExist(e) {
+			if err = os.MkdirAll(p, 0755); err != nil {
+				return nil, err
+			}
+			// Only a newly created application parent may receive traversal
+			// permission. Never relax an existing home or system directory.
+			if err = os.Chmod(p, 0755); err != nil {
+				return nil, err
+			}
+		}
+	}
+	for _, p := range []string{configDir, data} {
 		if err = os.MkdirAll(p, 0700); err != nil {
 			return nil, err
 		}
@@ -181,12 +204,6 @@ func InitializeCenter(configDir, data, address, cidr string, port int, apply boo
 			return os.Chown(p, uid, gid)
 		})
 		if err != nil {
-			return nil, err
-		}
-	}
-	// Parent traversal without disclosing the private child directories.
-	for _, p := range []string{filepath.Dir(configDir), filepath.Dir(data)} {
-		if err = os.Chmod(p, 0755); err != nil {
 			return nil, err
 		}
 	}

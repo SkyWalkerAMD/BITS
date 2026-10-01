@@ -87,6 +87,12 @@ def main():
     write("/usr/bin/sckocp", fake, 0o755)
     write("/root/bits-ci-provider-calls.jsonl", "")
     address = sys.argv[1]
+    protected = Path("/root/bits-ci-private-parent")
+    protected.mkdir(mode=0o700)
+    assert subprocess.call(["bits-center", "setup", "--address", address, "--network", "172.16.0.0/12",
+                           "--config", str(protected / "center/config.json"), "--check"],
+                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) != 0
+    assert protected.stat().st_mode & 0o777 == 0o700 and not list(protected.iterdir())
     setup = ("bits-center", "setup", "--address", address, "--network", "172.16.0.0/12", "--port", "18443")
     print(run(*(setup + ("--check",))))
     print(run(*(setup + ("--apply",))))
