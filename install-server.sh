@@ -69,7 +69,7 @@ rollback() {
     exit "$outcome"
 }
 trap rollback EXIT
-cp -a "$SOURCE/ocrun" "$SOURCE/sckocp_api" "$SOURCE/mon_sensors_plugin" "$RELEASE/"
+cp -a "$SOURCE/ocrun" "$SOURCE/sckocp_api" "$SOURCE/bits_core" "$SOURCE/bits_layout.py" "$RELEASE/"
 # Prepare the downloadable release before any live service is changed.
 DOCS=$SOURCE
 if [[ ! -f $SOURCE/FLEET.md ]]; then
@@ -87,7 +87,7 @@ for name in names:
     (Path(sys.argv[1]) / name).write_bytes(package_bytes(name, names))
 PY
 fi
-tar -czf "$STAGING/ocrun-client-0.12.8.tar.gz" --exclude='__pycache__' -C "$SOURCE" ocrun sckocp_api mon_sensors_plugin mon-sensors-plugin sckocp-api install-client.sh install-deps.sh install-mon-sensors-plugin.sh install-sckocp-api.sh installer-python.sh systemd -C "$DOCS" README.md FLEET.md OPERATIONS.md SCKOCP.md SCKOCP-API.md MON-SENSORS.md PACKAGES.md
+tar -czf "$STAGING/ocrun-client-0.12.8.tar.gz" --exclude='__pycache__' -C "$SOURCE" ocrun sckocp_api bits_core bits_layout.py mon-sensors-plugin sckocp-api install-client.sh install-deps.sh install-mon-sensors-plugin.sh install-sckocp-api.sh installer-python.sh systemd -C "$DOCS" README.md FLEET.md OPERATIONS.md SCKOCP.md SCKOCP-API.md MON-SENSORS.md PACKAGES.md
 install -d -m 0700 /etc/ocrun /etc/ocrun/enrollments
 install -d -o redis -g redis -m 0750 /var/lib/ocrun-redis
 ACTIVATING=1

@@ -84,6 +84,7 @@ def source_package(output):
         paths += [ROOT / "README-EXPERIMENTAL.md", ROOT / "DISTRIBUTION.md"]
         paths += sorted((ROOT / "ocrun").glob("*.py"))
         paths += sorted((ROOT / "bits_core/collector").glob("*.py"))
+        paths += [ROOT / name for name in ('bits_layout.py', 'bits_core/__init__.py', 'bits_core/layout.py')]
         paths += [ROOT / name for name in API_FILES]
         paths += sorted((ROOT / "systemd").glob("*.service"))
         files = [p.relative_to(ROOT).as_posix() for p in paths]

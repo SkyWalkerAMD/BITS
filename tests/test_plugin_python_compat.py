@@ -32,9 +32,9 @@ class PluginPythonCompatibilityTests(unittest.TestCase):
         source.mkdir()
         platform = self.root / "platform-python"
         platform.symlink_to(sys.executable)
-        for package in ("bits_core/collector", "sckocp_api"):
-            directory = source / package
-            directory.mkdir()
+        for package in ("bits_core.collector", "sckocp_api"):
+            directory = source / package.replace('.', '/')
+            directory.mkdir(parents=True)
             (directory / "__init__.py").write_text("")
             (directory / "install.py").write_text(
                 "import json, os, sys\n"
@@ -57,7 +57,7 @@ command() {
 source "$1"
 installer_python "$2" "$3" --check
 '''
-        for package in ("bits_core/collector", "sckocp_api"):
+        for package in ("bits_core.collector", "sckocp_api"):
             with self.subTest(package=package):
                 candidates = self.root / (package + ".candidates")
                 env = dict(os.environ, COMPAT_PLATFORM_PYTHON=str(platform),
@@ -91,7 +91,7 @@ installer_python "$2" "$3" --check
         # safely extracted package; do not relax production ownership checks.
         source = self.root / "source package"
         source.mkdir()
-        for relative in installer.FILES:
+        for relative in installer.FILES + tuple(installer.COMPATIBILITY_FILES.values()):
             target = source / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes((ROOT / relative).read_bytes())
@@ -100,7 +100,7 @@ installer_python "$2" "$3" --check
         poison = self.root / "poison"
         poison.mkdir()
         for package in ("bits_core/collector", "sckocp_api"):
-            (poison / package).mkdir()
+            (poison / package).mkdir(parents=True)
             (poison / package / "__init__.py").write_text("raise RuntimeError('UNTRUSTED IMPORT')\n")
         env = dict(os.environ, PATH=str(poison), PYTHONPATH=str(poison),
                    PYTHONHOME=str(poison), PYTHONSTARTUP=str(poison / "startup"))

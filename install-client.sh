@@ -82,7 +82,7 @@ rollback() {
 }
 trap rollback EXIT
 mkdir "$STAGING/runtime"
-cp -a "$SOURCE/ocrun" "$SOURCE/sckocp_api" "$SOURCE/mon_sensors_plugin" "$STAGING/runtime/"
+cp -a "$SOURCE/ocrun" "$SOURCE/sckocp_api" "$SOURCE/bits_core" "$SOURCE/bits_layout.py" "$STAGING/runtime/"
 install -m 0755 "$SOURCE/mon-sensors-plugin" "$STAGING/runtime/mon-sensors-plugin"
 install -m 0755 "$SOURCE/sckocp-api" "$STAGING/runtime/sckocp-api"
 install -m 0600 "$CONFIG" "$STAGING/agent.json"
