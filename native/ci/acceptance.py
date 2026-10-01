@@ -18,7 +18,11 @@ from sckocp_detail_fixture import INFO, OVERVIEW
 
 
 def run(*args):
-    return subprocess.check_output(args, stderr=subprocess.STDOUT, timeout=120).decode()
+    try:
+        return subprocess.check_output(args, stderr=subprocess.STDOUT, timeout=120).decode()
+    except subprocess.CalledProcessError as exc:
+        print(exc.output.decode(errors="replace"))
+        raise
 
 
 def write(path, value, mode=0o600):
@@ -70,9 +74,10 @@ def main():
                      "core_mhz": 3300, "base_mhz": 2500, "pkg_w": 108}],
         "cores": [{"cpu": i, "socket": 0, "mhz": 3297, "temp_c": 24,
                    "vid_v": .91, "c0_pct": 100, "c6_pct": 0} for i in range(24)]}
-    fake = ("#!/usr/bin/python3\nimport json,sys,time\n"
+    fake = ("#!/usr/bin/python3\nimport json,sys,time,os\n"
             "args=sys.argv[1:]\n"
             "with open('/var/tmp/bits-provider-calls.jsonl','a') as f: f.write(json.dumps(args)+'\\n')\n"
+            "if os.path.exists('/var/tmp/bits-provider-deny'): sys.exit(10)\n"
             "if args==['mon','--json']:\n"
             " time.sleep(0.2); print(" + repr(json.dumps(sample)) + ")\n"
             "elif args==['mon','--cols=1']: print(" + repr(OVERVIEW) + ")\n"
@@ -147,6 +152,16 @@ def main():
     assert api("batches/" + first["id"])["receipt_sha256"] == finished["receipt_sha256"]
     processes = run("ps", "-eo", "comm=")
     assert not any(p.strip().startswith("stress") for p in processes.splitlines()), processes
+    # Native authorization denial remains a hard stop; no activation/refresh
+    # operation or fallback collector may be attempted by BITS.
+    write("/var/tmp/bits-provider-deny", "CI gate")
+    denied = new_batch("CLOUD-NATIVE-DENIAL", [("stress", 4)])
+    api("batches/" + denied["id"] + "/start", {})
+    denied = wait_batch(denied["id"], "needs_attention")
+    assert denied["result"]["execution"] == "preflight_failed", denied
+    assert not (Path("/var/lib/bits/node/runs") / denied["id"] / "execution.json").exists()
+    api("batches/" + denied["id"] + "/close-incomplete", {"reason": "Synthetic native denial retained"})
+    Path("/var/tmp/bits-provider-deny").unlink()
     ports = run("ss", "-lntp")
     assert ":6379 " not in ports and ":873 " not in ports
     summary = {"status": "passed", "version": "0.4.0-alpha.1", "python": sys.version,
@@ -154,6 +169,7 @@ def main():
         "normal_steps": finished["result"]["steps"], "cancel_execution": cancel_result["result"]["execution"],
         "sckocp": "synthetic fixed mon/info only; Primary-filter tested",
         "services": "real systemd, HTTPS, SQLite; no Redis/rsync",
+        "native_authorization_denial": "no workload, no permission-management call",
         "hardware_validated": False}
     write("/results/acceptance.json", json.dumps(summary, ensure_ascii=False, indent=2))
     shutil.copy2(str(evidence / "report.html"), "/results/report-preview.html")

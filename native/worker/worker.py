@@ -28,6 +28,8 @@ import suite
 import workload
 
 VERSION = "0.4.0-alpha.1"
+# 128 explicitly identified steps plus the initial preparing sample.
+report_sheet.MAX_GROUPS = 129
 STOP = threading.Event()
 CURRENT = {"label": "Preparing", "step_id": None}
 
@@ -211,6 +213,15 @@ def execute(directory, value):
                quality="partial" if sampling.unavailable else "readings_reported_validity_unknown")
 
 
+def quiescent(state):
+    boot = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+    if state.get("boot_id") == boot:
+        for step in state["steps"]:
+            process = step.get("process")
+            if process and workload.members(process["session"]):
+                raise ValueError("Recorded workload session still has processes; stop the BITS node service before recovery")
+
+
 def recover(directory, value):
     journal = directory / "execution.json"
     if not journal.exists():
@@ -218,13 +229,8 @@ def recover(directory, value):
                quality="not_collected")
         raise ValueError("No execution evidence; close the unstarted batch explicitly")
     state = common.json_read(journal)
+    quiescent(state)
     if state["execution"] == "running":
-        boot = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
-        if state.get("boot_id") == boot:
-            for step in state["steps"]:
-                process = step.get("process")
-                if process and workload.members(process["session"]):
-                    raise ValueError("Recorded workload session still has processes; stop the BITS node service before recovery")
         state.update({"execution": "interrupted", "ended_at": common.now(),
                       "error": "Node execution interrupted; no workload was restarted"})
         common.save(journal, state)
@@ -261,6 +267,7 @@ def report(directory, value):
     state = common.json_read(directory / "execution.json")
     if state["execution"] == "running":
         raise ValueError("Execution is not sealed")
+    quiescent(state)
     evidence = directory / "evidence"
     manifest = directory / "artifacts.json"
     if manifest.exists():
@@ -312,6 +319,8 @@ def report(directory, value):
         record["schema"] = "bits-acceptance-report-v1"
         record["statistics"]["details"]["schema"] = "bits-report-details-v1"
         record["plan"] = value["batch"]["plan"]
+        record["source_artifacts"] = artifacts
+        record["statistics"]["task_grouping"] = "unique step_id and tool; repeated tools remain separate"
         record["delivery"] = "Verify the separate BITS receipt.json and each artifact SHA-256."
         record["time_basis"] = "Native records include UTC observed_at, sequence and unique step_id; export preserves node-local display time."
         common.save(evidence / "report.json", record)

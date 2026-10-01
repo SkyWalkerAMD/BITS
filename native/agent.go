@@ -190,6 +190,9 @@ func (a *Agent) once(ctx context.Context)error{
 			// evidence and the recorded failure.
 			var remote Batch
 			if e:=a.Client.JSON(ctx,"GET","/node/v1/batches/"+run.Batch.ID,"",nil,&remote);e==nil&&(remote.State=="closed_incomplete"||(remote.State=="cancelled"&&(run.Phase=="prepared"||run.Phase=="blocked"))){
+				if _,e=os.Stat(filepath.Join(dir,"execution.json"));e==nil{
+					if e=a.Worker(ctx,"recover",dir,func(){});e!=nil{return e}
+				}
 				run.Phase="done";run.Batch=remote;if err=a.save(dir,&run);err!=nil{return err};continue
 			}
 			return a.process(ctx,dir,&run,false)

@@ -88,6 +88,13 @@ jobs:
       - name: Real Linux installation, services, tool lifecycle and protected data boundary
         env: {BASE_IMAGE: '${{ matrix.image }}'}
         run: bash native/ci/cloud.sh
+      - name: Browser interaction and desktop/mobile evidence
+        if: matrix.label == 'ubuntu22'
+        run: |
+          python3 -m pip install playwright==1.55.0
+          sudo apt-get install -y fonts-noto-cjk
+          python3 -m playwright install --with-deps chromium
+          python3 native/ci/browser.py
       - name: Capture diagnostics
         if: always()
         run: |
