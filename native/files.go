@@ -35,6 +35,16 @@ func CheckFileIfExists(path string) error {
 }
 func ReadJSON(path string,v any) error {
 	if err:=PrivateDir(filepath.Dir(path));err!=nil{return err}
+	return readPrivateJSON(path,v)
+}
+// Credentials remain single-link 0600 files. A root-owned distro home may be
+// 0550/0750; directory read/traversal cannot make a 0600 secret readable.
+// Unlike runtime state, enrollment need not require its parent to be 0700.
+func ReadCredential(path string,v any)error{
+	if err:=TrustedDirectory(filepath.Dir(path));err!=nil{return err}
+	return readPrivateJSON(path,v)
+}
+func readPrivateJSON(path string,v any)error{
 	if err:=CheckFileIfExists(path);err!=nil{return err}
 	fd,err:=syscall.Open(path,syscall.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK,0)
 	if err!=nil{return err};f:=os.NewFile(uintptr(fd),path);defer f.Close()
@@ -46,6 +56,14 @@ func AtomicJSON(path string,v any) error {
 }
 func Atomic(path string,raw []byte) error {
 	if err:=PrivateDir(filepath.Dir(path));err!=nil{return err}
+	return atomicChecked(path,raw)
+}
+func WriteCredential(path string,v any)error{
+	if err:=TrustedDirectory(filepath.Dir(path));err!=nil{return err}
+	b,err:=json.MarshalIndent(v,"","  ");if err!=nil{return err}
+	return atomicChecked(path,append(b,'\n'))
+}
+func atomicChecked(path string,raw []byte)error{
 	if err:=CheckFileIfExists(path);err!=nil{return err}
 	f,err:=os.CreateTemp(filepath.Dir(path),".bits-write-");if err!=nil{return err}
 	tmp:=f.Name();defer os.Remove(tmp)

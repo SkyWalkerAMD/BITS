@@ -161,7 +161,7 @@ func (a *Agent) process(ctx context.Context,dir string,run *LocalRun,fresh bool)
 				offset+=size;if meta.Bytes==0{break}
 			};f.Close()
 			h:=sha256.New()
-			if err=a.Client.Download(ctx,path,run.Batch.Attempt,h);err!=nil{return err}
+			if err=a.Client.Readback(ctx,path,run.Batch.Attempt,meta.Bytes,h);err!=nil{return err}
 			if hex.EncodeToString(h.Sum(nil))!=meta.SHA256{return errors.New("remote readback hash differs: "+name)}
 		}
 		var completed Batch
@@ -259,6 +259,10 @@ func readProgramManifest(root string,inventory *map[string]string)error{
 		b,err:=os.ReadFile(path);if err!=nil{return err};if Digest(b)!=expected{return errors.New("installed worker changed: "+name)}
 	}
 	return nil
+}
+func VerifyWorker()error{
+	var inventory map[string]string
+	return readProgramManifest(WorkerRoot,&inventory)
 }
 func stringsUnsafe(s string)bool{for _,part:=range filepath.SplitList(s){if part==".."{return true}};return s==".."||len(s)>512||filepath.IsAbs(s)||len(s)>=3&&s[:3]=="../"}
 func TrustedDirectory(path string)error{

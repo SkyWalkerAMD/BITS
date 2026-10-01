@@ -4,6 +4,8 @@
 
 ## 选择安装方式
 
+独立架构正在 0.4 预览分支验收：网页明确启动批次、HTTPS 节点连接、本地事务数据库、分段采集与可恢复交付。它使用独立任务协议；BITS-o 继续服务旧 OCRUN。[架构与 sckocp 权限边界](docs/development/BITS-INDEPENDENT.md) · [候选部署说明](docs/deployment/BITS-INDEPENDENT-PREVIEW.md)。正式生产安装仍以已发布稳定版为准。
+
 | 场景 | 发布包 | 操作说明 |
 | --- | --- | --- |
 | 新服务器部署整套系统 | [BITS 0.3.0：管理端与节点 RPM/DEB](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.3.0) | [完整系统部署](docs/deployment/DISTRIBUTION.md) |
@@ -26,6 +28,7 @@
 
 | 目录 | 用途 |
 | --- | --- |
+| `native/` | 0.4 独立中心、节点协议、网页与验收候选；不使用旧 Redis/rsync 调度 |
 | `distribution/`、`bits_core/center/` | 完整系统打包、新管理服务器部署 |
 | `legacy_plugin/`、`bits_core/results/` | 旧系统增强入口、只读结果查看 |
 | `bits_core/batch/`、`bits_core/reporting/`、`bits_core/workloads/` | 节点执行与收尾、报表、固定版本工具 |

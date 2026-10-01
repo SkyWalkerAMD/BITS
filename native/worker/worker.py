@@ -218,7 +218,12 @@ def quiescent(state):
     if state.get("boot_id") == boot:
         for step in state["steps"]:
             process = step.get("process")
-            if process and workload.members(process["session"]):
+            if not process:
+                continue
+            current = workload.identity(process["pid"])
+            if current and current["start_ticks"] != process["start_ticks"]:
+                continue
+            if workload.members(process["session"]):
                 raise ValueError("Recorded workload session still has processes; stop the BITS node service before recovery")
 
 

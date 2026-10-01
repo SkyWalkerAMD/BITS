@@ -19,6 +19,7 @@ var nameRE = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$")
 var idRE = regexp.MustCompile("^[0-9a-f]{32}$")
 var digestRE = regexp.MustCompile("^[0-9a-f]{64}$")
 var toolRE = regexp.MustCompile("^p95-(no|avx|fma3|avx512)_m[124]$")
+var artifactRE = regexp.MustCompile("^(telemetry-[0-9]{5}[.]jsonl|step-[0-9]{3}[.]log|monitor[.](mon|xlsx)|report[.](json|html))$")
 
 var Tools = []string{"stress", "stress-ng", "mlc", "mbw", "cyclictest", "unixbench", "cpu2017",
 	"p95-no_m1", "p95-no_m2", "p95-no_m4", "p95-avx_m1", "p95-avx_m2", "p95-avx_m4",
@@ -98,7 +99,7 @@ func ValidateArtifacts(m map[string]Artifact) error {
 	if len(m) < 1 || len(m) > 4096 { return errors.New("invalid artifact count") }
 	var total int64
 	for name, v := range m {
-		if !ValidName(name) || name=="receipt.json" || !digestRE.MatchString(v.SHA256) || v.Bytes < 0 || v.Bytes > 16<<30 {
+		if !artifactRE.MatchString(name) || !digestRE.MatchString(v.SHA256) || v.Bytes < 0 || v.Bytes > 16<<30 {
 			return errors.New("invalid artifact name, size or SHA-256")
 		}
 		total += v.Bytes

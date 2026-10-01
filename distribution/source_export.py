@@ -13,7 +13,7 @@ POLICY = 'distribution/customer-sources.json'
 ROOT = Path(__file__).resolve().parents[1]
 PRIVATE = ('research/', 'ci/', 'integrations/sckocp', 'drafts/', '.git/', '.codex/', '.cloud-results/',
            'docs/security/SCKOCP-NATIVE-SECURITY.md', 'docs/security/SCKOCP-SERVER-MIGRATION.md')
-COMPONENTS = ('bits_core/', 'distribution/', 'legacy_plugin/', 'bits_core/collector/', 'sckocp_api/',
+COMPONENTS = ('native/', 'bits_core/', 'distribution/', 'legacy_plugin/', 'bits_core/collector/', 'sckocp_api/',
               'bits_core/batch/', 'bits_core/reporting/', 'bits_core/results/', 'bits_core/center/',
               'bits_core/workloads/')
 
@@ -58,7 +58,7 @@ def export_sources(output, commit, repository=ROOT):
     # New production files fail closed until explicitly reviewed. Private
     # reference source is outside these component directories.
     missing = sorted(n for n in tree if n.startswith(COMPONENTS) and
-                     n.endswith(('.py', '.sh', '.json', '.in')) and n not in names)
+                     n.endswith(('.py', '.sh', '.json', '.in', '.go', '.js', '.css', '.html', 'go.mod', 'go.sum')) and n not in names)
     if missing:
         raise ValueError('Review new component sources before release: ' + ', '.join(missing))
     output = Path(output)

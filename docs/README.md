@@ -1,9 +1,10 @@
 # 文档导航
 
-先按场景选择手册。BITS 完整系统为 0.2.4，BITS-o 旧系统增强套件为 0.1.2；安装以对应 Release 的验证记录和校验清单为准。
+先按场景选择手册。稳定版本为 BITS 0.3.0、BITS-o 0.2.0；独立架构 0.4 为验收候选。安装以对应 Release 的验证记录和校验清单为准。
 
 | 分类 | 阅读入口 |
 | --- | --- |
+| 独立架构预览 | [设计与授权边界](development/BITS-INDEPENDENT.md)、[新服务器候选部署](deployment/BITS-INDEPENDENT-PREVIEW.md) |
 | 新系统部署 | [简明 BITS 部署](deployment/BITS.md)、[RPM/DEB 完整说明](deployment/DISTRIBUTION.md) |
 | 旧系统插件 | [BITS-o 接入原 ws/occt](deployment/BITS.md)、[历史 0.1.1 说明](plugins/OCRUN-PLUGIN.md) |
 | 节点运行 | [任务启停与恢复](node/OPERATIONS.md)、[新中心认证接入](node/AUTH.md) |

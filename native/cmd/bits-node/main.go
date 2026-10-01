@@ -41,7 +41,10 @@ func run()error{
 		return nil
 	}
 	cfg,err:=bits.LoadNodeConfig(*config);if err!=nil{return err}
-	if action=="check"{fmt.Printf("BITS %s; node=%s; center=%s; local sckocp authorization is managed separately\n",bits.Version,cfg.Node,cfg.URL);return nil}
+	if action=="check"{
+		if err=bits.VerifyWorker();err!=nil{return err}
+		fmt.Printf("BITS %s; node=%s; center=%s; configuration and worker integrity checked; sckocp data availability checked before each batch\n",bits.Version,cfg.Node,cfg.URL);return nil
+	}
 	if action=="status"{
 		entries,err:=os.ReadDir(filepath.Join(data,"runs"));if err!=nil{return err}
 		for _,e:=range entries{var run bits.LocalRun;if err=bits.ReadJSON(filepath.Join(data,"runs",e.Name(),"run.json"),&run);err!=nil{return err};raw,_:=json.Marshal(run);fmt.Println(string(raw))}
@@ -50,6 +53,6 @@ func run()error{
 	if action!="agent"{return errors.New("unknown command")}
 	agent,err:=bits.NewAgent(cfg,data);if err!=nil{return err}
 	ctx,cancel:=signal.NotifyContext(context.Background(),syscall.SIGTERM,syscall.SIGINT);defer cancel()
-	return agent.Run(ctx,*once)
+	err=agent.Run(ctx,*once);if errors.Is(err,context.Canceled){return nil};return err
 }
 func main(){syscall.Umask(0077);if err:=run();err!=nil{fmt.Fprintln(os.Stderr,"BITS node:",err);os.Exit(1)}}

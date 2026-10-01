@@ -165,7 +165,9 @@ func TestPendingSurvivesDashboardHistoryAndNoopDoesNotGrowEvents(t *testing.T){
 	p,e:=s.Pending("N1");if e!=nil||p==nil||p.ID!=b.ID{t.Fatal("active batch hidden behind history limit",e)}
 }
 func TestReservedReceiptAndCredentialFieldsRejected(t *testing.T){
-	if e:=ValidateArtifacts(map[string]Artifact{"receipt.json":{SHA256:Random(32)}});e==nil{t.Fatal("node can replace center receipt")}
+	for _,name:=range []string{"receipt.json","license.json","activation.db","arbitrary.txt"}{
+		if e:=ValidateArtifacts(map[string]Artifact{name:{SHA256:Random(32)}});e==nil{t.Fatal("unexpected artifact accepted",name)}
+	}
 	_,admin,_:=testServer(t)
 	for _,field:=range []string{"activation_code","license","rmal","sckocp_binary","environment","sckocp_args"}{
 		request:=map[string]any{"node":"N1","label":"GUARD","steps":[]map[string]any{{"tool":"stress","seconds":1}},field:"forbidden"}

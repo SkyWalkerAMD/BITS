@@ -76,15 +76,15 @@ def main():
                    "vid_v": .91, "c0_pct": 100, "c6_pct": 0} for i in range(24)]}
     fake = ("#!/usr/bin/python3\nimport json,sys,time,os\n"
             "args=sys.argv[1:]\n"
-            "with open('/var/tmp/bits-provider-calls.jsonl','a') as f: f.write(json.dumps(args)+'\\n')\n"
-            "if os.path.exists('/var/tmp/bits-provider-deny'): sys.exit(10)\n"
+            "with open('/root/bits-ci-provider-calls.jsonl','a') as f: f.write(json.dumps(args)+'\\n')\n"
+            "if os.path.exists('/root/bits-ci-provider-deny'): sys.exit(10)\n"
             "if args==['mon','--json']:\n"
             " time.sleep(0.2); print(" + repr(json.dumps(sample)) + ")\n"
             "elif args==['mon','--cols=1']: print(" + repr(OVERVIEW) + ")\n"
             "elif args==['info']: print(" + repr(INFO) + ")\n"
             "else: sys.exit(87)\n")
     write("/usr/bin/sckocp", fake, 0o755)
-    write("/var/tmp/bits-provider-calls.jsonl", "")
+    write("/root/bits-ci-provider-calls.jsonl", "")
     address = sys.argv[1]
     setup = ("bits-center", "setup", "--address", address, "--network", "172.16.0.0/12", "--port", "18443")
     print(run(*(setup + ("--check",))))
@@ -100,6 +100,10 @@ def main():
             time.sleep(1)
     run("bits-center", "node-add", "--node", "BITS-CLOUD", "--serial", "CLOUD-SYNTHETIC",
         "--keep-on", "--output", "/root/node.json")
+    Path("/root/node.json").chmod(0o640)
+    assert subprocess.call(["bits-node", "enroll", "--file", "/root/node.json"],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) != 0
+    Path("/root/node.json").chmod(0o600)
     run("bits-node", "enroll", "--file", "/root/node.json")
     run("bits-node", "check")
     run("systemctl", "start", "bits-node")
@@ -144,7 +148,7 @@ def main():
     api("batches/" + cancelled["id"] + "/cancel", {"reason": "Isolated cancellation verification"})
     cancel_result = wait_batch(cancelled["id"], "delivered")
     assert cancel_result["result"]["execution"] == "interrupted", cancel_result
-    calls = [json.loads(line) for line in Path("/var/tmp/bits-provider-calls.jsonl").read_text().splitlines()]
+    calls = [json.loads(line) for line in Path("/root/bits-ci-provider-calls.jsonl").read_text().splitlines()]
     assert calls and all(call in [["mon", "--json"], ["mon", "--cols=1"], ["info"]] for call in calls)
     run("systemctl", "stop", "bits-node")
     run("systemctl", "start", "bits-node")
@@ -154,14 +158,14 @@ def main():
     assert not any(p.strip().startswith("stress") for p in processes.splitlines()), processes
     # Native authorization denial remains a hard stop; no activation/refresh
     # operation or fallback collector may be attempted by BITS.
-    write("/var/tmp/bits-provider-deny", "CI gate")
+    write("/root/bits-ci-provider-deny", "CI gate")
     denied = new_batch("CLOUD-NATIVE-DENIAL", [("stress", 4)])
     api("batches/" + denied["id"] + "/start", {})
     denied = wait_batch(denied["id"], "needs_attention")
     assert denied["result"]["execution"] == "preflight_failed", denied
     assert not (Path("/var/lib/bits/node/runs") / denied["id"] / "execution.json").exists()
     api("batches/" + denied["id"] + "/close-incomplete", {"reason": "Synthetic native denial retained"})
-    Path("/var/tmp/bits-provider-deny").unlink()
+    Path("/root/bits-ci-provider-deny").unlink()
     ports = run("ss", "-lntp")
     assert ":6379 " not in ports and ":873 " not in ports
     summary = {"status": "passed", "version": "0.4.0-alpha.1", "python": sys.version,

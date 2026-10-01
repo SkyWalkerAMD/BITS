@@ -63,10 +63,10 @@ func run()error{
 	case "node-add":
 		if *output==""{return errors.New("--output is required; node credentials are never printed")}
 		if _,e:=os.Lstat(*output);e==nil{return errors.New("existing output retained")}
-		if e:=bits.PrivateDir(filepath.Dir(*output));e!=nil{return e}
+		if e:=bits.TrustedDirectory(filepath.Dir(*output));e!=nil{return e}
 		var cfg bits.NodeConfig
 		err=client.JSON(context.Background(),"POST","/api/v1/nodes","",map[string]any{"id":*node,"serial":*serial,"keep_on":*keepOn},&cfg)
-		if err==nil{err=bits.AtomicJSON(*output,cfg)}
+		if err==nil{err=bits.WriteCredential(*output,cfg)}
 		if err==nil{show(map[string]string{"node":cfg.Node,"enrollment_file":*output})};return err
 	case "batch-add":
 		p:=bits.Plan{Node:*node,Label:*label}

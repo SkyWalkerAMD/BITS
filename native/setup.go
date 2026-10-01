@@ -14,6 +14,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -49,7 +50,7 @@ func InitializeCenter(configDir,data,address,cidr string,port int,apply bool)(ma
 		if _,e:=os.Lstat(path);e==nil||!os.IsNotExist(e){return nil,errors.New("existing deployment retained: "+path)}
 	}
 	serverURL:="https://"+net.JoinHostPort(address,strconv.Itoa(port))
-	if port==443 { serverURL="https://"+address }
+	if port==443 { serverURL=strings.TrimSuffix(serverURL,":443") }
 	plan:=map[string]any{"address":address,"url":serverURL,"network":cidr,"data":data,"check":!apply,
 		"node_inbound_ports":[]int{},"center_tcp_ports":[]int{port},"database":"local SQLite",
 		"sckocp_activation_database":false,"existing_network_settings_modified":false}
