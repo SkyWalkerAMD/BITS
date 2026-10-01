@@ -4,18 +4,18 @@
 
 ## BITS 0.4 网页版预览包
 
-当前版本为 [0.4.0-alpha.2](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.4.0-alpha.2)，用于新建隔离测试环境；稳定版仍为 0.3.0。以下下载与操作手册固定到同一个发布标签。
+当前版本为 [0.4.0-alpha.3](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.4.0-alpha.3)，用于新建隔离测试环境；稳定版仍为 0.3.0。以下下载与操作手册固定到同一个发布标签。
 
 | 用途 | Rocky / AlmaLinux 8–10：RPM | Debian 11–13、Ubuntu 22.04 / 24.04 / 26.04：DEB |
 | --- | --- | --- |
-| 独立管理中心 0.4.0-alpha.2 | [bits-center](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.2/bits-center-0.4.0-0.alpha.2.el8.x86_64.rpm) | [bits-center](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.2/bits-center_0.4.0.alpha.2-1_amd64.deb) |
-| 独立节点 0.4.0-alpha.2，已含工具 | [bits-node](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.2/bits-node-0.4.0-0.alpha.2.el8.x86_64.rpm) | [bits-node](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.2/bits-node_0.4.0.alpha.2-1_amd64.deb) |
+| 独立管理中心 0.4.0-alpha.3 | [bits-center](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.3/bits-center-0.4.0-0.alpha.3.el8.x86_64.rpm) | [bits-center](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.3/bits-center_0.4.0.alpha.3-1_amd64.deb) |
+| 独立节点 0.4.0-alpha.3，已含工具 | [bits-node](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.3/bits-node-0.4.0-0.alpha.3.el8.x86_64.rpm) | [bits-node](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.3/bits-node_0.4.0.alpha.3-1_amd64.deb) |
 
-安装前核验本版 [SHA256SUMS](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.2/SHA256SUMS)，再按 [0.4 安装与网页操作手册](https://github.com/SkyWalkerAMD/BITS/blob/v0.4.0-alpha.2/docs/deployment/BITS-INDEPENDENT-PREVIEW.md)完成中心配置、节点接入、网页开始及报告查看。也可[下载离线手册](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.2/OPERATIONS.md)。
+安装前核验本版 [SHA256SUMS](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.3/SHA256SUMS)，再按 [0.4 安装与网页操作手册](https://github.com/SkyWalkerAMD/BITS/blob/v0.4.0-alpha.3/docs/deployment/BITS-INDEPENDENT-PREVIEW.md)完成中心配置、节点接入、网页开始及报告查看。也可[下载离线手册](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.3/OPERATIONS.md)。
 
-程序版本为 `0.4.0-alpha.2`，RPM 版本为 `0.4.0-0.alpha.2.el8`；DEB 包内版本为 `0.4.0~alpha.2-1`，下载文件名采用点分隔。完整节点包含工具和采集 / 报告适配，无需另装 `bits-o-workloads` 或历史 `.run` 组件；原版 sckocp 单独提供并在 BITS 之外授权。
+程序版本为 `0.4.0-alpha.3`，RPM 版本为 `0.4.0-0.alpha.3.el8`；DEB 包内版本为 `0.4.0~alpha.3-1`，下载文件名采用点分隔。完整节点包含工具和采集 / 报告适配，无需另装 `bits-o-workloads` 或历史 `.run` 组件；原版 sckocp 单独提供并在 BITS 之外授权。
 
-0.4 使用 HTTPS 和本地 SQLite，不依赖 Redis / rsync；请勿套用下方 0.3 的部署、自动网络配置或迁移命令。当前没有生产原地升级承诺。[云端验收范围](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.2/VERIFICATION.json)明确区分容器模拟与真实硬件验证。
+0.4 使用 HTTPS 和本地 SQLite，不依赖 Redis / rsync；请勿套用下方 0.3 的部署、自动网络配置或迁移命令。当前没有生产原地升级承诺。[云端验收范围](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.3/VERIFICATION.json)明确区分容器模拟与真实硬件验证。
 
 ## BITS 0.3 与 BITS-o 稳定包
 
