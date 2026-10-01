@@ -6,6 +6,8 @@
 
 | 交付 | 版本 / 源码 | 云端证据 |
 | --- | --- | --- |
+| BITS 完整系统：统一核心 | [0.3.0](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.3.0) | RELEASE.json 记录源码、12 系统矩阵、真实 0.2.5 包的历史导入及回滚；见 [重构说明](0.3.0.md) |
+| BITS-o 旧系统适配：共享核心 | [0.2.0](https://github.com/SkyWalkerAMD/BITS/releases/tag/bits-o-v0.2.0) | VALIDATION.json 记录 12 系统、原 occt 协议及已部署组件升级；硬件验收单独进行 |
 | BITS 完整系统：自动网络配置 | [0.2.5](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.2.5)，9579220 | [本轮 24 项作业通过](https://github.com/SkyWalkerAMD/ocrun-next-private-archive/actions/runs/36800108426)，12 系统；未变更组件复用已核验运行，见 [记录](0.2.5.md) |
 | BITS 完整系统 | [0.2.4](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.2.4) | 同版 RELEASE.json 记录测试提交、12 系统矩阵和私有云端运行；新增硬件字段待现场验收 |
 | BITS-o 旧系统增强 | [0.1.2](https://github.com/SkyWalkerAMD/BITS/releases/tag/bits-o-v0.1.2) | 同版 VALIDATION.json 包含原 occt 协议、安装迁移及回滚验证；不用替换原菜单 |

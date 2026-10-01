@@ -4,11 +4,11 @@
 
 | 用途 | EL 8 / 9 / 10：RPM | Debian 11 / 12 / 13、Ubuntu 22.04 / 24.04 / 26.04：DEB |
 | --- | --- | --- |
-| 新管理服务器 0.2.5 | [bits-center](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.2.5/bits-center-0.2.5-1.el8.x86_64.rpm) | [bits-center](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.2.5/bits-center_0.2.5-1_amd64.deb) |
-| 新节点 0.2.5，已含工具 | [bits-node](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.2.5/bits-node-0.2.5-1.el8.x86_64.rpm) | [bits-node](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.2.5/bits-node_0.2.5-1_amd64.deb) |
-| 旧 OCRUN 控制端增强 0.1.2 | [bits-o-control](https://github.com/SkyWalkerAMD/BITS/releases/download/bits-o-v0.1.2/bits-o-control-0.1.2-1.el8.x86_64.rpm) | [bits-o-control](https://github.com/SkyWalkerAMD/BITS/releases/download/bits-o-v0.1.2/bits-o-control_0.1.2-1_amd64.deb) |
-| 旧 OCRUN 节点增强 0.1.2 | [bits-o-node](https://github.com/SkyWalkerAMD/BITS/releases/download/bits-o-v0.1.2/bits-o-node-0.1.2-1.el8.x86_64.rpm) | [bits-o-node](https://github.com/SkyWalkerAMD/BITS/releases/download/bits-o-v0.1.2/bits-o-node_0.1.2-1_amd64.deb) |
-| 旧增强节点必需的工具库 0.1.0-3 | [bits-o-workloads](https://github.com/SkyWalkerAMD/BITS/releases/download/bits-o-v0.1.2/bits-o-workloads-0.1.0-3.el8.x86_64.rpm) | [bits-o-workloads](https://github.com/SkyWalkerAMD/BITS/releases/download/bits-o-v0.1.2/bits-o-workloads_0.1.0-3_amd64.deb) |
+| 新管理服务器 0.3.0 | [bits-center](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.3.0/bits-center-0.3.0-1.el8.x86_64.rpm) | [bits-center](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.3.0/bits-center_0.3.0-1_amd64.deb) |
+| 新节点 0.3.0，已含工具 | [bits-node](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.3.0/bits-node-0.3.0-1.el8.x86_64.rpm) | [bits-node](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.3.0/bits-node_0.3.0-1_amd64.deb) |
+| 旧 OCRUN 控制端增强 0.2.0 | [bits-o-control](https://github.com/SkyWalkerAMD/BITS/releases/download/bits-o-v0.2.0/bits-o-control-0.2.0-1.el8.x86_64.rpm) | [bits-o-control](https://github.com/SkyWalkerAMD/BITS/releases/download/bits-o-v0.2.0/bits-o-control_0.2.0-1_amd64.deb) |
+| 旧 OCRUN 节点增强 0.2.0 | [bits-o-node](https://github.com/SkyWalkerAMD/BITS/releases/download/bits-o-v0.2.0/bits-o-node-0.2.0-1.el8.x86_64.rpm) | [bits-o-node](https://github.com/SkyWalkerAMD/BITS/releases/download/bits-o-v0.2.0/bits-o-node_0.2.0-1_amd64.deb) |
+| 旧增强节点必需的工具库 0.1.0-4 | [bits-o-workloads](https://github.com/SkyWalkerAMD/BITS/releases/download/bits-o-v0.2.0/bits-o-workloads-0.1.0-4.el8.x86_64.rpm) | [bits-o-workloads](https://github.com/SkyWalkerAMD/BITS/releases/download/bits-o-v0.2.0/bits-o-workloads_0.1.0-4_amd64.deb) |
 
 **完整系统不用另装 `bits-o-workloads`。** 管理端选择 `bits-center`；节点选择 `bits-node`，并单独安装、激活原版 `sckocp`。`bits-node` 已内含选定工具、本地接口、批次采集、报表和自动收尾；完整系统的工具通过这个 `bits-` 前缀的节点包交付。
 
@@ -21,13 +21,13 @@
 先下载同一 Release 的 `SHA256SUMS` 核对所选文件，再在相应 Linux 机器以 root 安装，例如：
 
 ```bash
-dnf install ./bits-node-0.2.5-1.el8.x86_64.rpm
+dnf install ./bits-node-0.3.0-1.el8.x86_64.rpm
 ```
 
 或者：
 
 ```bash
-apt install ./bits-node_0.2.5-1_amd64.deb
+apt install ./bits-node_0.3.0-1_amd64.deb
 ```
 
 旧节点须在同一次包管理操作中提供 `bits-o-workloads` 和 `bits-o-node` 的同格式包。已经接入的旧安装先按手册停止、解除接入并保留备份，不用强制覆盖或降级。
@@ -36,15 +36,15 @@ apt install ./bits-node_0.2.5-1_amd64.deb
 
 ## 独立组件
 
-下列组件也在 [完整系统 0.2.5 的 Release](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.2.5) 直接提供，无需先下载整个大包：
+下列组件也在 [完整系统 0.3.0 的 Release](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.3.0) 直接提供，无需先下载整个大包：
 
 | 组件 | 独立附件 | 适用情况 |
 | --- | --- | --- |
 | 本地接口 0.4.0 | `sckocp-api-0.4.0.run` | 第三方软件独立读取已激活 sckocp |
-| 采集 0.13.0 | `mon-sensors-plugin-0.13.0.run` | 单独维护原采集接入 |
-| 自动收尾 0.2.6 | `mon-sensors-finish-0.2.6.run` | 单独维护旧节点兼容组合 |
+| 采集 0.14.0 | `mon-sensors-plugin-0.14.0.run` | 单独维护原采集接入 |
+| 自动收尾 0.3.0 | `mon-sensors-finish-0.3.0.run` | 单独维护旧节点兼容组合 |
 | Python 3.6 离线报表 0.2.0 | `mon-sensors-report-py36-0.2.0.run` | 旧节点缺少报表依赖 |
-| 原控制端只读查看器 0.2.0 | `mon-sensors-control-0.2.0.run` | 仅需读取结果，不使用完整增强入口 |
+| 原控制端只读查看器 0.3.0 | `mon-sensors-control-0.3.0.run` | 仅需读取结果，不使用完整增强入口 |
 
 完整节点 RPM/DEB 与旧节点增强套件已经集成私有批次采集和收尾，常规部署不需要再逐个安装这些 `.run` 文件，也不安装新版 mon-sensors 查看入口。上述 mon-sensors 命名附件仅保留历史独立组件的维护能力；独立 API 仍可单独安装。硬件状态直接用 sckocp 查看。
 
