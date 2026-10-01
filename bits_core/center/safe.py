@@ -52,7 +52,7 @@ def write(path, data, mode=0o600):
     directory(path.parent)
     if path.exists() or path.is_symlink():
         read(path)
-    fd, temporary = tempfile.mkstemp(prefix=".ocrun-server-", dir=str(path.parent))
+    fd, temporary = tempfile.mkstemp(prefix=".bits-center-", dir=str(path.parent))
     try:
         with os.fdopen(fd, "wb") as stream:
             stream.write(data)

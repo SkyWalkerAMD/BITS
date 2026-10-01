@@ -130,7 +130,7 @@ def node_stage(stage, tools, report):
     put(native_tools / 'MANIFEST.json', json.dumps(workload_manifest, sort_keys=True, indent=2))
     put(stage / 'usr/libexec/bits-workloads', launch('/opt/bits/workloads/0.1.0/cli.py'), True)
     root = stage / NODE.lstrip('/')
-    for name in ('node.py', 'report.py', 'finish_entry.py', 'common.py'):
+    for name in ('node.py', 'report.py', 'finish_entry.py', 'common.py', 'migration.py'):
         copy(SOURCE / 'distribution' / name, root / name)
     for name in ('common.py', 'streaming.py'):
         copy(SOURCE / 'bits_core/reporting' / name, root / 'report-engine' / name)
@@ -223,7 +223,7 @@ fi
         from bits_core.workloads.package import GUARD
         base += GUARD.split('export PATH\n', 1)[1]
         ownership += '''
-if [ -e /opt/bits/workloads/0.1.0 ] || [ -L /opt/bits/workloads/0.1.0 ] || [ -e /usr/libexec/bits-workloads ] || [ -L /usr/libexec/bits-workloads ]; then
+if [ -e /opt/bits/workloads/0.1.0 ] || [ -L /opt/bits/workloads/0.1.0 ] || [ -e /usr/libexec/bits-workloads ] || [ -L /usr/libexec/bits-workloads ] || [ -e /usr/libexec/bits-report ] || [ -L /usr/libexec/bits-report ]; then
  if [ 'KIND' = rpm ]; then
   rpm -q bits-node >/dev/null && rpm -V bits-node || exit 1
  else
@@ -233,8 +233,8 @@ if [ -e /opt/bits/workloads/0.1.0 ] || [ -L /opt/bits/workloads/0.1.0 ] || [ -e 
   [ -s "$inventory" ] || exit 1
   [ -z "$(dpkg --verify bits-node)" ] || exit 1
  fi
- [ ! -L /opt/bits/workloads/0.1.0 ] && [ ! -L /usr/libexec/bits-workloads ] || exit 1
- unsafe=$(find /opt/bits/workloads/0.1.0 /usr/libexec/bits-workloads -xdev \\( ! -user root -o -perm /7022 -o -type l -o -links +1 -type f \\) -print)
+ [ ! -L /opt/bits/workloads/0.1.0 ] && [ ! -L /usr/libexec/bits-workloads ] && [ ! -L /usr/libexec/bits-report ] || exit 1
+ unsafe=$(find /opt/bits/workloads/0.1.0 /usr/libexec/bits-workloads /usr/libexec/bits-report -xdev \\( ! -user root -o -perm /7022 -o -type l -o -links +1 -type f \\) -print)
  [ -z "$unsafe" ] || exit 1
 fi
 '''.replace('KIND', kind)

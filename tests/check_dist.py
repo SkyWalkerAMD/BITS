@@ -64,7 +64,7 @@ for kind in (('runtime',) if args.runtime_only else ('runtime', 'tools')):
 
 # These archives must remain usable independently, without bundling OCRUN's
 # control plane into the device plugin or hardware consumer SDK.
-for kind, entry in (('bits_core/collector', 'mon-sensors-plugin'), ('public_api', 'sckocp-api')):
+for kind, entry in (('mon_sensors_plugin', 'mon-sensors-plugin'), ('public_api', 'sckocp-api')):
     item = manifest[kind]
     path = root / 'dist' / item['file']
     assert path.stat().st_size == item['bytes']

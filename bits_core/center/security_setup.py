@@ -65,10 +65,10 @@ def configure(config, journal, persist):
     if shutil.which("ufw"):
         status = command(["ufw", "status"], check=False).stdout.decode()
         if "Status: active" in status:
-            if "ocrun-server" in status:
-                raise ValueError("Existing unowned OCRUN UFW rule; inspect it before installation")
+            if "bits-center" in status or "ocrun-server" in status:
+                raise ValueError("Existing unowned BITS/OCRUN UFW rule; inspect it before installation")
             for port in (80, 873, 6379):
-                args = ["allow", "proto", "tcp", "from", config["network"], "to", config["address"], "port", str(port), "comment", "ocrun-server"]
+                args = ["allow", "proto", "tcp", "from", config["network"], "to", config["address"], "port", str(port), "comment", "bits-center"]
                 security["ufw"].append(args)
                 persist()
                 command(["ufw"] + args)

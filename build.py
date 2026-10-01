@@ -201,7 +201,7 @@ def main():
     release = {"version": VERSION, "plugin_version": PLUGIN_VERSION, "runtime": metadata(runtime)}
     overlay = destination / ("mon-sensors-plugin-" + PLUGIN_VERSION + ".tar.gz")
     mon_sensors_package(overlay)
-    release["bits_core/collector"] = metadata(overlay)
+    release["mon_sensors_plugin"] = metadata(overlay)
     api = destination / ("ocrun-sckocp-api-" + VERSION + ".tar.gz")
     sckocp_api_package(api)
     release["sckocp_api"] = metadata(api)

@@ -58,7 +58,7 @@ def main():
             raise ValueError('Output changed while rendering; existing file retained')
         if before is not None:
             # Batch names can approach NAME_MAX. Keep backup names bounded too.
-            backup = native.mkdir(output.parent / '.mon-sensors-report-backups') / (
+            backup = native.mkdir(output.parent / '.bits-report-backups') / (
                 native.digest(os.fsencode(output.name))[:16] + '.' + before['sha256'] + '.xlsx')
             if backup.exists():
                 if native.fingerprint(backup)['sha256'] != before['sha256']:
@@ -97,5 +97,5 @@ if __name__ == '__main__':
     try:
         main()
     except (OSError, ValueError) as error:
-        print('ocrun-report: ' + str(error), file=sys.stderr)
+        print('bits-report: ' + str(error), file=sys.stderr)
         sys.exit(1)

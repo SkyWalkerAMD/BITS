@@ -42,6 +42,76 @@ def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def migration_check(extension, package, private, redis, tasks, host, address):
+    """Use published 0.2.5 bytes, not a reconstructed old installation."""
+    installer = ['rpm', '-U'] if extension == '.rpm' else ['dpkg', '-i']
+    remover = ['rpm', '-e', 'bits-node'] if extension == '.rpm' else ['dpkg', '-r', 'bits-node']
+    old_package = next(Path('/src/previous-native025').glob('*' + extension))
+    run(*remover)
+    run(*(installer + [old_package]))
+    run('bits-node', 'configure', '--config', private, '--serial', 'CLOUD-SERIAL', '--keep-on')
+    tasks.delete(redis, host, 'NEXT')
+    tasks.add(redis, host, 'MIGRATE-025', 'cloud', ['stress=3'])
+    old_app = Path('/var/lib/ocrun-node/app')
+    run(old_app / 'mon-sensors-finish', 'run-queue', '--rdb-server', address,
+        '--log-server', address, '--log-dir', '/var/log/ocrun-node', '--node', host,
+        '--serial', 'CLOUD-SERIAL')
+    old = data('bits-node', 'status')['cases'][0]
+    assert old['stage'] == 'complete'
+    artifacts = dict(old['artifacts'], **old['receipt'])
+    originals = {name: sha(Path('/var/log/ocrun-node') / name) for name in artifacts}
+    detached = data('bits-node', 'detach')
+    backup = Path(detached['backup'])
+    source = backup / 'app/.mon-sensors-finish' / (old['case'] + '.json')
+    state_bytes = source.read_bytes()
+    run(*remover)
+    run(*(installer + [package]))
+    command = ['bits-node', 'migrate', '--from', str(backup)]
+    # Failure must leave both the old evidence and new deployment untouched.
+    source.write_text(json.dumps(dict(old, stage='collecting')))
+    assert run(*(command + ['--check']), good=False).returncode
+    assert not Path('/etc/bits/node/native.json').exists()
+    source.write_bytes(state_bytes)
+    mon = Path(old['mon'])
+    mon_bytes = mon.read_bytes()
+    mon.write_bytes(mon_bytes + b'corrupt fixture\n')
+    assert run(*(command + ['--check']), good=False).returncode
+    assert not Path('/etc/bits/node/native.json').exists()
+    mon.write_bytes(mon_bytes)
+    assert data(*(command + ['--check']))['cases'] == 1
+    assert not Path('/etc/bits/node/native.json').exists()
+    assert data(*command)['status'] == 'migrated'
+    assert data(*command)['cases'] == 1
+    imported = data('bits-node', 'status', '--case', old['case'])['cases'][0]
+    assert imported['stage'] == 'complete' and imported['app'] == str(APP)
+    assert imported['artifacts'] == old['artifacts']
+    assert imported['migration']['source_sha256'] == hashlib.sha256(state_bytes).hexdigest()
+    assert source.read_bytes() == state_bytes
+    run('bits-node', 'retry', '--case', old['case'])
+    assert originals == {name: sha(Path('/var/log/ocrun-node') / name) for name in artifacts}
+    imported_path = APP / 'state' / source.name
+    imported_bytes = imported_path.read_bytes()
+    imported_path.write_text(json.dumps(dict(imported, task_id='COLLISION')))
+    assert run(*command, good=False).returncode
+    assert json.loads(imported_path.read_text())['task_id'] == 'COLLISION'
+    imported_path.write_bytes(imported_bytes)
+    passed('published 0.2.5 history migration rejects unfinished/corrupt evidence and collisions; repeat import/retry keeps sealed bytes')
+    run('bits-node', 'detach')
+    run(*remover)
+    run(*(installer + [old_package]))
+    # Explicit rollback from the retained detach backup in this disposable VM.
+    shutil.copytree(str(backup / 'app'), str(old_app))
+    for name in ('native.json', 'connection.json'):
+        shutil.copy2(str(backup / name), '/etc/ocrun-node/' + name)
+    run('bits-node', 'check')
+    assert data('bits-node', 'status', '--case', old['case'])['cases'][0]['artifacts'] == old['artifacts']
+    assert originals == {name: sha(Path('/var/log/ocrun-node') / name) for name in artifacts}
+    run('bits-node', 'detach')
+    run(*remover)
+    run(*(installer + [package]))
+    passed('rollback to the real 0.2.5 package restores its managed app and configuration without rewriting reports')
+
+
 def main():
     address = sys.argv[1]
     for root in (NODE, CENTER):
@@ -304,6 +374,7 @@ def main():
         if run('dpkg-query', '-W', '-f=${db:Status-Status}', 'bits-node').stdout.decode() != 'installed':
             run('dpkg', '--configure', 'bits-node')
     passed('package changes refuse a writable command entry even when its content checksum matches')
+    migration_check(extension, package, private, redis, tasks, host, address)
     run('bits-center', 'rollback')
     if extension == '.rpm':
         run('rpm', '-e', 'bits-node', 'bits-center')

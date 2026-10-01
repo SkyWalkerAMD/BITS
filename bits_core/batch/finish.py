@@ -116,7 +116,9 @@ def collector_runtime(app):
         raise ValueError("Collector launcher differs from its manifest")
     runtime_file = modules / "bits_core/collector/runtime.py"
     if "bits_core/collector/runtime.py" not in marker["files"]:
-        raise ValueError("Collector runtime supervision is required")
+        if LAYOUT.native or 'mon_sensors_plugin/runtime.py' not in marker['files']:
+            raise ValueError("Collector runtime supervision is required")
+        runtime_file = modules / 'mon_sensors_plugin/runtime.py'
     spec = importlib.util.spec_from_file_location("finish_monitor_runtime", str(runtime_file))
     runtime = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(runtime)

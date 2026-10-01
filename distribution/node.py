@@ -196,13 +196,13 @@ def run_batch():
     stamp = Path('/proc/self/stat').read_text().rsplit(')', 1)[1].split()
     common.save(DATA / 'scheduler.json', {'pid': os.getpid(), 'start_ticks': stamp[19],
         'boot_id': Path('/proc/sys/kernel/random/boot_id').read_text().strip()})
-    print('OCRUN: waiting 60 seconds for node initialization', flush=True)
+    print('BITS: waiting 60 seconds for node initialization', flush=True)
     time.sleep(60)
     finish(queue_arguments('run-queue', value, connection))
     # Only a successful, fully delivered batch reaches the original 30-minute policy.
     if value['keep_on']:
         return
-    print('OCRUN: successful batch; original 30-minute idle shutdown policy active', flush=True)
+    print('BITS: successful batch; original 30-minute idle shutdown policy active', flush=True)
     remaining = 6
     loads = re.compile(r'^(stress(?:-ng.*)?|mprime|mlc|mbw|cyclictest|runcpu|unixbench)$')
     while remaining:
@@ -324,11 +324,17 @@ def main():
             item.add_argument('--reason', required=True)
     detaching = sub.add_parser('detach')
     detaching.add_argument('--check', action='store_true')
+    migration = sub.add_parser('migrate', help='Import completed history from a pre-0.3 detach backup')
+    migration.add_argument('--from', dest='source', required=True)
+    migration.add_argument('--check', action='store_true')
     tools = sub.add_parser('tools')
     tools.add_argument('args', nargs=argparse.REMAINDER)
     args = parser.parse_args()
     common.verify('node')
-    if args.action in ('configure', 'setup'):
+    if args.action == 'migrate':
+        import migration
+        print(json.dumps(migration.migrate(sys.modules[__name__], Path(args.source).absolute(), args.check)))
+    elif args.action in ('configure', 'setup'):
         if not args.serial:
             args.serial = common.read(Path('/sys/devices/virtual/dmi/id/board_serial'), 1024).decode('ascii').strip()
             if args.serial.lower() in ('', 'none', 'unknown', 'default string', 'to be filled by o.e.m.', 'not specified', 'system serial number'):

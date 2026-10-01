@@ -20,7 +20,7 @@ def configuration(address, network, platform, password=None):
             "password": password or secrets.token_hex(32), "databases": 2048,
             "node_password": secrets.token_hex(32), "database_authentication": "required",
             "results": "/srv/bits/results", "public": "/srv/bits/resources",
-            "database_dir": platform["database_home"] + "/ocrun-server",
+            "database_dir": platform["database_home"] + "/bits-center",
             "automatic_task_polling": False}
 
 
@@ -67,7 +67,7 @@ def files(config, python):
                 "type filter hook input priority -5; policy accept;\n"
                 "ip daddr {address} tcp dport {{ 80, 873, 6379 }} ip saddr {{ {sources} }} accept\n"
                 "ip daddr {address} tcp dport {{ 80, 873, 6379 }} counter drop\n }}\n}}\n").format(sources=sources, **config)
-    firewall_unit = ("[Unit]\nDescription=OCRUN legacy management-network access guard\nAfter=network-pre.target\n"
+    firewall_unit = ("[Unit]\nDescription=BITS management-network access guard\nAfter=network-pre.target\n"
                      "Before=bits-center-db.service bits-center-http.service bits-center-rsync.service\n"
                      "[Service]\nType=oneshot\nRemainAfterExit=yes\n"
                      "ExecStart=/usr/local/libexec/bits-center-guard start\n"
@@ -80,9 +80,9 @@ def files(config, python):
         "/etc/bits/center/nginx.conf": (nginx, 0o644),
         "/etc/bits/center/ingress.nft": (firewall, 0o600),
         "/etc/systemd/system/bits-center-firewall.service": (firewall_unit, 0o644),
-        "/etc/systemd/system/bits-center-db.service": (unit("OCRUN original-protocol task database", platform["database_binary"] + " /etc/bits/center/database.conf", platform["database_user"]), 0o644),
-        "/etc/systemd/system/bits-center-rsync.service": (unit("OCRUN original-protocol log receiver", "/usr/bin/rsync --daemon --no-detach --config=/etc/bits/center/rsyncd.conf", runtime="bits-center-rsync"), 0o644),
-        "/etc/systemd/system/bits-center-http.service": (unit("OCRUN original-protocol resource distribution", "/usr/sbin/nginx -c /etc/bits/center/nginx.conf -g 'daemon off;'", runtime="bits-center-http"), 0o644),
+        "/etc/systemd/system/bits-center-db.service": (unit("BITS compatible-protocol task database", platform["database_binary"] + " /etc/bits/center/database.conf", platform["database_user"]), 0o644),
+        "/etc/systemd/system/bits-center-rsync.service": (unit("BITS compatible-protocol log receiver", "/usr/bin/rsync --daemon --no-detach --config=/etc/bits/center/rsyncd.conf", runtime="bits-center-rsync"), 0o644),
+        "/etc/systemd/system/bits-center-http.service": (unit("BITS compatible-protocol resource distribution", "/usr/sbin/nginx -c /etc/bits/center/nginx.conf -g 'daemon off;'", runtime="bits-center-http"), 0o644),
         "/usr/local/libexec/bits-center-service": (launcher, 0o755),
         "/srv/bits/resources/config/ocrun-version.txt": ("MAIN_VERSION=0.9.24a\nDEV_VERSION=0.9.24a\n", 0o644),
         "/srv/bits/resources/index.html": ("<!doctype html><meta charset=utf-8><title>BITS</title><p>BITS resource server. Use bits-center menu for task management.</p>\n", 0o644),

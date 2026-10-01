@@ -110,8 +110,8 @@ def execute(args):
     if value['node'] != socket.gethostname():
         raise ValueError('Connection file belongs to a different node')
     finalizer = safe.load(app / '.mon-sensors-finish-install.json')
-    if finalizer.get('version') not in ('0.2.2', '0.2.3', '0.2.4', '0.2.5'):
-        raise ValueError('Install mon-sensors-finish 0.2.2, 0.2.3, 0.2.4 or 0.2.5 with authenticated connection support first')
+    if finalizer.get('version') not in ('0.2.2', '0.2.3', '0.2.4', '0.2.5', '0.2.6', '0.3.0'):
+        raise ValueError('Install a supported BITS-o finalizer with authenticated connection support first')
     if marker.exists() or marker.is_symlink():
         installed = safe.load(marker)
         if any(not (ROOT / name).exists() for name in installed['files']):

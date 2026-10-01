@@ -384,5 +384,5 @@ if __name__ == "__main__":
     try:
         main()
     except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
-        print("ocrun-server install: " + str(error), file=sys.stderr)
+        print("bits-center install: " + str(error), file=sys.stderr)
         sys.exit(1)

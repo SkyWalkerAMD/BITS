@@ -160,7 +160,7 @@ jobs:
           docker image inspect "$BASE_IMAGE" --format '{{json .RepoDigests}}' > .workload-results/image.json
           installed=false
           if [ "$BASE_IMAGE" = debian:11 ]; then
-            python3 bits_core/workloads/debian11_ci.py runtime workloads-debian11-test workload-dist/bits-o-workloads_0.1.0-3_amd64.deb 2>&1 | tee .workload-results/dependencies.txt
+            python3 bits_core/workloads/debian11_ci.py runtime workloads-debian11-test workload-dist/bits-o-workloads_0.1.0-4_amd64.deb 2>&1 | tee .workload-results/dependencies.txt
             BASE_IMAGE=workloads-debian11-test
             installed=true
           fi

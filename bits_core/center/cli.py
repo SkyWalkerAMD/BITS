@@ -40,7 +40,7 @@ def menu(redis, config):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--version", action="version", version="ocrun-server " + VERSION)
+    parser.add_argument("--version", action="version", version="bits-center-runtime " + VERSION)
     sub = parser.add_subparsers(dest="action")
     sub.add_parser("menu")
     sub.add_parser("check")
@@ -92,5 +92,5 @@ if __name__ == "__main__":
     try:
         main()
     except (OSError, ValueError) as error:
-        print("ocrun-server: " + str(error), file=sys.stderr)
+        print("bits-center-runtime: " + str(error), file=sys.stderr)
         sys.exit(1)
