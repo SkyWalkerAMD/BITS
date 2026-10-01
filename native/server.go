@@ -127,7 +127,13 @@ func (s *Server) operator(w http.ResponseWriter,r *http.Request)error{
 	}
 	if path=="overview"&&r.Method=="GET"{
 		nodes,err:=s.Store.Nodes();if err!=nil{return err};batches,err:=s.Store.Batches("");if err!=nil{return err}
-		respond(w,map[string]any{"nodes":nodes,"batches":batches,"tools":Tools,"version":Version,"time":UTC()});return nil
+		summary:=[]map[string]any{}
+		for _,b:=range batches{
+			result:=b.Result;result.Steps=nil
+			summary=append(summary,map[string]any{"id":b.ID,"state":b.State,"created_at":b.Created,
+				"plan":map[string]string{"node":b.Plan.Node,"label":b.Plan.Label},"step_count":len(b.Plan.Steps),"result":result})
+		}
+		respond(w,map[string]any{"nodes":nodes,"batches":summary,"tools":Tools,"version":Version,"time":UTC()});return nil
 	}
 	if path=="nodes"&&r.Method=="POST"{
 		var in struct{ID string "json:\"id\"";Serial string "json:\"serial\"";KeepOn bool "json:\"keep_on\""}

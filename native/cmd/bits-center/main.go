@@ -60,6 +60,7 @@ func run()error{
 	path,method:="/api/v1/overview","GET";var input any
 	switch action{
 	case "status":
+		if *batch!=""{path="/api/v1/batches/"+*batch}
 	case "node-add":
 		if *output==""{return errors.New("--output is required; node credentials are never printed")}
 		if _,e:=os.Lstat(*output);e==nil{return errors.New("existing output retained")}

@@ -194,6 +194,7 @@
     "native/ci/cloud.sh",
     "native/ci/Dockerfile",
     "native/ci/image.sh",
+    "native/ci/interface_tests.py",
     "native/ci/licenses.py",
     "native/client.go",
     "native/cmd/bits-center/main.go",

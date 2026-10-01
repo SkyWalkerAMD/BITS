@@ -186,7 +186,8 @@ def execute(directory, value):
                 break
             CURRENT.update({"label": step["id"] + " " + step["tool"], "step_id": step["id"]})
             profile = suite.prepare(profile, work / step["id"])
-            record = {"id": step["id"], "name": step["tool"], "runtime_s": step["seconds"]}
+            record = {"id": step["id"], "name": step["tool"], "runtime_s": step["seconds"],
+                      "binary": profile["binary"], "binary_sha256": common.file_hash(Path(profile["binary"]))["sha256"]}
             state["steps"].append(record)
 
             def save_step(event):

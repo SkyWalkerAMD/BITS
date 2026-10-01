@@ -101,6 +101,7 @@ jobs:
           mkdir -p .independent-results
           docker logs bits-independent-test > .independent-results/boot.txt 2>&1 || true
           docker rm -f bits-independent-test || true
+          sudo chown -R "$(id -u):$(id -g)" .independent-results
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with: {name: 'independent-test-${{ matrix.label }}-${{ github.run_id }}', path: .independent-results/, include-hidden-files: true, retention-days: 30}

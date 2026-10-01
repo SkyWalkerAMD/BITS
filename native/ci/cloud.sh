@@ -18,4 +18,7 @@ for attempt in $(seq 1 60); do
 done
 docker exec bits-independent-test test -d /run/systemd/system
 address=$(docker inspect bits-independent-test --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
+if [[ $BASE_IMAGE == rockylinux/rockylinux:8 || $BASE_IMAGE == ubuntu:22.04 ]]; then
+    docker exec -e GITHUB_ACTIONS=true bits-independent-test python3 -I -B /src/native/ci/interface_tests.py 2>&1 | tee .independent-results/interface-tests.txt
+fi
 docker exec -e GITHUB_ACTIONS=true bits-independent-test python3 -I -B /src/native/ci/acceptance.py "$address" 2>&1 | tee .independent-results/test.txt

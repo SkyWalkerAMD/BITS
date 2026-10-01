@@ -25,7 +25,7 @@ function render(){
   $("node-list").replaceChildren(...snapshot.nodes.map(n=>{const d=el("div",undefined,"node-card");d.append(el("strong",n.id));const seen=n.last_seen&&Date.now()-Date.parse(n.last_seen)<20000;d.append(el("span",seen?"连接在线":"未连接 / 状态过期","badge "+(seen?"good":"")),el("p",n.last_seen?"最后联系："+new Date(n.last_seen).toLocaleString():"下载连接文件后，在节点登记并启动服务","muted"));return d;}));
   if(!snapshot.nodes.length)$("node-list").append(el("p","还没有节点。先添加节点并下载专属连接文件。","empty"));
   $("batch-list").replaceChildren(...snapshot.batches.map(b=>{
-    const tr=el("tr"),title=el("td");title.append(el("strong",b.plan.label),el("small",b.plan.node+" · "+b.plan.steps.length+" 个步骤"));tr.append(title);
+    const tr=el("tr"),title=el("td");title.append(el("strong",b.plan.label),el("small",b.plan.node+" · "+b.step_count+" 个步骤"));tr.append(title);
     for(const value of [b.state,b.result.execution,b.result.quality,b.result.report]){const td=el("td");td.append(badge(value));tr.append(td);}
     const ops=el("td");
     ops.append(button("详情",async()=>{selected=b.id;await detail(b.id);}));

@@ -80,8 +80,8 @@ def main():
             "if os.path.exists('/root/bits-ci-provider-deny'): sys.exit(10)\n"
             "if args==['mon','--json']:\n"
             " time.sleep(0.2); print(" + repr(json.dumps(sample)) + ")\n"
-            "elif args==['mon','--cols=1']: print(" + repr(OVERVIEW) + ")\n"
-            "elif args==['info']: print(" + repr(INFO) + ")\n"
+            "elif args==['mon','--cols=1']: sys.stdout.buffer.write(" + repr(OVERVIEW.encode("utf-8")) + ")\n"
+            "elif args==['info']: sys.stdout.buffer.write(" + repr(INFO.encode("utf-8")) + ")\n"
             "else: sys.exit(87)\n")
     write("/usr/bin/sckocp", fake, 0o755)
     write("/root/bits-ci-provider-calls.jsonl", "")
@@ -148,6 +148,16 @@ def main():
     api("batches/" + cancelled["id"] + "/cancel", {"reason": "Isolated cancellation verification"})
     cancel_result = wait_batch(cancelled["id"], "delivered")
     assert cancel_result["result"]["execution"] == "interrupted", cancel_result
+    interrupted = new_batch("CLOUD-SERVICE-INTERRUPT", [("stress", 40)])
+    api("batches/" + interrupted["id"] + "/start", {})
+    wait_batch(interrupted["id"], "running")
+    time.sleep(3)
+    run("systemctl", "stop", "bits-node")
+    run("systemctl", "start", "bits-node")
+    interrupted = wait_batch(interrupted["id"], "delivered")
+    assert interrupted["result"]["execution"] == "interrupted", interrupted
+    assert len(interrupted["result"]["steps"]) == 1
+    assert interrupted["result"]["steps"][0]["cleanup_confirmed"]
     calls = [json.loads(line) for line in Path("/root/bits-ci-provider-calls.jsonl").read_text().splitlines()]
     assert calls and all(call in [["mon", "--json"], ["mon", "--cols=1"], ["info"]] for call in calls)
     run("systemctl", "stop", "bits-node")
@@ -171,6 +181,7 @@ def main():
     summary = {"status": "passed", "version": "0.4.0-alpha.1", "python": sys.version,
         "os": Path("/etc/os-release").read_text(), "batch": finished["id"],
         "normal_steps": finished["result"]["steps"], "cancel_execution": cancel_result["result"]["execution"],
+        "service_restart_execution": interrupted["result"]["execution"],
         "sckocp": "synthetic fixed mon/info only; Primary-filter tested",
         "services": "real systemd, HTTPS, SQLite; no Redis/rsync",
         "native_authorization_denial": "no workload, no permission-management call",
