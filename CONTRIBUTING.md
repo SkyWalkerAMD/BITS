@@ -14,7 +14,7 @@
 
 ## 发布
 
-使用 **OCRUN integrated distribution** 或 **Original OCRUN system enhancement**。清单关联实际测试提交、版本和包哈希。目录整理不重写已有 tag 或替换 Release 附件；验证重建包不作为同版本正式更新分发。
+使用 **BITS integrated distribution** 或 **BITS-o legacy enhancement packages**。清单关联实际测试提交、版本和包哈希。目录整理不重写已有 tag 或替换 Release 附件；验证重建包不作为同版本正式更新分发。
 
 客户源码严格按 `distribution/customer-sources.json` 导出。新生产文件需同步审阅；禁止整仓库归档、通配目录、链接、凭据及 `research/`、`ci/`、`drafts/` 进入客户包。调整文档位置时保留包内兼容文件名。
 

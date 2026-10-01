@@ -6,9 +6,9 @@
 
 | 场景 | 发布包 | 操作说明 |
 | --- | --- | --- |
-| 新服务器部署整套系统 | [BITS 0.3.0：管理端与节点 RPM/DEB](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.3.0) | [完整系统部署](docs/deployment/BITS.md) |
+| 新服务器部署整套系统 | [BITS 0.3.0：管理端与节点 RPM/DEB](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.3.0) | [完整系统部署](docs/deployment/DISTRIBUTION.md) |
 | 旧 OCRUN 增加功能，保留 ws/occt | [BITS-o 0.2.0：控制端与节点 RPM/DEB](https://github.com/SkyWalkerAMD/BITS/releases/tag/bits-o-v0.2.0) | [旧系统增强套件](docs/deployment/BITS.md) |
-| 第三方程序读取本机监控 | [sckocp-api 0.4.0 独立安装器](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.2.4/sckocp-api-0.4.0.run) | [接口操作手册](docs/monitoring/SCKOCP-API-操作手册.md) |
+| 第三方程序读取本机监控 | [sckocp-api 0.4.0 独立安装器](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.3.0/sckocp-api-0.4.0.run) | [接口操作手册](docs/monitoring/SCKOCP-API-操作手册.md) |
 
 节点工具包括 stress 1.0.7、stress-ng 0.22.01、mprime 30.19b20（m1/m2/m4）、MLC 3.13、MBW 2.0、cyclictest 2.10、UnixBench 6.0.1。SPEC CPU2017 使用用户持有的原授权文件。[工具版本与命令](docs/workloads/MANUAL.md)。
 
@@ -17,7 +17,7 @@
 ## 常用文档
 
 - [全部文档导航](docs/README.md)：部署、插件、节点、监控、报表、工具、安全及历史。
-- [节点任务、状态和失败恢复](docs/node/OPERATIONS.md)。
+- [完整节点任务、状态和失败恢复](docs/deployment/DISTRIBUTION.md)；[旧系统增强操作](docs/deployment/BITS.md)。
 - [机器压测报告与交付文件](docs/reports/ACCEPTANCE-REPORT.md)。
 - [0.3 迁移与回滚](docs/deployment/MIGRATION-0.3.md)。
 - [开发与云端验证](CONTRIBUTING.md)。

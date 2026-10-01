@@ -9,15 +9,15 @@
 | 目录、文档、构建输入 | Repository layout and packaging | 文档链接、基线文件、源码导出边界；真实构建完整系统和旧系统 RPM/DEB |
 | 接口、采集、兼容安装 | Cloud Linux validation | 公开源码保留 6 项兼容回归；原生 1.1/1.2 模拟仅在私有归档 |
 | 接口安全 | Independent API security regression | 12 系统的接口安装、升级及安全回归 |
-| 完整系统 | OCRUN integrated distribution | 固定工具、服务器服务、原生安装包、12 系统流程及发行归档 |
-| 旧系统增强 | Original OCRUN system enhancement | 默认 Rocky 8 / Ubuntu 22；full_matrix 扩展到 12 系统并汇总归档 |
+| 完整系统 | BITS integrated distribution | 固定工具、服务器服务、原生安装包、12 系统流程及发行归档 |
+| 旧系统增强 | BITS-o legacy enhancement packages | 默认 Rocky 8 / Ubuntu 22；full_matrix 扩展到 12 系统并汇总归档 |
 | 节点执行及报表 | Offline node task finalization / Offline report supplement | Python 3.6 离线安装、失败恢复、旧节点升级与报表 |
 | 单独组件 | Original controller read-only plugin / Original-protocol server deployment matrix / Version-pinned workload RPM and DEB | 对应组件构建和验收 |
 | 原生安全研究 | 私有仓库专用 | 不在公开仓库提供实现、签名夹具或编译产物 |
 | 独立内核、报告版式 | Server native-kernel VM acceptance / Acceptance report print review | 按具体参数执行，不能用容器结果替代 |
 | 发布附件 | Publish verified distribution draft | 仅汇总已验证的源码和附件；人工检查后发布 |
 
-在 [Actions](https://github.com/SkyWalkerAMD/ocrun-next/actions) 选择工作流和目标分支。结果必须记录源码提交、实际运行链接与范围；未启动、跳过和阻塞均不能算通过。目录整理重建的同版本包只用于回归，不覆盖现有 Release。
+在[私有验证仓库的 Actions](https://github.com/SkyWalkerAMD/ocrun-next-private-archive/actions) 选择工作流和目标分支；公开 BITS 镜像的 Actions 保持关闭。结果必须记录源码提交、实际运行链接与范围；未启动、跳过和阻塞均不能算通过。目录整理重建的同版本包只用于回归，不覆盖现有 Release。
 
 Cloud Linux validation 的可选 distro_matrix 是早期 Agent 的 8 系统依赖检查，包含 CentOS 7.9 和 Ubuntu 20.04；**它不是当前完整系统 12 系统矩阵**。当前完整系统与旧插件针对 x86-64 Rocky/AlmaLinux 8/9/10、Debian 11/12/13、Ubuntu 22.04/24.04/26.04。
 
