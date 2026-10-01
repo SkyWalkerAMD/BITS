@@ -303,7 +303,11 @@ func (s *Server) advanceBoot(ctx context.Context, b Batch) {
 		s.bootFailure(b.ID, "节点不存在或已禁用")
 		return
 	}
-	if freshHeartbeat(seen) {
+	heartbeatAt, _ := time.Parse(time.RFC3339Nano, seen)
+	requestedAt, _ := time.Parse(time.RFC3339Nano, b.Power.RequestedAt)
+	currentPower := s.power.Snapshot()[b.Plan.Node]
+	connected := availability(Node{ID: b.Plan.Node, LastSeen: seen}, "", currentPower).AgentOnline
+	if connected && heartbeatAt.After(requestedAt) {
 		s.Store.Mutate(b.ID, "boot_agent_connected", func(v *Batch) error {
 			if v.State == "waiting_boot" && !v.Cancel {
 				v.State = "armed"

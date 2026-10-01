@@ -279,6 +279,38 @@ func TestPowerOffWakeAgentAndCancellation(t *testing.T) {
 		t.Fatal("cancelled boot powered node")
 	}
 }
+func TestNewerPowerOffSupersedesHeartbeat(t *testing.T) {
+	now := time.Now().UTC()
+	n := Node{ID: "N1", LastSeen: now.Add(-5 * time.Second).Format(time.RFC3339Nano)}
+	p := PowerStatus{Configured: true, Binding: "fixture", State: "off", Checked: now.Add(-time.Second).Format(time.RFC3339Nano)}
+	a := availability(n, "", p)
+	if a.State != "wakeable" || a.AgentOnline {
+		t.Fatal("stale heartbeat hid newer power-off", a)
+	}
+	n.LastSeen = now.Format(time.RFC3339Nano)
+	if a = availability(n, "", p); a.State != "ready" {
+		t.Fatal("new heartbeat ignored", a)
+	}
+	server, f, b := bootFixture(t)
+	before, _ := time.Parse(time.RFC3339Nano, b.Power.RequestedAt)
+	if _, err := server.Store.db.Exec("UPDATE nodes SET last_seen=? WHERE id='N1'", before.Add(-time.Second).Format(time.RFC3339Nano)); err != nil {
+		t.Fatal(err)
+	}
+	server.advanceBoot(context.Background(), b)
+	current, _ := server.Store.Batch(b.ID)
+	if f.calls != 1 || current.State != "waiting_boot" {
+		t.Fatal("pre-dispatch heartbeat accepted as boot completion")
+	}
+	if err := server.Store.Heartbeat("N1", Version); err != nil {
+		t.Fatal(err)
+	}
+	server.power.probe(context.Background(), server.power.bindings["N1"])
+	server.advanceBoot(context.Background(), current)
+	current, _ = server.Store.Batch(b.ID)
+	if current.State != "waiting_boot" || f.calls != 1 {
+		t.Fatal("newer power-off ignored during boot wait")
+	}
+}
 func TestPowerTimeoutUnreachableAndAmbiguousRestart(t *testing.T) {
 	for _, mode := range []string{"timeout", "unreachable", "ambiguous"} {
 		t.Run(mode, func(t *testing.T) {

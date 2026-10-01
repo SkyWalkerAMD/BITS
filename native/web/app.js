@@ -1763,7 +1763,9 @@ function renderMonitor() {
   replace(root, ...items);
 }
 function render() {
-	$("create-label").textContent = ["dispatch", "group"].includes(page) ? "新建任务组" : "新建批次";
+  $("create-label").textContent = ["dispatch", "group"].includes(page)
+    ? "新建任务组"
+    : "新建批次";
   $("version").textContent =
     "BITS " + (snapshot.version || "") + " · 独立架构预览";
   $("nav-node-count").textContent = snapshot.nodes.length;
@@ -2095,7 +2097,10 @@ $("batch-back").onclick = () => {
   renderWizard();
 };
 $("add-step").onclick = () => addStep();
-$("create").onclick = () => ["dispatch", "group"].includes(page) ? newGroup().catch(e=>notice(e.message,true)) : newBatch();
+$("create").onclick = () =>
+  ["dispatch", "group"].includes(page)
+    ? newGroup().catch((e) => notice(e.message, true))
+    : newBatch();
 $("guide-create").onclick = () => newBatch();
 $("enroll").onclick = () => {
   $("node-error").textContent = "";

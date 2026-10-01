@@ -120,6 +120,11 @@ func freshHeartbeat(seen string) bool {
 }
 func availability(n Node, active string, power PowerStatus) Availability {
 	a := Availability{Node: n.ID, State: "unreachable", Power: power, AgentOnline: freshHeartbeat(n.LastSeen), Active: active, Reason: "系统未连接；未接电或管理网络故障等原因尚未确认"}
+	seen, _ := time.Parse(time.RFC3339Nano, n.LastSeen)
+	checked, _ := time.Parse(time.RFC3339Nano, power.Checked)
+	if power.Fresh() && power.State == "off" && checked.After(seen) {
+		a.AgentOnline = false // A newer confirmed power-off supersedes the last heartbeat.
+	}
 	switch {
 	case n.Disabled:
 		a.State = "disabled"

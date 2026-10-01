@@ -21,7 +21,7 @@ import (
 func show(v any) { b, _ := json.MarshalIndent(v, "", "  "); fmt.Println(string(b)) }
 func run() error {
 	if len(os.Args) < 2 {
-		return errors.New("use bits-center setup | serve | network | status | node-add | batch-add | start | cancel")
+		return errors.New("use bits-center setup | serve | network | status | node-add | batch-add | start | cancel | dispatch-nodes | group-add | group-start | group-cancel | bmc-import")
 	}
 	action := os.Args[1]
 	if action == "version" || action == "--version" {
