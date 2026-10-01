@@ -6,20 +6,20 @@
 
 | 场景 | 发布包 | 操作说明 |
 | --- | --- | --- |
-| 新服务器部署整套系统 | [BITS 0.2.4：管理端与节点 RPM/DEB](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.2.4) | [完整系统部署](docs/deployment/BITS.md) |
+| 新服务器部署整套系统 | [BITS 0.2.5：管理端与节点 RPM/DEB](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.2.5) | [完整系统部署](docs/deployment/BITS.md) |
 | 旧 OCRUN 增加功能，保留 ws/occt | [BITS-o 0.1.2：控制端与节点 RPM/DEB](https://github.com/SkyWalkerAMD/BITS/releases/tag/bits-o-v0.1.2) | [旧系统增强套件](docs/deployment/BITS.md) |
 | 第三方程序读取本机监控 | [sckocp-api 0.4.0 独立安装器](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.2.4/sckocp-api-0.4.0.run) | [接口操作手册](docs/monitoring/SCKOCP-API-操作手册.md) |
 
 节点工具包括 stress 1.0.7、stress-ng 0.22.01、mprime 30.19b20（m1/m2/m4）、MLC 3.13、MBW 2.0、cyclictest 2.10、UnixBench 6.0.1。SPEC CPU2017 使用用户持有的原授权文件。[工具版本与命令](docs/workloads/MANUAL.md)。
 
-此前 OCRUN 已发布包的云端验收覆盖 x86-64 的 Rocky/AlmaLinux 8/9/10、Debian 11/12/13、Ubuntu 22.04/24.04/26.04。RHEL、其他架构和真实硬件需另行验收。[版本与验证记录](docs/releases/README.md)。
+BITS 0.2.5 的云端验收覆盖 x86-64 的 Rocky/AlmaLinux 8/9/10、Debian 11/12/13、Ubuntu 22.04/24.04/26.04。管理端可用 `bits-center network` 查看现有地址、`bits-center setup --auto --check` 预检自动配置，保留现有网卡 IP、网关与 DNS。RHEL、其他架构和真实硬件需另行验收。[版本与验证记录](docs/releases/README.md)。
 
 ## 常用文档
 
 - [全部文档导航](docs/README.md)：部署、插件、节点、监控、报表、工具、安全及历史。
 - [节点任务、状态和失败恢复](docs/node/OPERATIONS.md)。
 - [机器压测报告与交付文件](docs/reports/ACCEPTANCE-REPORT.md)。
-- [升级与回滚](docs/releases/0.2.4.md)。
+- [升级与回滚](docs/releases/0.2.5.md)。
 - [开发与云端验证](CONTRIBUTING.md)。
 
 ## 仓库地图
