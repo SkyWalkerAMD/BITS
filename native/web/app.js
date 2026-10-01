@@ -2247,6 +2247,25 @@ $("navigation-toggle").onclick = () => {
 };
 $("navigation-close").onclick = () => $("navigation-dialog").close();
 $("navigation-dialog").addEventListener("close", navigation);
+$("navigation-dialog").addEventListener("keydown", (e) => {
+  if (e.key !== "Tab") return;
+  const items = Array.from(
+    e.currentTarget.querySelectorAll(
+      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter((item) => item.getClientRects().length);
+  const first = items[0],
+    last = items[items.length - 1];
+  if (!first) return;
+  if (
+    !items.includes(document.activeElement) ||
+    (e.shiftKey && document.activeElement === first) ||
+    (!e.shiftKey && document.activeElement === last)
+  ) {
+    e.preventDefault();
+    (e.shiftKey ? last : first).focus();
+  }
+});
 $("navigation-dialog").addEventListener("click", (e) => {
   if (e.target === $("navigation-dialog")) $("navigation-dialog").close();
 });

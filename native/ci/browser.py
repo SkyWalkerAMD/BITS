@@ -167,10 +167,13 @@ with sync_playwright() as p:
         page.keyboard.press("Escape")
         expect(page.locator("#navigation-dialog")).not_to_be_visible()
         expect(page.locator("#navigation-toggle")).to_be_focused()
-        # Native modal focus containment also prevents background operations.
+        # Both directions stay within the drawer, including at its last link.
         page.locator("#navigation-toggle").click()
         for _ in range(9):
             page.keyboard.press("Tab")
+            assert page.evaluate("document.getElementById('navigation-dialog').contains(document.activeElement)")
+        for _ in range(9):
+            page.keyboard.press("Shift+Tab")
             assert page.evaluate("document.getElementById('navigation-dialog').contains(document.activeElement)")
         page.locator("#navigation-close").click()
         checks.append("mobile drawer retains every navigation label, traps focus and closes with Escape")
@@ -317,7 +320,6 @@ with sync_playwright() as p:
             expect(page.locator("#logout")).to_be_in_viewport()
         page.set_viewport_size({"width":1440,"height":1080})
         page.unroute("**/api/v1/overview", archives)
-        page.locator("#batch-search").fill("")
         page.locator("#report-search").fill("BROWSER-LIVE")
         page.locator("#refresh").click()
         expect(page.locator("#report-list .report-card")).to_have_count(1, timeout=15000)
