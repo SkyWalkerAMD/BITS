@@ -126,7 +126,7 @@ def main():
         if action == '--check':
             assert not Path('/etc/ocrun-node/connection.json').exists()
     sys.argv = previous_args
-    sys.path[:0] = ['/src/finish_addon', '/src/sckocp_api']
+    sys.path[:0] = ['/src/bits_core/batch', '/src/sckocp_api', '/src']
     import importlib.util
     spec = importlib.util.spec_from_file_location('authenticated_original_queue', '/src/bits_core/batch/queue.py')
     node_queue = importlib.util.module_from_spec(spec)

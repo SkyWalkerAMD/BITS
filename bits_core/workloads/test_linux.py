@@ -14,7 +14,7 @@ import time
 import unittest
 from unittest import mock
 
-sys.path[:0] = ['/src/workload_suite', '/src/finish_addon', '/src/sckocp_api', '/src']
+sys.path[:0] = ['/src/bits_core/workloads', '/src/bits_core/batch', '/src/sckocp_api', '/src']
 import suite
 import workload
 import cli as suite_cli

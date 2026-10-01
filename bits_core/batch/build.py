@@ -34,7 +34,7 @@ def main():
         from bits_core.packaging import write_layout
         write_layout(payload)
         for name in ("install.py", "install.sh", "README.md"):
-            source = ROOT / ('docs/node/OPERATIONS.md' if name == 'README.md' else 'finish_addon/' + name)
+            source = ROOT / ('docs/node/OPERATIONS.md' if name == 'README.md' else 'bits_core/batch/' + name)
             shutil.copyfile(str(source), str(stage / name))
         ocb = (ROOT / "integrations/mon-sensors/upstream-0.9.24a/ocb").read_bytes().replace(b"\r\n", b"\n")
         ocb = ocb.replace(b'grep -e "mon_sensors"', b"grep -E 'mon[-_]sensors'")

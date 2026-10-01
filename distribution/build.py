@@ -144,7 +144,7 @@ def node_stage(stage, tools, report):
         provenance = json.loads((Path(temporary) / 'payload/PROVENANCE.json').read_text())
         put(root / 'REPORT-SOURCE.json', json.dumps([v for v in provenance if v['project'] == 'XlsxWriter']))
     for name in ('__init__.py', 'connection.py', 'safe.py', 'tasks.py', 'wire.py'):
-        copy(SOURCE / 'bits_core/center' / name, root / 'center-code/server_deploy' / name)
+        copy(SOURCE / 'bits_core/center' / name, root / 'center-code/bits_core/center' / name)
     template(root)
     write_layout(root, native=True)
     put(stage / 'usr/libexec/bits-report', launch(NODE + '/report.py'), True)
