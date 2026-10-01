@@ -32,6 +32,16 @@ with sync_playwright() as p:
             page.wait_for_timeout(1000)
         raise AssertionError(value)
 
+    def wait_live(minimum):
+        # Observe rendered state without eval-based polling. Production CSP
+        # intentionally refuses unsafe-eval and must stay enforced here.
+        for _ in range(90):
+            sequence = int(page.locator("#detail-body").get_attribute("data-live-sequence") or 0)
+            if sequence >= minimum:
+                return sequence
+            page.wait_for_timeout(500)
+        raise AssertionError("live DOM sequence did not advance")
+
     try:
         page.goto(admin["url"])
         page.locator("#login-token").fill(admin["token"])
@@ -73,11 +83,10 @@ with sync_playwright() as p:
         checks.append("three-stage wizard saves draft without dispatch")
         page.locator("#detail-body").get_by_role("button", name="开始压测", exact=True).click()
         page.locator("#confirm-submit").click()
-        page.wait_for_function("detailFrame && detailFrame.sample && detailFrame.sample.sequence >= 4", timeout=45000)
-        initial_sequence = page.evaluate("detailFrame.sample.sequence")
-        initial_elapsed = page.evaluate("detailFrame.elapsed_s")
-        page.wait_for_function("detailFrame.sample.sequence > " + str(initial_sequence), timeout=12000)
-        assert page.evaluate("detailFrame.elapsed_s") > initial_elapsed
+        initial_sequence = wait_live(4)
+        initial_elapsed = float(page.locator("#detail-body").get_attribute("data-elapsed"))
+        wait_live(initial_sequence + 1)
+        assert float(page.locator("#detail-body").get_attribute("data-elapsed")) > initial_elapsed
         expect(page.locator("#detail-body")).to_contain_text("整机 PSU 输入")
         page.screenshot(path=str(out / "batch-running.png"), full_page=True)
         checks.append("explicit start, advancing live samples and actual step elapsed")
@@ -100,7 +109,7 @@ with sync_playwright() as p:
         checks.append("browser disconnect and recovery feedback")
         page.set_viewport_size({"width":1440, "height":1080})
         page.goto(admin["url"] + "/#batch/" + batch_id)
-        page.wait_for_function("detailFrame && detailFrame.sample")
+        wait_live(1)
         # A fresh status pulse must not disguise a stale measurement.
         def stale(route):
             response = route.fetch()

@@ -35,7 +35,36 @@ class DataOnlyBoundary(unittest.TestCase):
             invocation.assert_not_called()
 
 
+worker_spec = importlib.util.spec_from_file_location("bits_native_worker_for_test",
+    "/opt/bits/native/0.4.0-alpha.2/worker/worker.py")
+worker = importlib.util.module_from_spec(worker_spec)
+worker_spec.loader.exec_module(worker)
+
+
+class LiveProjection(unittest.TestCase):
+    def test_denial_never_reuses_previous_display_metrics(self):
+        record = {"sequence": 4, "observed_at": "2026-01-01T00:00:00Z",
+                  "provider": {"status": "license_required", "data": {"pkg_w": 999}}}
+        observed = worker.live_sample(record, {"data": {"private": "stale"}})
+        self.assertEqual({"sequence": 4, "observed_at": record["observed_at"],
+                          "available": False}, observed)
+
+    def test_missing_socket_is_not_a_whole_machine_total(self):
+        record = {"sequence": 1, "observed_at": "2026-01-01T00:00:00Z",
+                  "os": {"load1": 0}, "provider": {"status": "ok", "data": {
+                    "sockets": [{"pkg_w": 100}, {"pkg_w": None}],
+                    "cores": [{"mhz": 2000}, {"mhz": 3000}],
+                    "private": "not-for-output"}}}
+        observed = worker.live_sample(record, None)
+        self.assertIsNone(observed["package_w"])
+        self.assertIsNone(observed["temp_c"])
+        self.assertEqual(2500, observed["mhz"])
+        self.assertNotIn("not-for-output", json.dumps(observed))
+        self.assertNotIn("psu_w", observed)
+
+
 suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(DataOnlyBoundary))
+suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(LiveProjection))
 for name in ("test_sckocp_public_api", "test_sckocp_security", "test_sckocp_details"):
     suite.addTests(unittest.defaultTestLoader.loadTestsFromName(name))
 result = unittest.TextTestRunner(verbosity=2).run(suite)
