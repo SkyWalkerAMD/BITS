@@ -51,6 +51,8 @@ func run() error {
 	tasks := f.String("steps", "", "comma-separated tool=seconds, repeats allowed")
 	output := f.String("output", "", "private node enrollment file")
 	reason := f.String("reason", "", "cancellation/closure reason")
+	group := f.String("group", "", "multi-node task group ID")
+	inputFile := f.String("file", "", "private JSON input; stable request_id permits safe retry")
 	if err := f.Parse(os.Args[2:]); err != nil {
 		return err
 	}
@@ -77,7 +79,13 @@ func run() error {
 			return e
 		}
 		defer store.Close()
-		server := bits.NewServer(store, cfg).HTTPServer()
+		handler := bits.NewServer(store, cfg)
+		if e = handler.LoadPower(); e != nil { return e }
+		dispatchCtx, stopDispatch := context.WithCancel(context.Background())
+		dispatchDone:=make(chan struct{})
+		go func(){defer close(dispatchDone);handler.RunDispatch(dispatchCtx)}()
+		defer func(){stopDispatch();<-dispatchDone}()
+		server := handler.HTTPServer()
 		stop := make(chan os.Signal, 1)
 		signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
 		go func() {
@@ -106,6 +114,19 @@ func run() error {
 	case "status":
 		if *batch != "" {
 			path = "/api/v1/batches/" + *batch
+		}
+		if *group != "" { path = "/api/v1/dispatch/groups/"+*group }
+	case "dispatch-nodes":
+		path = "/api/v1/dispatch/nodes"
+	case "group-add", "group-start", "group-cancel", "bmc-import":
+		var value map[string]any
+		if err=bits.ReadCredential(*inputFile,&value);err!=nil{return err}
+		input=value;method="POST"
+		switch action {
+		case "group-add": path="/api/v1/dispatch/groups"
+		case "group-start": path="/api/v1/dispatch/groups/"+*group+"/start"
+		case "group-cancel": path="/api/v1/dispatch/groups/"+*group+"/cancel"
+		case "bmc-import": path="/api/v1/dispatch/bmc"
 		}
 	case "node-add":
 		if *output == "" {

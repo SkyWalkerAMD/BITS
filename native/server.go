@@ -57,10 +57,11 @@ type Server struct {
 	uploads  sync.Map
 	slots    chan struct{}
 	live     *LiveCache
+	power    *PowerManager
 }
 
 func NewServer(store *Store, cfg CenterConfig) *Server {
-	return &Server{Store: store, Config: cfg, sessions: map[string]time.Time{}, logins: map[string][]time.Time{}, slots: make(chan struct{}, 64), live: NewLiveCache()}
+	return &Server{Store: store, Config: cfg, sessions: map[string]time.Time{}, logins: map[string][]time.Time{}, slots: make(chan struct{}, 64), live: NewLiveCache(), power:newPowerManager(cfg.Data)}
 }
 func respond(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -207,7 +208,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		err = s.node(w, r, node)
-	} else if r.Method == "GET" && (r.URL.Path == "/" || r.URL.Path == "/app.js" || r.URL.Path == "/style.css") {
+	} else if r.Method == "GET" && (r.URL.Path == "/" || r.URL.Path == "/app.js" || r.URL.Path == "/dispatch.js" || r.URL.Path == "/style.css") {
 		sub, _ := fs.Sub(webFiles, "web")
 		http.FileServer(http.FS(sub)).ServeHTTP(w, r)
 		return
@@ -223,6 +224,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 	path := strings.TrimPrefix(r.URL.Path, "/api/v1/")
+	if strings.HasPrefix(path,"dispatch/") { return s.dispatchAPI(w,r,strings.TrimPrefix(path,"dispatch/")) }
 	if path == "live" && r.Method == "GET" {
 		respond(w, map[string]any{"frames": s.live.Snapshot(""), "time": UTC()})
 		return nil
@@ -252,7 +254,7 @@ func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 			result.Steps = nil
 			summary = append(summary, map[string]any{"id": b.ID, "state": b.State, "created_at": b.Created,
 				"plan": map[string]string{"node": b.Plan.Node, "label": b.Plan.Label}, "step_count": len(b.Plan.Steps), "result": result,
-				"budget_s": planSeconds(b.Plan), "cancel_requested": b.Cancel, "receipt_sha256": b.ReceiptSHA})
+				"budget_s": planSeconds(b.Plan), "cancel_requested": b.Cancel, "receipt_sha256": b.ReceiptSHA, "group_id":b.GroupID})
 		}
 		respond(w, map[string]any{"nodes": nodes, "batches": summary, "tools": Tools, "version": Version, "time": UTC()})
 		return nil

@@ -352,13 +352,84 @@ with sync_playwright() as p:
         assert api("batches/" + copy_id)["state"] == "draft"
         checks.append("copy plan preserves explicit start boundary")
         checks.append("in-flight form cannot close or submit a duplicate; only one draft is created")
+        # Two-node dispatch: one real isolated Linux worker and one protocol-only
+        # peer. BMC wake/failure/restart behavior is exercised with Go fakes.
+        headers = {"X-BITS-Request":"1", "Content-Type":"application/json"}
+        peer_response = context.request.post(admin["url"] + "/api/v1/nodes", headers=headers,
+            data=json.dumps({"id":"GROUP-PEER", "serial":"SIMULATED-PEER", "keep_on":True}))
+        assert peer_response.ok, peer_response.status
+        peer = peer_response.json()
+        peer_headers = {"X-BITS-Node":peer["node"], "Authorization":"Bearer " + peer["token"], "X-BITS-Version":"browser-protocol-fixture"}
+        def peer_heartbeat():
+            response = context.request.get(admin["url"] + "/node/v1/heartbeat", headers=peer_headers)
+            assert response.ok
+        peer_heartbeat()
+        navigate("dispatch")
+        page.locator("#group-create").click()
+        page.locator("#group-label").fill("BROWSER-GROUP")
+        expect(page.get_by_role("checkbox", name="选择 LAB-002", exact=True)).to_be_disabled()
+        page.get_by_role("checkbox", name="选择 BITS-CLOUD", exact=True).check()
+        page.get_by_role("checkbox", name="选择 GROUP-PEER", exact=True).check()
+        expect(page.locator("#group-selection-count")).to_contain_text("已选 2")
+        page.locator("#group-next").click()
+        for box in page.locator("#group-steps input").all():
+            box.fill("2")
+        page.locator("#group-save-template").check()
+        page.locator("#group-next").click()
+        expect(page.locator("#group-review")).to_contain_text("2 台节点")
+        peer_heartbeat()
+        page.locator("#group-submit").click()
+        expect(page.locator("#group-body h2")).to_have_text("BROWSER-GROUP")
+        group_id = page.url.split("group/")[-1]
+        group = api("dispatch/groups/" + group_id)
+        assert group["counts"] == {"draft":2}
+        assert len(api("dispatch/templates")) == 1
+        checks.append("multi-node plan, offline node exclusion, immutable template and explicit draft")
+        peer_heartbeat()
+        page.locator("#group-body").get_by_role("button", name="确认分发并开始", exact=True).click()
+        expect(page.locator("#confirm-description")).to_contain_text("2 台")
+        page.locator("#confirm-submit").click()
+        for _ in range(20):
+            group = api("dispatch/groups/" + group_id)
+            if any(m["state"] != "draft" for m in group["members"]):
+                break
+            page.wait_for_timeout(500)
+        assert all(m["state"] != "draft" for m in group["members"])
+        actual = next(m for m in group["members"] if m["node"] == "BITS-CLOUD")
+        wait_batch(actual["id"], "delivered")
+        peer_heartbeat()
+        page.locator("#refresh").click()
+        expect(page.locator("#group-body")).to_contain_text("已核验交付")
+        page.get_by_role("checkbox", name="选择任务 GROUP-PEER", exact=True).check()
+        page.locator("#group-body").get_by_role("button", name="取消所选任务", exact=True).click()
+        page.locator("#confirm-reason").fill("protocol fixture cancelled without executing")
+        page.locator("#confirm-submit").click()
+        expect(page.locator("#group-body")).to_contain_text("已取消")
+        page.screenshot(path=str(out / "dispatch-group.png"), full_page=True)
+        assert len(api("dispatch/groups/" + group_id + "/operations")) == 2
+        checks.append("atomic two-node authorization, independent real result and selected cancellation with audit")
+        page.set_viewport_size({"width":390, "height":844})
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+        page.screenshot(path=str(out / "dispatch-mobile.png"), full_page=True)
+        page.set_viewport_size({"width":1440, "height":1080})
+        navigate("dispatch")
+        page.screenshot(path=str(out / "dispatch-workspace.png"), full_page=True)
+        page.locator("#group-create").click()
+        page.locator("#group-label").fill("REUSE-PLAN")
+        page.get_by_role("checkbox", name="选择 BITS-CLOUD", exact=True).check()
+        page.locator("#group-next").click()
+        saved_template = api("dispatch/templates")[0]
+        page.locator("#group-template").select_option(saved_template["id"])
+        assert [box.input_value() for box in page.locator("#group-steps input").all()] == ["2", "2"]
+        page.locator('#group-dialog button[data-close]').click()
+        checks.append("saved plan reuse and responsive task group results")
         page.locator("#logout").click()
         expect(page.locator("#login-dialog")).to_be_visible()
         assert not errors, errors
         checks.append("operator logout and no browser script errors")
     except BaseException:
         # Never screenshot an entered credential or connection-file contents.
-        if not page.locator("#login-dialog").is_visible():
+        if not page.locator("#login-dialog").is_visible() and not page.locator("#bmc-dialog").is_visible():
             page.screenshot(path=str(out / "browser-failure.png"), full_page=True)
         raise
     finally:

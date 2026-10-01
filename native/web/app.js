@@ -1,7 +1,8 @@
 "use strict";
 const $ = (id) => document.getElementById(id);
-const activeStates = ["armed", "running", "finishing"];
+const activeStates = ["waiting_boot", "armed", "running", "finishing"];
 const labels = {
+  waiting_boot: "开机 / 等待系统连接",
   draft: "待开始",
   armed: "等待节点接受",
   running: "执行中",
@@ -31,6 +32,8 @@ const labels = {
   terminated: "已停止",
 };
 const pageInfo = {
+  dispatch: ["任务分发", "DISPATCH WORKSPACE", "统一编排，按需开机，逐台跟进结果。"],
+  group: ["任务组详情", "GROUP WORKSPACE", "每台节点独立执行，所有结果集中跟进。"],
   overview: [
     "运行总览",
     "OPERATIONS OVERVIEW",
@@ -845,7 +848,8 @@ function openMonitor(id) {
 }
 function operationButtons(b) {
   const ops = el("div", undefined, "actions");
-  if (b.state === "draft")
+  if (b.group_id) ops.append(link("返回任务组", "#group/"+b.group_id));
+  if (b.state === "draft" && !b.group_id)
     ops.append(
       button(
         "开始压测",
@@ -860,7 +864,7 @@ function operationButtons(b) {
         "start-" + b.id,
       ),
     );
-  if (["draft", "armed", "running"].includes(b.state) && !b.cancel_requested)
+  if (["draft", "waiting_boot", "armed", "running"].includes(b.state) && !b.cancel_requested)
     ops.append(
       button(
         b.state === "draft" ? "取消草稿" : "取消压测",
@@ -941,7 +945,8 @@ function renderBatches() {
       }
       const td = el("td");
       td.append(button("详情 →", () => openBatch(b.id), "", "details-" + b.id));
-      if (b.state === "draft")
+      if (b.group_id) td.append(link("任务组", "#group/"+b.group_id));
+      if (b.state === "draft" && !b.group_id)
         td.append(
           button(
             "开始",
@@ -1757,6 +1762,7 @@ function render() {
   if (page === "reports") renderReports();
   if (page === "detail") renderDetail();
   if (page === "monitor") renderMonitor();
+  if (page === "dispatch" || page === "group") renderDispatch();
   if (restorePosition !== null && (!selected || detailData?.id === selected)) {
     window.scrollTo({ top: restorePosition, behavior: "instant" });
     restorePosition = null;
@@ -1766,12 +1772,12 @@ function render() {
 function route() {
   notice("");
   const hash = location.hash.slice(1),
-    detail = hash.match(/^(batch|monitor)\/([a-f0-9]{32})$/);
+    detail = hash.match(/^(batch|monitor|group)\/([a-f0-9]{32})$/);
   page = detail
-    ? detail[1] === "monitor"
+    ? detail[1] === "group" ? "group" : detail[1] === "monitor"
       ? "monitor"
       : "detail"
-    : Object.hasOwn(pageInfo, hash) && !["detail", "monitor"].includes(hash)
+    : Object.hasOwn(pageInfo, hash) && !["detail", "monitor", "group"].includes(hash)
       ? hash
       : "overview";
   const nextRouteKey = detail ? detail[0] : page;
@@ -1783,7 +1789,8 @@ function route() {
     restorePosition = routePositions.get(nextRouteKey) || 0;
     routeKey = nextRouteKey;
   }
-  selected = detail ? detail[2] : null;
+  selected = detail && page !== "group" ? detail[2] : null;
+  dispatchRoute(page === "group" ? detail[2] : null);
   if (selected && detailData?.id !== selected) {
     detailData = null;
     detailEvents = [];
@@ -1809,7 +1816,7 @@ function route() {
   document.querySelectorAll("[data-nav]").forEach((a) => {
     const match =
       a.dataset.nav ===
-      (page === "detail" ? "batches" : page === "monitor" ? "nodes" : page);
+      (page === "group" ? "dispatch" : page === "detail" ? "batches" : page === "monitor" ? "nodes" : page);
     a.classList.toggle("selected", match);
     if (match) a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");
@@ -1841,6 +1848,7 @@ async function sync(force = false) {
       snapshot = overview;
       lastOverview = Date.now();
     }
+    if (refreshOverview && (page === "dispatch" || page === "group")) await syncDispatch();
     frames = new Map(live.frames.map((v) => [v.node, v]));
     for (const f of live.frames) {
       if (!f.sample) continue;
@@ -1899,14 +1907,14 @@ function confirmAction(title, text, reason, fn, danger = false) {
   nextConfirm = fn;
   $("confirm-dialog").showModal();
 }
-function stepsValue() {
-  return [...$("steps").children].map((row) => ({
+function stepsValue(root = "steps") {
+  return [...$(root).children].map((row) => ({
     tool: row.querySelector("select").value,
     seconds: Number(row.querySelector("input").value),
   }));
 }
-function addStep(tool = "stress", seconds = 60) {
-  if ($("steps").children.length >= 128) return;
+function addStep(tool = "stress", seconds = 60, root = "steps") {
+  if ($(root).children.length >= 128) return;
   const row = el("div", undefined, "step-editor"),
     n = el("span", ""),
     label = el("label", "压测项目"),
@@ -1931,17 +1939,17 @@ function addStep(tool = "stress", seconds = 60) {
     "×",
     () => {
       row.remove();
-      renumber();
+      renumber(root);
     },
     "icon-button",
   );
   remove.setAttribute("aria-label", "移除此步骤");
   row.append(n, label, durationLabel, remove);
-  $("steps").append(row);
-  renumber();
+  $(root).append(row);
+  renumber(root);
 }
-function renumber() {
-  [...$("steps").children].forEach(
+function renumber(root = "steps") {
+  [...$(root).children].forEach(
     (row, i) => (row.firstChild.textContent = String(i + 1).padStart(2, "0")),
   );
 }
@@ -2296,6 +2304,7 @@ window.addEventListener("offline", () => {
   render();
 });
 decorate();
+initializeDispatch();
 navigation();
 route();
 sync(true);

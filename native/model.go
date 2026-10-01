@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const Version = "0.4.0-alpha.4"
+const Version = "0.4.0-alpha.5"
 
 var nameRE = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$")
 var idRE = regexp.MustCompile("^[0-9a-f]{32}$")
@@ -58,6 +58,8 @@ type Batch struct {
 	Cancel     bool                "json:\"cancel_requested\""
 	Artifacts  map[string]Artifact "json:\"artifacts,omitempty\""
 	ReceiptSHA string              "json:\"receipt_sha256,omitempty\""
+	Power      *PowerAttempt       `json:"power,omitempty"`
+	GroupID    string              `json:"group_id,omitempty"`
 }
 type Node struct {
 	ID       string "json:\"id\""

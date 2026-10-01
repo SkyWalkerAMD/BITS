@@ -41,7 +41,7 @@ func OpenStore(dir string) (*Store, error) {
 	}
 	if tables > 0 {
 		var version string
-		if err = db.QueryRow("SELECT value FROM metadata WHERE key='schema'").Scan(&version); err != nil || version != "1" {
+		if err = db.QueryRow("SELECT value FROM metadata WHERE key='schema'").Scan(&version); err != nil || (version != "1" && version != "2") {
 			db.Close()
 			return nil, errors.New("unsupported existing database; no schema changes were made")
 		}
@@ -62,7 +62,7 @@ func OpenStore(dir string) (*Store, error) {
 	}
 	var schema string
 	err = db.QueryRow("SELECT value FROM metadata WHERE key='schema'").Scan(&schema)
-	if err != nil || schema != "1" {
+	if err != nil || (schema != "1" && schema != "2") {
 		db.Close()
 		return nil, errors.New("unsupported database schema; retain database and use its matching binary")
 	}
@@ -70,6 +70,7 @@ func OpenStore(dir string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
+	if err = migrateDispatch(db, dbpath); err != nil { db.Close(); return nil, err }
 	return &Store{db: db}, nil
 }
 func (s *Store) Close() error { return s.db.Close() }
@@ -118,7 +119,7 @@ func (s *Store) Batch(id string) (Batch, error) {
 	return b, err
 }
 func (s *Store) Batches(node string) ([]Batch, error) {
-	query, args := "SELECT body FROM batches WHERE state IN ('armed','running','finishing','needs_attention') OR id IN (SELECT id FROM batches ORDER BY rowid DESC LIMIT 500) ORDER BY rowid DESC", []any{}
+	query, args := "SELECT body FROM batches WHERE state IN ('waiting_boot','armed','running','finishing','needs_attention') OR id IN (SELECT id FROM batches ORDER BY rowid DESC LIMIT 500) ORDER BY rowid DESC", []any{}
 	if node != "" {
 		query = "SELECT body FROM batches WHERE node=? ORDER BY rowid DESC LIMIT 500"
 		args = append(args, node)
@@ -218,6 +219,7 @@ func (s *Store) Mutate(id, kind string, fn func(*Batch) error) (Batch, error) {
 }
 func (s *Store) Arm(id string) (Batch, error) {
 	return s.Mutate(id, "start_authorized", func(b *Batch) error {
+		if b.GroupID!="" { return errors.New("此批次属于任务组，请从任务组检查并明确开始") }
 		if b.State == "armed" {
 			return nil
 		} // Repeated click authorizes no second run.
@@ -350,7 +352,7 @@ func (s *Store) Cancel(id, reason string) (Batch, error) {
 			return errors.New("batch is already terminal")
 		}
 		b.Cancel = true
-		if b.State == "draft" || b.State == "armed" {
+		if b.State == "draft" || b.State == "armed" || b.State == "waiting_boot" {
 			b.State = "cancelled"
 			b.Result.Error = reason
 		}
