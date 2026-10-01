@@ -74,7 +74,9 @@ func decodeBounded(r *http.Request, v any, limit int64) error {
 		return errors.New("application/json required")
 	}
 	raw, err := io.ReadAll(io.LimitReader(r.Body, limit+1))
-	if err != nil || int64(len(raw)) > limit { return errors.New("request exceeds size limit") }
+	if err != nil || int64(len(raw)) > limit {
+		return errors.New("request exceeds size limit")
+	}
 	d := json.NewDecoder(strings.NewReader(string(raw)))
 	d.DisallowUnknownFields()
 	if err := d.Decode(v); err != nil {

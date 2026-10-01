@@ -49,7 +49,11 @@ const pageInfo = {
     "把接入、测试与交付，整理成清晰的流程。",
   ],
   detail: ["批次详情", "BATCH WORKSPACE", "追踪运行实况、处理过程与结果交付。"],
-  monitor: ["硬件实时监控", "LIVE HARDWARE MONITOR", "从整机到每个核心，查看压测中的硬件读数。"],
+  monitor: [
+    "硬件实时监控",
+    "LIVE HARDWARE MONITOR",
+    "从整机到每个核心，查看压测中的硬件读数。",
+  ],
 };
 const iconPaths = {
   overview: ["M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"],
@@ -76,7 +80,9 @@ let page = "overview",
   selectedNode = null,
   nodeFilter = "all",
   nodePage = 0;
-let coreSocket = "all", coreMode = "map", corePage = 0;
+let coreSocket = "all",
+  coreMode = "map",
+  corePage = 0;
 let authenticated = false,
   syncing = false,
   connected = false,
@@ -486,7 +492,14 @@ function nodeCard(n) {
           : "尚未连接";
   foot.append(el("span", info));
   if (b && activeStates.includes(b.state))
-    foot.append(button("实时监控 ↗", () => openMonitor(b.id), "quiet", "monitor-" + n.id));
+    foot.append(
+      button(
+        "实时监控 ↗",
+        () => openMonitor(b.id),
+        "quiet",
+        "monitor-" + n.id,
+      ),
+    );
   foot.append(
     button(
       b ? "查看批次 ↗" : "节点详情 ↗",
@@ -862,7 +875,10 @@ function renderDetail() {
     el("p", "批次 " + b.id + " · " + dateText(b.created_at)),
   );
   const actions = operationButtons(b);
-  if (b.state !== "draft") actions.prepend(button("硬件实时监控", () => openMonitor(b.id), "", "monitor-open"));
+  if (b.state !== "draft")
+    actions.prepend(
+      button("硬件实时监控", () => openMonitor(b.id), "", "monitor-open"),
+    );
   banner.append(title, actions);
   items.push(banner);
   const states = el("div", undefined, "detail-states");
@@ -1120,38 +1136,87 @@ function renderMonitor() {
   const b = detailData;
   if (!b || b.id !== selected) return;
   const f = detailFrame?.batch === b.id ? detailFrame : frameFor(b),
-    sample = f?.sample || {}, hardware = sample.available ? sample.hardware : null,
-    node = snapshot.nodes.find(n => n.id === b.plan.node),
+    sample = f?.sample || {},
+    hardware = sample.available ? sample.hardware : null,
+    node = snapshot.nodes.find((n) => n.id === b.plan.node),
     running = b.state === "running" && f?.phase === "executing",
     fresh = running && !!node && online(node) && freshSample(f),
-    supplementalFresh = fresh && Math.abs(now() - Date.parse(sample.extra_observed_at)) < 50000,
-    status = !connectionFresh() ? "连接中断 · 保留最后读数" :
-      node && !online(node) ? "节点失联 · 状态待确认" :
-      !activeStates.includes(b.state) || ["finalizing", "delivering"].includes(f?.phase) ? "采集已结束 · 最后读数" :
-      !sample.sequence ? "等待采样" : !sample.available ? "采集不可用" :
-      fresh ? "实时采集中" : "数据已过期 · 等待更新",
-    root = $("monitor-body"), items = [],
-    hero = el("section", undefined, "monitor-hero"), title = el("div"),
-    heading = el("h2", b.plan.node), state = el("span", status, "monitor-status" + (fresh ? " is-live" : " is-stale"));
+    supplementalFresh =
+      fresh && Math.abs(now() - Date.parse(sample.extra_observed_at)) < 50000,
+    status = !connectionFresh()
+      ? "连接中断 · 保留最后读数"
+      : node && !online(node)
+        ? "节点失联 · 状态待确认"
+        : !activeStates.includes(b.state) ||
+            ["finalizing", "delivering"].includes(f?.phase)
+          ? "采集已结束 · 最后读数"
+          : !sample.sequence
+            ? "等待采样"
+            : !sample.available
+              ? "采集不可用"
+              : fresh
+                ? "实时采集中"
+                : "数据已过期 · 等待更新",
+    root = $("monitor-body"),
+    items = [],
+    hero = el("section", undefined, "monitor-hero"),
+    title = el("div"),
+    heading = el("h2", b.plan.node),
+    state = el(
+      "span",
+      status,
+      "monitor-status" + (fresh ? " is-live" : " is-stale"),
+    );
   heading.id = "monitor-title";
   state.id = "monitor-status";
   root.dataset.liveSequence = String(sample.sequence || 0);
   root.className = fresh ? "monitor-current" : "monitor-history";
-  title.append(el("p", "SCKOCP / LIVE TELEMETRY", "eyebrow"), heading,
-    el("p", b.plan.label + " · " + (f?.step_tool || labels[f?.phase] || labels[b.state]), "monitor-subtitle"));
+  title.append(
+    el("p", "SCKOCP / LIVE TELEMETRY", "eyebrow"),
+    heading,
+    el(
+      "p",
+      b.plan.label +
+        " · " +
+        (f?.step_tool || labels[f?.phase] || labels[b.state]),
+      "monitor-subtitle",
+    ),
+  );
   const action = el("div", undefined, "monitor-hero-actions");
-  action.append(state, button("批次进度与报告 ↗", () => openBatch(b.id), "", "monitor-batch"));
+  action.append(
+    state,
+    button("批次进度与报告 ↗", () => openBatch(b.id), "", "monitor-batch"),
+  );
   hero.append(title, action);
   items.push(hero);
   const stamps = el("div", undefined, "monitor-stamps");
-  stamps.append(el("span", "主采样 " + timeText(sample.observed_at) + " · 中心接收 " + ago(f?.sample_received_at)),
-    el("span", "补充读取 " + timeText(sample.extra_observed_at) + " · 约 30 秒更新", "monitor-extra-age" + (supplementalFresh ? "" : " stale")));
+  stamps.append(
+    el(
+      "span",
+      "主采样 " +
+        timeText(sample.observed_at) +
+        " · 中心接收 " +
+        ago(f?.sample_received_at),
+    ),
+    el(
+      "span",
+      "补充读取 " + timeText(sample.extra_observed_at) + " · 约 30 秒更新",
+      "monitor-extra-age" + (supplementalFresh ? "" : " stale"),
+    ),
+  );
   items.push(stamps);
-  const summary = el("section", undefined, "monitor-summary" + (fresh ? "" : " is-stale"));
+  const summary = el(
+    "section",
+    undefined,
+    "monitor-summary" + (fresh ? "" : " is-stale"),
+  );
   summary.setAttribute("aria-label", "整机读数");
   for (const [label, key, unit, precision] of [
-    ["CPU 最高温度", "temp_c", "°C", 0], ["CPU Pkg 总功耗", "package_w", "W", 1],
-    ["PSU 整机输入 · 补充", "psu_w", "W", 1], ["核心平均频率", "mhz", "MHz", 0], ["系统负载", "load", "", 2]
+    ["CPU 最高温度", "temp_c", "°C", 0],
+    ["CPU Pkg 总功耗", "package_w", "W", 1],
+    ["PSU 整机输入 · 补充", "psu_w", "W", 1],
+    ["核心平均频率", "mhz", "MHz", 0],
+    ["系统负载", "load", "", 2],
   ]) {
     const card = metric(label, sample[key], unit, precision);
     if (key === "psu_w" && !supplementalFresh) card.classList.add("stale");
@@ -1159,95 +1224,339 @@ function renderMonitor() {
   }
   items.push(summary);
   if (!hardware) {
-    items.push(empty(sample.available ? "此节点尚未提供逐核心数据" : "当前没有可用的硬件快照",
-      sample.available ? "旧版节点仅上报汇总指标。请在空闲时将中心和节点升级到 0.4.0-alpha.3 或更高兼容版本。" :
-      "开始压测并成功采样后自动显示；查看页面不会启动采集。采集结束后的完整记录可在批次报告中查看。"));
+    items.push(
+      empty(
+        sample.available
+          ? "此节点尚未提供逐核心数据"
+          : "当前没有可用的硬件快照",
+        sample.available
+          ? "旧版节点仅上报汇总指标。请在空闲时将中心和节点升级到 0.4.0-alpha.3 或更高兼容版本。"
+          : "开始压测并成功采样后自动显示；查看页面不会启动采集。采集结束后的完整记录可在批次报告中查看。",
+      ),
+    );
   } else {
     const sockets = [...hardware.sockets].sort((a, z) => a.id - z.id),
-      socketSection = el("section", undefined, "monitor-sockets" + (fresh ? "" : " is-stale"));
+      socketSection = el(
+        "section",
+        undefined,
+        "monitor-sockets" + (fresh ? "" : " is-stale"),
+      );
     for (const socket of sockets) {
-      const x = socket.extra || {}, card = el("article", undefined, "socket-card"),
-        head = el("div", undefined, "socket-heading"), name = el("div"),
-        metrics = el("div", undefined, "socket-metrics"), extra = el("dl", undefined, "socket-extra" + (supplementalFresh ? "" : " stale"));
-      name.append(el("p", "SOCKET " + String(socket.id).padStart(2, "0"), "eyebrow"),
-        el("h3", x.model || (hardware.vendor === "GenuineIntel" ? "Intel" : "AMD") + " · S" + socket.id),
-        el("p", (x.physical_cores ? x.physical_cores + " 核 / " + x.threads + " 线程" : "核心配置未提供") +
-          " · 基础频率 " + monitorValue(socket.base_mhz, "MHz"), "muted"));
+      const x = socket.extra || {},
+        card = el("article", undefined, "socket-card"),
+        head = el("div", undefined, "socket-heading"),
+        name = el("div"),
+        metrics = el("div", undefined, "socket-metrics"),
+        extra = el(
+          "dl",
+          undefined,
+          "socket-extra" + (supplementalFresh ? "" : " stale"),
+        );
+      name.append(
+        el("p", "SOCKET " + String(socket.id).padStart(2, "0"), "eyebrow"),
+        el(
+          "h3",
+          x.model ||
+            (hardware.vendor === "GenuineIntel" ? "Intel" : "AMD") +
+              " · S" +
+              socket.id,
+        ),
+        el(
+          "p",
+          (x.physical_cores
+            ? x.physical_cores + " 核 / " + x.threads + " 线程"
+            : "核心配置未提供") +
+            " · 基础频率 " +
+            monitorValue(socket.base_mhz, "MHz"),
+          "muted",
+        ),
+      );
       head.append(name, el("span", "S" + socket.id, "socket-chip"));
-      metrics.append(metric("最高温度", socket.temp_c, "°C"), metric("CPU Pkg", socket.package_w, "W", 1),
-        metric("核心频率", socket.core_mhz, "MHz"));
+      metrics.append(
+        metric("最高温度", socket.temp_c, "°C"),
+        metric("CPU Pkg", socket.package_w, "W", 1),
+        metric("核心频率", socket.core_mhz, "MHz"),
+      );
       const primary = el("dl", undefined, "socket-primary");
-      primary.append(monitorPair("TjMax", monitorValue(socket.tjmax_c, "°C")), monitorPair("VID", monitorValue(socket.vid_v, "V", 4)));
+      primary.append(
+        monitorPair("TjMax", monitorValue(socket.tjmax_c, "°C")),
+        monitorPair("VID", monitorValue(socket.vid_v, "V", 4)),
+      );
       for (const [label, key, unit, precision] of [
-        ["VCCIN", "vccin_v", "V", 2], ["Mesh", "mesh_mhz", "MHz", 0],
-        ["内存速率", "memory_mts", "MT/s", 0], ["DIMM 数量", "dimms", "条", 0],
-        ["内存最高温度", "memory_temp_c", "°C", 0], ["DRAM 功耗", "dram_w", "W", 1],
-        ["PC2", "pc2_pct", "%", 0], ["PC6", "pc6_pct", "%", 0]
-      ]) extra.append(monitorPair(label, monitorValue(x[key], unit, precision)));
-      const memory = el("div", undefined, "socket-memory" + (supplementalFresh ? "" : " stale"));
-      memory.append(el("span", "内存使用 · 补充读数"), el("strong", monitorValue(x.memory_used_gb, "", 1) + " / " + monitorValue(x.memory_total_gb, "GB") + " · " + monitorValue(x.memory_used_pct, "%", 1)));
-      card.append(head, metrics, primary, el("p", supplementalFresh ? "补充读数 · " + ago(sample.extra_observed_at) : "补充读数已过期 / 未提供", "socket-extra-label"), extra, memory);
+        ["VCCIN", "vccin_v", "V", 2],
+        ["Mesh", "mesh_mhz", "MHz", 0],
+        ["内存速率", "memory_mts", "MT/s", 0],
+        ["DIMM 数量", "dimms", "条", 0],
+        ["内存最高温度", "memory_temp_c", "°C", 0],
+        ["DRAM 功耗", "dram_w", "W", 1],
+        ["PC2", "pc2_pct", "%", 0],
+        ["PC6", "pc6_pct", "%", 0],
+      ])
+        extra.append(monitorPair(label, monitorValue(x[key], unit, precision)));
+      const memory = el(
+        "div",
+        undefined,
+        "socket-memory" + (supplementalFresh ? "" : " stale"),
+      );
+      memory.append(
+        el("span", "内存使用 · 补充读数"),
+        el(
+          "strong",
+          monitorValue(x.memory_used_gb, "", 1) +
+            " / " +
+            monitorValue(x.memory_total_gb, "GB") +
+            " · " +
+            monitorValue(x.memory_used_pct, "%", 1),
+        ),
+      );
+      card.append(
+        head,
+        metrics,
+        primary,
+        el(
+          "p",
+          supplementalFresh
+            ? "补充读数 · " + ago(sample.extra_observed_at)
+            : "补充读数已过期 / 未提供",
+          "socket-extra-label",
+        ),
+        extra,
+        memory,
+      );
       socketSection.append(card);
     }
     items.push(socketSection);
     const section = el("section", undefined, "panel core-section"),
-      heading = el("div", undefined, "section-title"), info = el("div"), views = el("div", undefined, "segmented");
-    info.append(el("h2", "逐核心状态"), el("span", hardware.cores.length + " 个 CPU 编号 · 按插槽、编号排序", "muted"));
-    for (const [mode, label] of [["map", "核心矩阵"], ["table", "详细表格"]]) {
-      const tab = button(label, () => { coreMode = mode; renderMonitor(); }, mode === coreMode ? "selected" : "", "core-mode-" + mode);
-      tab.setAttribute("aria-pressed", String(mode === coreMode)); views.append(tab);
+      heading = el("div", undefined, "section-title"),
+      info = el("div"),
+      views = el("div", undefined, "segmented");
+    info.append(
+      el("h2", "逐核心状态"),
+      el(
+        "span",
+        hardware.cores.length + " 个 CPU 编号 · 按插槽、编号排序",
+        "muted",
+      ),
+    );
+    for (const [mode, label] of [
+      ["map", "核心矩阵"],
+      ["table", "详细表格"],
+    ]) {
+      const tab = button(
+        label,
+        () => {
+          coreMode = mode;
+          renderMonitor();
+        },
+        mode === coreMode ? "selected" : "",
+        "core-mode-" + mode,
+      );
+      tab.setAttribute("aria-pressed", String(mode === coreMode));
+      views.append(tab);
     }
-    heading.append(info, views); section.append(heading);
+    heading.append(info, views);
+    section.append(heading);
     const filters = el("div", undefined, "core-filters");
-    if (coreSocket !== "all" && !sockets.some(s => String(s.id) === coreSocket)) coreSocket = "all";
-    for (const [id, label] of [["all", "全部插槽"], ...sockets.map(s => [String(s.id), "S" + s.id])]) {
-      const tab = button(label, () => { coreSocket = id; corePage = 0; renderMonitor(); }, coreSocket === id ? "selected" : "", "socket-" + id);
-      tab.setAttribute("aria-pressed", String(coreSocket === id)); filters.append(tab);
+    if (
+      coreSocket !== "all" &&
+      !sockets.some((s) => String(s.id) === coreSocket)
+    )
+      coreSocket = "all";
+    for (const [id, label] of [
+      ["all", "全部插槽"],
+      ...sockets.map((s) => [String(s.id), "S" + s.id]),
+    ]) {
+      const tab = button(
+        label,
+        () => {
+          coreSocket = id;
+          corePage = 0;
+          renderMonitor();
+        },
+        coreSocket === id ? "selected" : "",
+        "socket-" + id,
+      );
+      tab.setAttribute("aria-pressed", String(coreSocket === id));
+      filters.append(tab);
     }
     section.append(filters);
-    const cores = [...hardware.cores].filter(c => coreSocket === "all" || String(c.socket) === coreSocket).sort((a, z) => a.socket - z.socket || a.cpu - z.cpu), size = 64;
-    corePage = Math.min(corePage, Math.max(0, Math.ceil(cores.length / size) - 1));
-    const shown = cores.slice(corePage * size, (corePage + 1) * size), grid = el("div", undefined, "core-grid" + (fresh ? "" : " is-stale"));
-    if (!cores.length) section.append(empty("没有逐核心读数", "当前接口未提供此部分数据。"));
+    const cores = [...hardware.cores]
+        .filter((c) => coreSocket === "all" || String(c.socket) === coreSocket)
+        .sort((a, z) => a.socket - z.socket || a.cpu - z.cpu),
+      size = 64;
+    corePage = Math.min(
+      corePage,
+      Math.max(0, Math.ceil(cores.length / size) - 1),
+    );
+    const shown = cores.slice(corePage * size, (corePage + 1) * size),
+      grid = el("div", undefined, "core-grid" + (fresh ? "" : " is-stale"));
+    if (!cores.length)
+      section.append(empty("没有逐核心读数", "当前接口未提供此部分数据。"));
     else if (coreMode === "map") {
       for (const c of shown) {
-        const tile = el("article", undefined, "core-tile"), head = el("div", undefined, "core-tile-top"), load = el("div", undefined, "core-load"), fill = el("i");
+        const tile = el("article", undefined, "core-tile"),
+          head = el("div", undefined, "core-tile-top"),
+          load = el("div", undefined, "core-load"),
+          fill = el("i");
         tile.dataset.cpu = String(c.cpu);
-        tile.title = "S" + c.socket + " / CPU " + c.cpu + " · VID " + monitorValue(c.vid_v, "V", 4) + " · C0 " + monitorValue(c.c0_pct, "%") + " · C6 " + monitorValue(c.c6_pct, "%");
+        tile.title =
+          "S" +
+          c.socket +
+          " / CPU " +
+          c.cpu +
+          " · VID " +
+          monitorValue(c.vid_v, "V", 4) +
+          " · C0 " +
+          monitorValue(c.c0_pct, "%") +
+          " · C6 " +
+          monitorValue(c.c6_pct, "%");
         head.append(el("strong", "CPU " + c.cpu), el("small", "S" + c.socket));
-        tile.append(head, el("div", monitorValue(c.temp_c, "°C"), "core-temperature"), el("span", monitorValue(c.mhz, "MHz"), "core-frequency"));
-        if (typeof c.c0_pct === "number") { fill.style.width = Math.min(100, Math.max(0, c.c0_pct)) + "%"; load.append(fill); }
-        tile.append(load, el("small", "C0 " + monitorValue(c.c0_pct, "%"))); grid.append(tile);
+        tile.append(
+          head,
+          el("div", monitorValue(c.temp_c, "°C"), "core-temperature"),
+          el("span", monitorValue(c.mhz, "MHz"), "core-frequency"),
+        );
+        if (typeof c.c0_pct === "number") {
+          fill.style.width = Math.min(100, Math.max(0, c.c0_pct)) + "%";
+          load.append(fill);
+        }
+        tile.append(load, el("small", "C0 " + monitorValue(c.c0_pct, "%")));
+        grid.append(tile);
       }
       section.append(grid);
     } else {
-      const wrap = el("div", undefined, "core-table-scroll" + (fresh ? "" : " is-stale")), table = el("table", undefined, "core-table"), thead = el("thead"), row = el("tr"), body = el("tbody");
+      const wrap = el(
+          "div",
+          undefined,
+          "core-table-scroll" + (fresh ? "" : " is-stale"),
+        ),
+        table = el("table", undefined, "core-table"),
+        thead = el("thead"),
+        row = el("tr"),
+        body = el("tbody");
       table.setAttribute("aria-label", "逐核心实时读数");
-      for (const text of ["CPU 编号", "插槽", "频率 MHz", "温度 °C", "VID V", "C0 %", "C6 %", "IRQ"]) { const th = el("th", text); th.scope = "col"; row.append(th); }
+      for (const text of [
+        "CPU 编号",
+        "插槽",
+        "频率 MHz",
+        "温度 °C",
+        "VID V",
+        "C0 %",
+        "C6 %",
+        "IRQ",
+      ]) {
+        const th = el("th", text);
+        th.scope = "col";
+        row.append(th);
+      }
       thead.append(row);
       for (const c of shown) {
-        const tr = el("tr"); tr.dataset.cpu = String(c.cpu);
-        for (const value of [c.cpu, "S" + c.socket, number(c.mhz), number(c.temp_c), number(c.vid_v, 4), number(c.c0_pct), number(c.c6_pct), "未提供"]) tr.append(el("td", value));
+        const tr = el("tr");
+        tr.dataset.cpu = String(c.cpu);
+        for (const value of [
+          c.cpu,
+          "S" + c.socket,
+          number(c.mhz),
+          number(c.temp_c),
+          number(c.vid_v, 4),
+          number(c.c0_pct),
+          number(c.c6_pct),
+          "未提供",
+        ])
+          tr.append(el("td", value));
         body.append(tr);
       }
-      table.append(thead, body); wrap.append(table); section.append(wrap);
+      table.append(thead, body);
+      wrap.append(table);
+      section.append(wrap);
     }
     if (cores.length > size) {
-      const nav = el("div", undefined, "pagination"), prev = button("上一页", () => { corePage--; renderMonitor(); }, "", "cores-prev"), next = button("下一页", () => { corePage++; renderMonitor(); }, "", "cores-next");
-      prev.disabled = corePage === 0; next.disabled = (corePage + 1) * size >= cores.length;
-      nav.append(prev, el("span", (corePage + 1) + " / " + Math.ceil(cores.length / size)), next); section.append(nav);
+      const nav = el("div", undefined, "pagination"),
+        prev = button(
+          "上一页",
+          () => {
+            corePage--;
+            renderMonitor();
+          },
+          "",
+          "cores-prev",
+        ),
+        next = button(
+          "下一页",
+          () => {
+            corePage++;
+            renderMonitor();
+          },
+          "",
+          "cores-next",
+        );
+      prev.disabled = corePage === 0;
+      next.disabled = (corePage + 1) * size >= cores.length;
+      nav.append(
+        prev,
+        el("span", corePage + 1 + " / " + Math.ceil(cores.length / size)),
+        next,
+      );
+      section.append(nav);
     }
-    section.append(el("p", "矩阵底部条形表示 C0 活跃比例，不代表硬件合格判定。详细表格提供 VID、C0、C6；当前 v1 接口未提供 IRQ。", "field-help core-legend"));
+    section.append(
+      el(
+        "p",
+        "矩阵底部条形表示 C0 活跃比例，不代表硬件合格判定。详细表格提供 VID、C0、C6；当前 v1 接口未提供 IRQ。",
+        "field-help core-legend",
+      ),
+    );
     items.push(section);
   }
-  const trends = el("section", undefined, "monitor-trends"), rows = f?.history || history.get(b.id) || [];
-  for (const [field, label, unit] of [["temp_c", "CPU 最高温度", "°C"], ["package_w", "CPU Pkg 总功耗", "W"]]) {
-    const chart = el("article", undefined, "panel"), head = el("div", undefined, "section-title");
-    head.append(el("h3", label), el("span", "最近 " + rows.length + " 次上报", "muted"));
-    chart.append(head, trend(rows, field), el("p", timeText(rows[0]?.observed_at) + " — " + timeText(rows.at(-1)?.observed_at) + " · " + unit, "field-help")); trends.append(chart);
+  const trends = el("section", undefined, "monitor-trends"),
+    rows = f?.history || history.get(b.id) || [];
+  for (const [field, label, unit] of [
+    ["temp_c", "CPU 最高温度", "°C"],
+    ["package_w", "CPU Pkg 总功耗", "W"],
+  ]) {
+    const chart = el("article", undefined, "panel"),
+      head = el("div", undefined, "section-title");
+    head.append(
+      el("h3", label),
+      el("span", "最近 " + rows.length + " 次上报", "muted"),
+    );
+    chart.append(
+      head,
+      trend(rows, field),
+      el(
+        "p",
+        timeText(rows[0]?.observed_at) +
+          " — " +
+          timeText(rows.at(-1)?.observed_at) +
+          " · " +
+          unit,
+        "field-help",
+      ),
+    );
+    trends.append(chart);
   }
-  items.push(trends, el("p", "所有数值均为 sckocp 报告值，有效性与传感器内部读数年龄未知；— 表示未提供。主采样约 2 秒，补充读数约 30 秒，网页只显示已有采样。实时缓存不替代最终报告。", "monitor-quality"));
+  items.push(
+    trends,
+    el(
+      "p",
+      "所有数值均为 sckocp 报告值，有效性与传感器内部读数年龄未知；— 表示未提供。主采样约 2 秒，补充读数约 30 秒，网页只显示已有采样。实时缓存不替代最终报告。",
+      "monitor-quality",
+    ),
+  );
+  const scrollPositions = [".core-table-scroll", ".core-filters"].map(
+    (selector) => {
+      const box = root.querySelector(selector);
+      return [selector, box?.scrollTop || 0, box?.scrollLeft || 0];
+    },
+  );
   replace(root, ...items);
+  for (const [selector, top, left] of scrollPositions) {
+    const box = root.querySelector(selector);
+    if (box) {
+      box.scrollTop = top;
+      box.scrollLeft = left;
+    }
+  }
 }
 function render() {
   $("version").textContent =
@@ -1262,10 +1571,13 @@ function render() {
   if (page === "monitor") renderMonitor();
 }
 function route() {
+  notice("");
   const hash = location.hash.slice(1),
     detail = hash.match(/^(batch|monitor)\/([a-f0-9]{32})$/);
   page = detail
-    ? detail[1] === "monitor" ? "monitor" : "detail"
+    ? detail[1] === "monitor"
+      ? "monitor"
+      : "detail"
     : Object.hasOwn(pageInfo, hash) && !["detail", "monitor"].includes(hash)
       ? hash
       : "overview";
@@ -1275,8 +1587,11 @@ function route() {
     detailEvents = [];
     detailFrame = null;
     lastDetail = 0;
-    coreSocket = "all"; corePage = 0;
-    $("monitor-body").replaceChildren(empty("正在读取硬件实况", "等待当前批次已采集的数据。"));
+    coreSocket = "all";
+    corePage = 0;
+    $("monitor-body").replaceChildren(
+      empty("正在读取硬件实况", "等待当前批次已采集的数据。"),
+    );
     $("detail-body").replaceChildren(
       empty("正在读取批次", "正在载入步骤、实时数据和结果文件。"),
     );
@@ -1289,7 +1604,9 @@ function route() {
   $("page-kicker").textContent = info[1];
   $("page-description").textContent = info[2];
   document.querySelectorAll("[data-nav]").forEach((a) => {
-    const match = a.dataset.nav === (page === "detail" ? "batches" : page === "monitor" ? "nodes" : page);
+    const match =
+      a.dataset.nav ===
+      (page === "detail" ? "batches" : page === "monitor" ? "nodes" : page);
     a.classList.toggle("selected", match);
     if (match) a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");

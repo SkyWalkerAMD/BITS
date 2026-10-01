@@ -106,7 +106,9 @@ def live_hardware(data, extra):
             continue
         current = None
         for line in section["lines"]:
-            for part in re.split(r"(?=\bS\d+\s)", line):
+            # Python 3.6 rejects zero-width re.split patterns.
+            boundaries = sorted(set([0, len(line)] + [m.start() for m in re.finditer(r"\bS\d+\s", line)]))
+            for part in (line[a:b] for a, b in zip(boundaries, boundaries[1:])):
                 identity = re.match(r"\s*S(\d+)\s", part)
                 if identity:
                     current = supplements.get(int(identity.group(1)))

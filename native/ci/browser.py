@@ -105,17 +105,24 @@ with sync_playwright() as p:
         detailed = api("batches/" + batch_id + "/live")["frames"][0]
         assert len(detailed["sample"]["hardware"]["cores"]) == 24
         assert all("hardware" not in h for h in detailed["history"])
+        page.evaluate("window.scrollTo({top:0,behavior:'instant'})")
         page.screenshot(path=str(out / "hardware-monitor.png"), full_page=True)
         page.get_by_role("button", name="详细表格", exact=True).click()
         expect(page.locator(".core-table tbody tr")).to_have_count(24)
         assert page.locator(".core-table tbody tr").evaluate_all("xs => xs.map(x => Number(x.dataset.cpu))") == list(range(24))
         expect(page.locator(".core-table tbody tr").first).to_contain_text("0.9100")
         expect(page.locator(".core-table tbody tr").first).to_contain_text("未提供")
+        page.evaluate("window.scrollTo({top:0,behavior:'instant'})")
         page.screenshot(path=str(out / "hardware-table.png"), full_page=True)
+        page.locator(".core-table-scroll").evaluate("x => { x.scrollTop = 200; }")
+        page.wait_for_timeout(3500)
+        assert page.locator(".core-table-scroll").evaluate("x => x.scrollTop") >= 190
+        checks.append("live core table retains its scroll position during refresh")
         checks.append("node card opens typed socket/core monitor, numeric order and detail-only arrays")
         page.get_by_role("button", name="核心矩阵", exact=True).click()
         page.set_viewport_size({"width":430, "height":932})
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), "hardware mobile overflow"
+        page.evaluate("window.scrollTo({top:0,behavior:'instant'})")
         page.screenshot(path=str(out / "hardware-mobile.png"), full_page=True)
         page.get_by_role("button", name="详细表格", exact=True).click()
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), "core table mobile overflow"

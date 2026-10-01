@@ -53,7 +53,7 @@ sources = export_sources(out / ("bits-source-" + version + ".tar.gz"), commit)
 verification = {
     "schema": "bits-independent-verification-v1", "version": version,
     "source_commit": commit, "workflow_run": run,
-    "workflow_url": "https://github.com/" + os.environ["GITHUB_REPOSITORY"] + "/actions/runs/" + run,
+    "validation_environment": "private GitHub Actions Linux; run identifier retained above",
     "scope": "Linux container userspaces with real systemd, HTTPS, SQLite and short stress processes",
     "hardware_readings": "synthetic provider; not real sckocp or license-server verification",
     "not_verified": ["physical hardware", "each distribution native kernel", "200 simultaneous physical nodes",

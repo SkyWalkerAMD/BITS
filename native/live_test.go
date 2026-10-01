@@ -11,27 +11,39 @@ func testHardware() *LiveHardware {
 	f := func(v float64) *float64 { return &v }
 	return &LiveHardware{Schema: "bits-live-hardware-v1", Vendor: "GenuineIntel", Family: 6,
 		Sockets: []LiveSocket{{ID: 0, TempC: f(44), PackageW: f(120), Extra: &LiveSocketExtra{Model: "Synthetic CPU", MemoryTempC: f(32), MemoryTotalGB: f(256)}}, {ID: 1, PackageW: nil}},
-		Cores: []LiveCore{{CPU: 10, Socket: 0, MHz: f(3000), TempC: f(42), C0: f(100)}, {CPU: 2, Socket: 1, C0: f(0)}}}
+		Cores:   []LiveCore{{CPU: 10, Socket: 0, MHz: f(3000), TempC: f(42), C0: f(100)}, {CPU: 2, Socket: 1, C0: f(0)}}}
 }
 
 func TestHardwareProjectionTopologyAndLimits(t *testing.T) {
-	if err := validHardware(testHardware(), UTC()); err != nil { t.Fatal(err) }
-	for name, change := range map[string]func(*LiveHardware){
-		"unknown schema": func(h *LiveHardware) { h.Schema = "raw" },
-		"duplicate socket": func(h *LiveHardware) { h.Sockets[1].ID = 0 },
-		"duplicate cpu": func(h *LiveHardware) { h.Cores[1].CPU = 10 },
-		"foreign socket": func(h *LiveHardware) { h.Cores[0].Socket = 2 },
-		"invalid metric": func(h *LiveHardware) { v := math.NaN(); h.Cores[0].TempC = &v },
-		"percentage": func(h *LiveHardware) { v := 101.0; h.Cores[0].C6 = &v },
-		"control text": func(h *LiveHardware) { h.Sockets[0].Extra.Model = "CPU\u202eprivate" },
-		"cpu limit": func(h *LiveHardware) { h.Cores = make([]LiveCore, 8193) },
-		"socket limit": func(h *LiveHardware) { h.Sockets = make([]LiveSocket, 257) },
-	} {
-		t.Run(name, func(t *testing.T) { h := testHardware(); change(h); if validHardware(h, UTC()) == nil { t.Fatal("invalid hardware accepted") } })
+	if err := validHardware(testHardware(), UTC()); err != nil {
+		t.Fatal(err)
 	}
-	if validHardware(testHardware(), "") == nil { t.Fatal("supplement without its timestamp accepted") }
+	for name, change := range map[string]func(*LiveHardware){
+		"unknown schema":   func(h *LiveHardware) { h.Schema = "raw" },
+		"duplicate socket": func(h *LiveHardware) { h.Sockets[1].ID = 0 },
+		"duplicate cpu":    func(h *LiveHardware) { h.Cores[1].CPU = 10 },
+		"foreign socket":   func(h *LiveHardware) { h.Cores[0].Socket = 2 },
+		"invalid metric":   func(h *LiveHardware) { v := math.NaN(); h.Cores[0].TempC = &v },
+		"percentage":       func(h *LiveHardware) { v := 101.0; h.Cores[0].C6 = &v },
+		"control text":     func(h *LiveHardware) { h.Sockets[0].Extra.Model = "CPU\u202eprivate" },
+		"cpu limit":        func(h *LiveHardware) { h.Cores = make([]LiveCore, 8193) },
+		"socket limit":     func(h *LiveHardware) { h.Sockets = make([]LiveSocket, 257) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			h := testHardware()
+			change(h)
+			if validHardware(h, UTC()) == nil {
+				t.Fatal("invalid hardware accepted")
+			}
+		})
+	}
+	if validHardware(testHardware(), "") == nil {
+		t.Fatal("supplement without its timestamp accepted")
+	}
 	v := &LiveSample{Sequence: 1, Observed: UTC(), ExtraObserved: UTC(), Available: false, Hardware: testHardware()}
-	if validSample(v) == nil { t.Fatal("denied readings retained") }
+	if validSample(v) == nil {
+		t.Fatal("denied readings retained")
+	}
 }
 
 func TestHardwareOnlyNewestDetailAndImmutable(t *testing.T) {
@@ -40,33 +52,54 @@ func TestHardwareOnlyNewestDetailAndImmutable(t *testing.T) {
 	c := NewLiveCache()
 	for sequence := int64(1); sequence <= 220; sequence++ {
 		v := LiveUpdate{Phase: "executing", Sample: &LiveSample{Sequence: sequence, Observed: UTC(), ExtraObserved: UTC(), Available: true, Hardware: testHardware()}}
-		if err := c.Put(b, v); err != nil { t.Fatal(err) }
+		if err := c.Put(b, v); err != nil {
+			t.Fatal(err)
+		}
 		*v.Sample.Hardware.Cores[0].MHz = 9999
 	}
 	detail := c.Snapshot(b.ID)[0]
-	if *detail.Sample.Hardware.Cores[0].MHz != 3000 || len(detail.History) != 180 { t.Fatal("publisher changed cached sample") }
-	for _, row := range detail.History { if row.Hardware != nil { t.Fatal("hardware multiplied into history") } }
-	if c.Snapshot("")[0].Sample.Hardware != nil { t.Fatal("fleet response leaks full per-core arrays") }
+	if *detail.Sample.Hardware.Cores[0].MHz != 3000 || len(detail.History) != 180 {
+		t.Fatal("publisher changed cached sample")
+	}
+	for _, row := range detail.History {
+		if row.Hardware != nil {
+			t.Fatal("hardware multiplied into history")
+		}
+	}
+	if c.Snapshot("")[0].Sample.Hardware != nil {
+		t.Fatal("fleet response leaks full per-core arrays")
+	}
 	*detail.Sample.Hardware.Cores[0].MHz = 9999
-	if *c.Snapshot(b.ID)[0].Sample.Hardware.Cores[0].MHz != 3000 { t.Fatal("snapshot changed cache") }
+	if *c.Snapshot(b.ID)[0].Sample.Hardware.Cores[0].MHz != 3000 {
+		t.Fatal("snapshot changed cache")
+	}
 	changed := c.Snapshot(b.ID)[0].LiveUpdate
 	*changed.Sample.Hardware.Cores[0].MHz = 9999
-	if c.Put(b, changed) == nil { t.Fatal("same-sequence changed core accepted") }
+	if c.Put(b, changed) == nil {
+		t.Fatal("same-sequence changed core accepted")
+	}
 	denied := LiveUpdate{Phase: "executing", Sample: &LiveSample{Sequence: 221, Observed: UTC(), Available: false}}
-	if err := c.Put(b, denied); err != nil { t.Fatal(err) }
-	if c.Snapshot(b.ID)[0].Sample.Hardware != nil { t.Fatal("denial kept prior core readings") }
+	if err := c.Put(b, denied); err != nil {
+		t.Fatal(err)
+	}
+	if c.Snapshot(b.ID)[0].Sample.Hardware != nil {
+		t.Fatal("denial kept prior core readings")
+	}
 }
 
 func TestHardwareWireRejectsNestedUnapprovedData(t *testing.T) {
 	s, _, node := testServer(t)
-	b, _ := s.Store.Create(testPlan("N1")); b, _ = s.Store.Arm(b.ID)
+	b, _ := s.Store.Create(testPlan("N1"))
+	b, _ = s.Store.Arm(b.ID)
 	s.Store.Claim(b.ID, "N1", b.Attempt)
 	path := "/node/v1/batches/" + b.ID + "/live"
 	for _, field := range []string{"rmal", "license", "command", "raw_info", "timings"} {
 		hardware := map[string]any{"schema": "bits-live-hardware-v1", "vendor": "GenuineIntel", "family": 6,
 			"sockets": []any{map[string]any{"id": 0, "extra": map[string]any{field: "forbidden"}}}, "cores": []any{}}
 		v := map[string]any{"phase": "executing", "sample": map[string]any{"sequence": 1, "observed_at": UTC(), "extra_observed_at": UTC(), "available": true, "hardware": hardware}}
-		if node.JSON(context.Background(), "POST", path, b.Attempt, v, nil) == nil { t.Fatal("unapproved nested data accepted", field) }
+		if node.JSON(context.Background(), "POST", path, b.Attempt, v, nil) == nil {
+			t.Fatal("unapproved nested data accepted", field)
+		}
 	}
 }
 
