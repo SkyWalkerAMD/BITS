@@ -87,6 +87,10 @@ jobs:
           gh release download v0.2.2 --repo "$GITHUB_REPOSITORY" --pattern "ocrun-*.$KIND" --dir previous-native
           grep "[.]$KIND$" distribution/PREVIOUS-SHA256SUMS > previous-native/SHA256SUMS
           (cd previous-native && sha256sum -c SHA256SUMS)
+          mkdir previous-native025
+          gh release download v0.2.5 --repo SkyWalkerAMD/BITS --pattern "bits-node*.$KIND" --dir previous-native025
+          grep "[.]$KIND$" distribution/PREVIOUS-025-SHA256SUMS > previous-native025/SHA256SUMS
+          (cd previous-native025 && sha256sum -c SHA256SUMS)
       - name: Installation, authenticated tasks, reports, delivery and upgrade
         env: {BASE_IMAGE: '${{ matrix.image }}', OCRUN_SOURCE_COMMIT: '${{ github.sha }}'}
         run: bash distribution/cloud.sh

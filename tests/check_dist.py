@@ -98,7 +98,7 @@ for kind, entry in (('mon_sensors_plugin', 'mon-sensors-plugin'), ('public_api',
     print(kind + ': independent archive, entrypoint, content and checksum PASS')
 
 for kind, archive_kind in (('public_api_installer', 'public_api'),
-                           ('mon_sensors_installer', 'bits_core/collector')):
+                           ('mon_sensors_installer', 'mon_sensors_plugin')):
     item = manifest[kind]
     installer = (root / 'dist' / item['file']).read_bytes()
     assert len(installer) == item['bytes']

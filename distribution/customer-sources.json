@@ -110,6 +110,7 @@
     "distribution/source_export.py",
     "distribution/test_network.py",
     "distribution/test_source_export.py",
+    "docs/deployment/MIGRATION-0.3.md",
     "docs/archive/agent-0.12.8/FLEET.md",
     "docs/archive/agent-0.12.8/OPERATIONS.md",
     "docs/archive/agent-0.12.8/README.md",

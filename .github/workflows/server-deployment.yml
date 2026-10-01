@@ -121,7 +121,7 @@ jobs:
         if: always()
         run: |
           docker logs ocrun-server-test > .server-results/boot.txt 2>&1 || true
-          docker exec ocrun-server-test journalctl --no-pager -u ocrun-server-db -u ocrun-server-http -u ocrun-server-rsync -u ocrun-server-firewall > .server-results/journal.txt 2>&1 || true
+          docker exec ocrun-server-test journalctl --no-pager -u bits-center-db -u bits-center-http -u bits-center-rsync -u bits-center-firewall > .server-results/journal.txt 2>&1 || true
           docker exec ocrun-server-test systemctl --no-pager --failed > .server-results/failed-units.txt 2>&1 || true
           if test -f .server-results/server.json; then cat .server-results/server.json >> "$GITHUB_STEP_SUMMARY"; fi
           docker rm -f ocrun-server-test || true

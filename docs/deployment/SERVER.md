@@ -1,8 +1,8 @@
-# OCRUN 跨发行版中心 0.1.3 操作手册
+# BITS 管理端服务核心 0.3.0
 
 ## 范围与已验证系统的关系
 
-本包用于**另建一台中心服务器**，合并任务数据库、任务管理、HTTP 资源地址、rsync 日志入口和本机结果存储。使用原 OCRUN 的主机数据库映射、`IDS/DATES/TASKS` 和 Lua 协议。新服务器要求数据库认证并保持保护模式开启；连接它的节点使用收尾组件 0.2.4 和私密连接文件。
+本文件说明完整 `bits-center` 包内的服务组件。通常按 [完整系统手册](DISTRIBUTION.md) 使用 `bits-center` 入口；仅独立组件维护时使用下面的内部服务命令。组件用于**另建一台中心服务器**，合并任务数据库、任务管理、HTTP 资源地址、rsync 日志入口和本机结果存储。使用原 OCRUN 的主机数据库映射、`IDS/DATES/TASKS` 和 Lua 协议。新服务器要求数据库认证并保持保护模式开启；连接它的节点使用收尾组件 0.2.4 和私密连接文件。
 
 它不会升级现有 215/217/211/221 服务器，也不会连接、改动其他生产节点。此前根目录的 `install-server.sh` 属于另一套新键空间协议；不要与本包混装。
 
@@ -20,10 +20,10 @@ Debian 11 的官方 LTS 已于 2026-08-31 结束（[Debian 发布说明](https:/
 
 选择未运行数据库、Web、rsync 服务的新服务器。准备固定内网 IPv4、允许设备访问的管理 CIDR、正常软件仓库和结果磁盘。下面的 `192.168.50.10` / `192.168.50.0/24` 是示例，须替换；不要填现有生产服务器地址。
 
-把交付的 tar.gz 和 SHA256SUMS 放在 `/root/ocrun-server-materials`。每条代码为一个完整命令；逐条复制。
+把交付的 tar.gz 和 SHA256SUMS 放在 `/root/bits-center-materials`。每条代码为一个完整命令；逐条复制。
 
 ```bash
-cd /root/ocrun-server-materials && sha256sum -c SHA256SUMS
+cd /root/bits-center-materials && sha256sum -c SHA256SUMS
 ```
 
 ```bash
@@ -53,37 +53,37 @@ bash bits_core/center/install.sh --address 192.168.50.10 --network 192.168.50.0/
 ```
 
 ```bash
-ocrun-server check
+/usr/local/libexec/bits-center-service check
 ```
 
 预期四个服务 active、数据库认证 PING、HTTP 版本地址和 rsync 模块可访问。`legacy_resource_tree=not_provisioned_by_this_installer` 是明确说明资源程序树未导入，不表示压测工具已分发。
 
-安装器只禁用本次首次安装的软件包附带的默认服务自启，防止下次开机抢占端口；已安装的其他服务保留。数据库原生路径按发行版选择：EL 8 使用 Redis 6 模块，EL 10 使用 Valkey。HTTP/日志服务运行于独立的 `ocrun-server-*` 单元。
+安装器只禁用本次首次安装的软件包附带的默认服务自启，防止下次开机抢占端口；已安装的其他服务保留。数据库原生路径按发行版选择：EL 8 使用 Redis 6 模块，EL 10 使用 Valkey。HTTP/日志服务运行于独立的 `bits-center-*` 单元。
 
 启用 SELinux 的系统上，健康检查还会核对服务实际处于 `redis_t/httpd_t/rsync_t` 隔离域，且保留 `NoNewPrivileges`。EL8 安全策略需要补充 systemd 进入 Redis、HTTP 隔离域的两项 `nnp_transition` 规则；不会给通用 `init_t` 增加数据写入权限。它与发行版的 [NNP 域转换机制](https://docs.redhat.com/en-us/documentation/red_hat_enterprise_linux/8/html/8.0_release_notes/new-features#enhancement_security) 一致。
 
-## 任务管理：中心 ocuser
+## 任务管理：中心 bits
 
 ```bash
-su - ocuser
+su - bits
 ```
 
 ```bash
-occt
+/usr/local/libexec/bits-center-service menu
 ```
 
 提供添加、查询、删除队列入口。也可用以下单行命令，主机名必须与指定节点一致：
 
 ```bash
-ocrun-server task add --node TEST-001 --id DEPLOY-CHECK --task stress=60 --task stress-ng=60
+/usr/local/libexec/bits-center-service task add --node TEST-001 --id DEPLOY-CHECK --task stress=60 --task stress-ng=60
 ```
 
 ```bash
-ocrun-server task status --node TEST-001
+/usr/local/libexec/bits-center-service task status --node TEST-001
 ```
 
 ```bash
-ocrun-server task delete --node TEST-001 --id DEPLOY-CHECK
+/usr/local/libexec/bits-center-service task delete --node TEST-001 --id DEPLOY-CHECK
 ```
 
 队列只允许显式删除尚未开始或已交付的批次；运行中或需要恢复的批次会被拒绝。删除队列不会删除结果文件。同名任务重复出现时，原协议只能给同名项目一个时长，时长不同会拒绝入队。未知拼写如 `strss` 在入队前报错。中心写入队列不会启动节点，也不会让空闲节点持续领任务。
@@ -95,7 +95,7 @@ ocrun-server task delete --node TEST-001 --id DEPLOY-CHECK
 中心 root 导出私密文件，绑定节点名：
 
 ```bash
-ocrun-server node-config --node TEST-001 --output /root/TEST-001.connection.json
+/usr/local/libexec/bits-center-service node-config --node TEST-001 --output /root/TEST-001.connection.json
 ```
 
 输出不显示密码。用已有 SSH/SFTP 管理连接，把此文件、服务端 tar.gz、0.2.4 收尾安装包及其校验值送到指定节点 `/root`。私密连接文件不能放进 HTTP/rsync 公开资源目录，不能贴到聊天或提交 Git。它只含连接本次新中心的节点角色凭据，不含管理角色密码或 sckocp 激活信息。
@@ -134,14 +134,14 @@ bash /root/bits-center-runtime-0.3.0/bits_core/center/connect-node.sh --app /roo
 
 ## 查看结果和发布安装材料
 
-本中心 `/data/cds/result` 指向本地 `/srv/ocrun/logs`，可供 `ocuser` 查看；它不表示已建立原现场 211→221 的 NFS 映射。新部署默认不新增 NFS 服务。
+本中心 `/data/cds/result` 指向本地 `/srv/ocrun/logs`，可供 `bits` 查看；它不表示已建立原现场 211→221 的 NFS 映射。新部署默认不新增 NFS 服务。
 
 正常结束应收到 `.mon`、`.mon.sckocp.jsonl`、`.xlsx`、`.finish.json`；以节点完成记录中的清单核验 SHA-256。采集质量未知、执行失败、文件交付完成是不同状态，不能只看到 complete 就宣布硬件稳定。
 
 若需内网提供已核验的节点安装包，中心 root 执行以下模板，替换为交付记录中的真实校验值：
 
 ```bash
-ocrun-server publish --file /root/mon-sensors-finish-0.2.4.run --sha256 REPLACE_WITH_RELEASE_SHA256
+/usr/local/libexec/bits-center-service publish --file /root/mon-sensors-finish-0.2.4.run --sha256 REPLACE_WITH_RELEASE_SHA256
 ```
 
 工具仅发布允许名称的独立安装包，按完整哈希生成不覆盖的资源地址，不执行文件、不改节点。公开资源 URL 返回前会核对输入文件；节点下载后仍需与独立取得的交付 SHA 比对。
@@ -151,12 +151,12 @@ ocrun-server publish --file /root/mon-sensors-finish-0.2.4.run --sha256 REPLACE_
 ## 故障、重试和撤回
 
 ```bash
-journalctl --no-pager -n 80 -u ocrun-server-db -u ocrun-server-http -u ocrun-server-rsync -u ocrun-server-firewall
+journalctl --no-pager -n 80 -u bits-center-db -u bits-center-http -u bits-center-rsync -u bits-center-firewall
 ```
 
-安装失败会尝试停用本次创建的服务、撤回本次文件及防火墙规则，保留数据库、日志、账户、已装系统包和 `/var/lib/ocrun-server-install` 中的恢复记录及原凭据。修复原因后使用**同一包、同一地址与网段**重新 `--apply`，不重新生成已保存的密码。`rollback_incomplete` 或有手工修改时保留文件，先检查具体差异。
+安装失败会尝试停用本次创建的服务、撤回本次文件及防火墙规则，保留数据库、日志、账户、已装系统包和 `/var/lib/bits/center-install-install` 中的恢复记录及原凭据。修复原因后使用**同一包、同一地址与网段**重新 `--apply`，不重新生成已保存的密码。`rollback_incomplete` 或有手工修改时保留文件，先检查具体差异。
 
-失败回滚前的目录权限、SELinux 标签及服务日志保存在 `/var/lib/ocrun-server-install/failure-diagnostics.txt`（root、0600）。该诊断不包含数据库配置正文或密码。
+失败回滚前的目录权限、SELinux 标签及服务日志保存在 `/var/lib/bits/center-install-install/failure-diagnostics.txt`（root、0600）。该诊断不包含数据库配置正文或密码。
 
 中心撤回前先让连接它的测试节点完成任务并撤回连接。随后在原解压材料目录以 root 执行：
 

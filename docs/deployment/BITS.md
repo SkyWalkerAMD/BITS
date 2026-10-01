@@ -24,14 +24,14 @@ RPM 面向已验收的 EL 8–10，DEB 面向 Debian 11–13 / Ubuntu 22.04、24
 
 215：
 ```bash
-dnf install ./bits-o-control-0.1.2-1.el8.x86_64.rpm
+dnf install ./bits-o-control-0.2.0-1.el8.x86_64.rpm
 bits-o setup --allow-node K6C-144 --check
 bits-o setup --allow-node K6C-144
 ```
 
 节点 K6C-144：
 ```bash
-dnf install ./bits-o-workloads-0.1.0-3.el8.x86_64.rpm ./bits-o-node-0.1.2-1.el8.x86_64.rpm
+dnf install ./bits-o-workloads-0.1.0-4.el8.x86_64.rpm ./bits-o-node-0.2.0-1.el8.x86_64.rpm
 bits-o setup --check
 bits-o setup
 ```

@@ -43,7 +43,7 @@ def checked_package():
     if spec.get("version") != VERSION:
         raise ValueError("Package version mismatch")
     expected = {"common.py", "security.py", "finish.py", "hook.sh", "oct-hook.sh",
-                "node.py", "queue.py", "workload.py", "operator_cli.py", "install_guard.py", "tools_adoption.py", "suite.py", "report_sheet.py"}
+                "node.py", "queue.py", "workload.py", "operator_cli.py", "install_guard.py", "tools_adoption.py", "suite.py", "report_sheet.py", "bits_layout.py"}
     if set(spec.get("files", {})) != expected:
         raise ValueError("Invalid package file inventory")
     for name, checksum in spec["files"].items():

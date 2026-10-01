@@ -232,7 +232,7 @@ def main():
     assert not install.CURRENT.exists()
     assert not install.MANIFEST.exists()
     for name, checksum in retained.items():
-        assert hashlib.sha256(Path("/srv/ocrun/logs/CLOUD-NODE_SERIAL", name).read_bytes()).hexdigest() == checksum
+        assert hashlib.sha256(Path("/srv/bits/results/CLOUD-NODE_SERIAL", name).read_bytes()).hexdigest() == checksum
     run("nft", "list", "table", "inet", "ocrun_fixture")
     record("rollback detaches only owned services/files while retaining results/database/accounts")
     run(*(binary + ["--apply"]))
