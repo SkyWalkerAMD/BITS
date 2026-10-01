@@ -4,22 +4,56 @@
 
 ## 选择安装方式
 
-独立架构正在 0.4 预览分支验收：网页提供运行总览、节点实时状态、批次编排、报告和操作指引。明确点击开始后执行，显示步骤进度、温度与功耗趋势，自动生成并核验结果；断线和过期采样单独标明。它使用 HTTPS、独立任务协议和本地事务数据库；BITS-o 继续服务旧 OCRUN。[架构与 sckocp 权限边界](docs/development/BITS-INDEPENDENT.md) · [候选部署说明](docs/deployment/BITS-INDEPENDENT-PREVIEW.md)。正式生产安装仍以已发布稳定版为准。
+**BITS 0.4 网页版已发布预览包，当前版本为 `0.4.0-alpha.2`。** 它提供独立中心、节点实时状态、网页批次编排和报告下载，适合新建隔离测试环境。稳定版仍为 0.3.0；旧 OCRUN 使用 BITS-o。
 
 | 场景 | 发布包 | 操作说明 |
 | --- | --- | --- |
-| 新服务器部署整套系统 | [BITS 0.3.0：管理端与节点 RPM/DEB](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.3.0) | [完整系统部署](docs/deployment/DISTRIBUTION.md) |
+| 新服务器体验独立架构、实时网页管理（预览版） | [BITS 0.4.0-alpha.2：管理端与节点 RPM/DEB](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.4.0-alpha.2) | [0.4 安装与网页操作手册](https://github.com/SkyWalkerAMD/BITS/blob/v0.4.0-alpha.2/docs/deployment/BITS-INDEPENDENT-PREVIEW.md) |
+| 部署现有稳定版完整系统 | [BITS 0.3.0：管理端与节点 RPM/DEB](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.3.0) | [0.3 完整系统部署](docs/deployment/DISTRIBUTION.md) |
 | 旧 OCRUN 增加功能，保留 ws/occt | [BITS-o 0.2.0：控制端与节点 RPM/DEB](https://github.com/SkyWalkerAMD/BITS/releases/tag/bits-o-v0.2.0) | [旧系统增强套件](docs/deployment/BITS.md) |
 | 第三方程序读取本机监控 | [sckocp-api 0.4.0 独立安装器](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.3.0/sckocp-api-0.4.0.run) | [接口操作手册](docs/monitoring/SCKOCP-API-操作手册.md) |
 
+## BITS 0.4 下载与网页操作
+
+按机器角色和系统格式选择一个安装包，均为 x86-64：
+
+| 机器角色 | Rocky / AlmaLinux 8–10：RPM | Debian 11–13、Ubuntu 22.04 / 24.04 / 26.04：DEB |
+| --- | --- | --- |
+| 管理服务器 | [bits-center RPM](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.2/bits-center-0.4.0-0.alpha.2.el8.x86_64.rpm) | [bits-center DEB](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.2/bits-center_0.4.0.alpha.2-1_amd64.deb) |
+| 压测节点，已含工具 | [bits-node RPM](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.2/bits-node-0.4.0-0.alpha.2.el8.x86_64.rpm) | [bits-node DEB](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.2/bits-node_0.4.0.alpha.2-1_amd64.deb) |
+
+[完整操作手册](https://github.com/SkyWalkerAMD/BITS/blob/v0.4.0-alpha.2/docs/deployment/BITS-INDEPENDENT-PREVIEW.md) · [离线手册下载](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.2/OPERATIONS.md) · [SHA256SUMS](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.2/SHA256SUMS) · [本版验证记录](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.2/VERIFICATION.json)
+
+部署流程：
+
+1. 在新中心安装 `bits-center`，按 **0.4 手册**选择现有 IP 和允许网段，配置 HTTPS、证书信任并启动服务。
+2. 在网页登记节点并下载专属连接文件。节点安装 `bits-node`，导入连接文件后启动节点服务。节点包已包含工具及采集 / 报告适配，无需 `bits-o-workloads`；原版 sckocp 单独安装，授权在 BITS 之外完成。
+3. 网页编排批次、保存草稿，核对后明确点击“开始”。运行时查看进度、温度与功耗，结束后查看 HTML / Excel 报告及核验回执。空闲节点不自动领取其他批次。
+
+0.4 默认仅中心 HTTPS TCP 443 对节点开放，节点无需入站端口；使用本地 SQLite，不依赖 Redis / rsync。首次安装和系统服务操作仍在对应机器完成。0.3 的自动网络配置、升级或迁移命令不能直接套用到 0.4；当前预览版不提供生产系统原地迁移。
+
+本版已通过 12 个 Linux 容器环境及桌面 / 手机浏览器流程验证，监控使用模拟读数。真实硬件、各发行版原生内核、多天运行和 200 台物理节点仍待另行验收。[独立架构与 sckocp 权限边界](https://github.com/SkyWalkerAMD/BITS/blob/v0.4.0-alpha.2/docs/development/BITS-INDEPENDENT.md)。
+
+<details>
+<summary>查看 0.4 实时工作台截图（云端模拟读数）</summary>
+
+![BITS 0.4 实时工作台](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.2/dashboard.png)
+
+[运行详情](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.2/batch-running.png) · [任务编排](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.2/batch-wizard.png) · [手机布局](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.2/dashboard-mobile.png)
+
+</details>
+
+## 工具与平台
+
 节点工具包括 stress 1.0.7、stress-ng 0.22.01、mprime 30.19b20（m1/m2/m4）、MLC 3.13、MBW 2.0、cyclictest 2.10、UnixBench 6.0.1。SPEC CPU2017 使用用户持有的原授权文件。[工具版本与命令](docs/workloads/MANUAL.md)。
 
-目标平台为 x86-64 的 Rocky/AlmaLinux 8/9/10、Debian 11/12/13、Ubuntu 22.04/24.04/26.04，实际验收明细随 Release 提供。管理端可用 `bits-center network` 查看现有地址、`bits-center setup --auto --check` 预检自动配置，保留现有网卡 IP、网关与 DNS。RHEL、其他架构和真实硬件需另行验收。[版本与验证记录](docs/releases/README.md)。
+目标平台为 x86-64 的 Rocky/AlmaLinux 8/9/10、Debian 11/12/13、Ubuntu 22.04/24.04/26.04，实际验收明细随 Release 提供。**0.3 稳定版**管理端可用 `bits-center network` 查看现有地址、`bits-center setup --auto --check` 预检自动配置，保留现有网卡 IP、网关与 DNS；0.4 使用上方独立手册中的配置流程。RHEL、其他架构和真实硬件需另行验收。[版本与验证记录](docs/releases/README.md)。
 
 ## 常用文档
 
 - [全部文档导航](docs/README.md)：部署、插件、节点、监控、报表、工具、安全及历史。
-- [完整节点任务、状态和失败恢复](docs/deployment/DISTRIBUTION.md)；[旧系统增强操作](docs/deployment/BITS.md)。
+- [0.4 网页版：安装、节点接入、批次运行、报告与回退](https://github.com/SkyWalkerAMD/BITS/blob/v0.4.0-alpha.2/docs/deployment/BITS-INDEPENDENT-PREVIEW.md)。
+- [0.3 稳定版任务、状态和失败恢复](docs/deployment/DISTRIBUTION.md)；[旧系统增强操作](docs/deployment/BITS.md)。
 - [机器压测报告与交付文件](docs/reports/ACCEPTANCE-REPORT.md)。
 - [0.3 迁移与回滚](docs/deployment/MIGRATION-0.3.md)。
 - [开发与云端验证](CONTRIBUTING.md)。
@@ -28,7 +62,6 @@
 
 | 目录 | 用途 |
 | --- | --- |
-| `native/` | 0.4 独立中心、节点协议、网页与验收候选；不使用旧 Redis/rsync 调度 |
 | `distribution/`、`bits_core/center/` | 完整系统打包、新管理服务器部署 |
 | `legacy_plugin/`、`bits_core/results/` | 旧系统增强入口、只读结果查看 |
 | `bits_core/batch/`、`bits_core/reporting/`、`bits_core/workloads/` | 节点执行与收尾、报表、固定版本工具 |
@@ -39,7 +72,7 @@
 | `docs/` | 使用文档；历史材料在 `docs/archive/` |
 | 私有研究 | 原生 sckocp 源码和安全研究保留在独立私有仓库，不在公开历史中 |
 
-完整系统使用统一的 bits_core 实现以及 `/opt/bits`、`/etc/bits`、`/var/lib/bits`、`/var/log/bits` 目录。旧 OCRUN 路径和挂钩集中在兼容适配中；历史协议、回执标识与原始数据保留。硬件查看使用 sckocp，批次内自动采集。[核心重构说明](docs/development/CORE-REFACTOR.md)。
+0.3 完整系统使用统一的 bits_core 实现以及 `/opt/bits`、`/etc/bits`、`/var/lib/bits`、`/var/log/bits` 目录。旧 OCRUN 路径和挂钩集中在兼容适配中；历史协议、回执标识与原始数据保留。硬件查看使用 sckocp，批次内自动采集。[0.3 核心重构说明](docs/development/CORE-REFACTOR.md)。0.4 独立中心、网页及节点源码见 [v0.4.0-alpha.2 的 native 目录](https://github.com/SkyWalkerAMD/BITS/tree/v0.4.0-alpha.2/native)。
 
 ## 使用边界
 

@@ -6,6 +6,7 @@
 
 | 交付 | 版本 / 源码 | 云端证据 |
 | --- | --- | --- |
+| BITS 独立架构：实时网页工作台（预览） | [0.4.0-alpha.2](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.4.0-alpha.2)，bb05159；[安装与网页操作](https://github.com/SkyWalkerAMD/BITS/blob/v0.4.0-alpha.2/docs/deployment/BITS-INDEPENDENT-PREVIEW.md) | [公开验证清单](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.2/VERIFICATION.json)：12 个系统用户空间、14 项 Go 测试及 race 检查、Rocky 8 / Ubuntu 22 各 52 项接口检查、36 次中断恢复和 11 组浏览器操作检查；模拟读数，真实硬件与长任务另行验收 |
 | BITS 完整系统：统一核心 | [0.3.0](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.3.0)，a7dda66 | [53 项作业通过](https://github.com/SkyWalkerAMD/ocrun-next-private-archive/actions/runs/36810888642)，12 系统及真实 0.2.5 包的历史导入/回滚；见[验收记录](0.3.0-VERIFICATION.md) |
 | BITS-o 旧系统适配：共享核心 | [0.2.0](https://github.com/SkyWalkerAMD/BITS/releases/tag/bits-o-v0.2.0)，a7dda66 | [15 项作业通过](https://github.com/SkyWalkerAMD/ocrun-next-private-archive/actions/runs/36811505900)，12 系统、原 occt 协议及现场组件升级；硬件验收单独进行 |
 | BITS 完整系统：自动网络配置 | [0.2.5](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.2.5)，9579220 | [本轮 24 项作业通过](https://github.com/SkyWalkerAMD/ocrun-next-private-archive/actions/runs/36800108426)，12 系统；未变更组件复用已核验运行，见 [记录](0.2.5.md) |
