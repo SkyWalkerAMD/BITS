@@ -56,8 +56,8 @@ sudo qemu-system-x86_64 -enable-kvm -cpu host -m 4096 -smp 2 -display none \
 ssh_args=(-i .vm-private/key -p 2222 -o BatchMode=yes -o ConnectTimeout=3 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=.vm-private/known_hosts)
 vm() { ssh "${ssh_args[@]}" root@127.0.0.1 "$@"; }
 cleanup() {
-    vm 'mkdir -p /results; journalctl --no-pager -u ocrun-server-db -u ocrun-server-http -u ocrun-server-rsync -u ocrun-server-firewall > /results/journal.txt; ausearch -m AVC,USER_AVC -ts boot > /results/avc.txt 2>&1 || true' || true
-    vm 'test ! -f /var/lib/ocrun-server-install/failure-diagnostics.txt || cp /var/lib/ocrun-server-install/failure-diagnostics.txt /results/failure-diagnostics.txt' || true
+    vm 'mkdir -p /results; journalctl --no-pager -u bits-center-db -u bits-center-http -u bits-center-rsync -u bits-center-firewall > /results/journal.txt; ausearch -m AVC,USER_AVC -ts boot > /results/avc.txt 2>&1 || true' || true
+    vm 'test ! -f /var/lib/bits/center-install/failure-diagnostics.txt || cp /var/lib/bits/center-install/failure-diagnostics.txt /results/failure-diagnostics.txt' || true
     vm 'tar -C /results -czf - .' | tar --no-same-owner -xzf - -C .vm-results/ || true
     if [[ -s .vm-private/qemu.pid ]]; then sudo kill -TERM "$(sudo cat .vm-private/qemu.pid)" || true; fi
     sudo chown -R "$(id -u):$(id -g)" .vm-results
@@ -70,9 +70,9 @@ for attempt in $(seq 1 240); do
     sleep 2
 done
 vm 'test -f /var/lib/cloud/instance/boot-finished; mkdir -p /src /fixture /results'
-tar --owner=0 --group=0 -czf .vm-private/source.tar.gz server_deploy finish_addon sckocp_api ci/server_deploy_test.py ci/server_image.sh
-scp -i .vm-private/key -P 2222 -o BatchMode=yes -o UserKnownHostsFile=.vm-private/known_hosts .vm-private/source.tar.gz server-dist/ocrun-server-0.1.3.tar.gz root@127.0.0.1:/root/
-vm 'tar -xzf /root/source.tar.gz -C /src; tar -xzf /root/ocrun-server-0.1.3.tar.gz -C /root; cp /src/bits_core/center/dependencies.sh /fixture/dependencies.sh'
+tar --owner=0 --group=0 -czf .vm-private/source.tar.gz bits_core bits_layout.py sckocp_api ci/server_deploy_test.py ci/server_image.sh
+scp -i .vm-private/key -P 2222 -o BatchMode=yes -o UserKnownHostsFile=.vm-private/known_hosts .vm-private/source.tar.gz server-dist/bits-center-runtime-0.3.0.tar.gz root@127.0.0.1:/root/
+vm 'tar -xzf /root/source.tar.gz -C /src; tar -xzf /root/bits-center-runtime-0.3.0.tar.gz -C /root; cp /src/bits_core/center/dependencies.sh /fixture/dependencies.sh'
 vm 'GITHUB_ACTIONS=true OCRUN_CLOUD_VM=1 bash /src/ci/server_image.sh' 2>&1 | tee .vm-results/packages.txt
 if [[ ${OCRUN_SELINUX_TRACE:-false} == true ]]; then
     # Disposable VM diagnostics only: expose suppressed denials without granting
@@ -93,9 +93,9 @@ for attempt in $(seq 1 120); do
 done
 [[ -n $after && $after != "$before" ]]
 for attempt in $(seq 1 30); do
-    if vm /usr/local/bin/ocrun-server check > .vm-results/reboot-check.json; then break; fi
+    if vm /usr/local/libexec/bits-center-service check > .vm-results/reboot-check.json; then break; fi
     sleep 2
 done
-vm /usr/local/bin/ocrun-server check > .vm-results/reboot-check.json
-vm /usr/local/bin/ocrun-server task status --node CLOUD-NODE > .vm-results/reboot-task.json
+vm /usr/local/libexec/bits-center-service check > .vm-results/reboot-check.json
+vm /usr/local/libexec/bits-center-service task status --node CLOUD-NODE > .vm-results/reboot-task.json
 printf 'before=%s\nafter=%s\n' "$before" "$after" > .vm-results/boot-ids.txt

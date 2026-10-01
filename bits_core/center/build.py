@@ -19,6 +19,8 @@ def main():
     files += list((ROOT / "bits_core/center").glob("*.md"))
     contents = {p.relative_to(ROOT).as_posix(): p.read_bytes().replace(b"\r\n", b"\n") for p in files if p.name not in ("build.py", "release.py", "test_server.py")}
     contents['bits_core/__init__.py'] = (ROOT / 'bits_core/__init__.py').read_bytes()
+    for name in ('bits_layout.py', 'bits_core/layout.py'):
+        contents[name] = (ROOT / name).read_bytes()
     for source, target in (("docs/deployment/SERVER.md", "bits_core/center/MANUAL.md"),
                            ("docs/archive/server-0.1.2/ACCEPTANCE.md", "bits_core/center/ACCEPTANCE.md")):
         contents[target] = (ROOT / source).read_bytes().replace(b"\r\n", b"\n")
@@ -27,10 +29,10 @@ def main():
     contents["PACKAGE.json"] = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode()
     output = ROOT / "server-dist"
     output.mkdir(exist_ok=True)
-    archive = output / ("ocrun-server-" + VERSION + ".tar.gz")
+    archive = output / ("bits-center-runtime-" + VERSION + ".tar.gz")
     with tarfile.open(str(archive), "w:gz") as package:
         for name, data in sorted(contents.items()):
-            member = tarfile.TarInfo("ocrun-server-" + VERSION + "/" + name)
+            member = tarfile.TarInfo("bits-center-runtime-" + VERSION + "/" + name)
             member.size = len(data)
             member.mode = 0o755 if name.endswith(".sh") else 0o644
             package.addfile(member, io.BytesIO(data))

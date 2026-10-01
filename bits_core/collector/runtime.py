@@ -15,7 +15,9 @@ import subprocess
 import sys
 import time
 
-
+# Invoked by absolute filename with Python -I as well as imported by the entry.
+# Only this module's package root may supply the manifest-covered layout.
+sys.path.insert(0, str(Path(__file__).absolute().parents[2]))
 from bits_layout import LAYOUT
 LOCK_NAME = LAYOUT.runtime_lock
 FD_ENV = LAYOUT.runtime_fd

@@ -124,6 +124,7 @@ def node_stage(stage, tools, report):
     write_layout(native_tools, native=True)
     workload_manifest = json.loads((native_tools / 'MANIFEST.json').read_text())
     workload_manifest['layout'] = 'bits-v1'
+    workload_manifest['prefix'] = '/opt/bits/workloads/0.1.0'
     workload_manifest['files']['bits_layout.py'] = {'sha256': sha(native_tools / 'bits_layout.py'),
                                                   'bytes': (native_tools / 'bits_layout.py').stat().st_size}
     put(native_tools / 'MANIFEST.json', json.dumps(workload_manifest, sort_keys=True, indent=2))
@@ -211,9 +212,9 @@ if [ -e PREFIX ] || [ -L PREFIX ] || [ -e COMMAND ] || [ -L COMMAND ]; then
  done
 fi
 '''.replace('PREVIOUS_PREFIX', '/opt/ocrun-' + role + '/0.2.2').replace('PREFIX', prefix).replace('COMMAND', command).replace('PACKAGE', package).replace('KIND', kind).replace('MANIFEST_FILE', 'PACKAGE.json')
-    active = ('[ ! -e /etc/bits/node/native.json ] || { echo "Detach this native node before package replacement/removal; results are retained." >&2; exit 1; }\n'
+    active = ('[ ! -e /etc/bits/node/native.json ] && [ ! -e /etc/ocrun-node/native.json ] || { echo "Detach this native node before package replacement/removal; results are retained." >&2; exit 1; }\n'
               if role == 'node' else
-              '[ ! -e /etc/bits/center/manifest.json ] || { echo "Roll back this center deployment before package replacement/removal; data is retained." >&2; exit 1; }\n')
+              '[ ! -e /etc/bits/center/manifest.json ] && [ ! -e /etc/ocrun-server/manifest.json ] || { echo "Roll back this center deployment before package replacement/removal; data is retained." >&2; exit 1; }\n')
     base = ('#!/bin/sh\nset -eu\nPATH=/usr/sbin:/usr/bin:/sbin:/bin\nexport PATH\n'
             'for tool in ps grep find; do\n'
             ' command -v "$tool" >/dev/null || { echo "Required safety tool missing: $tool" >&2; exit 1; }\n'

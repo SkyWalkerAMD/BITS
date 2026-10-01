@@ -12,7 +12,7 @@ import time
 
 if os.environ.get("GITHUB_ACTIONS") != "true" or os.geteuid() != 0:
     raise SystemExit("Disposable cloud root environment required")
-source = Path("/root/ocrun-server-0.1.3")
+source = Path("/root/bits-center-runtime-0.3.0")
 sys.path.insert(0, str(source))
 from bits_core.center import install, platforms, render, safe, tasks
 from bits_core.center.wire import Redis, ProtocolError
@@ -41,35 +41,35 @@ def main():
     binary = ["bash", str(source / "bits_core/center/install.sh"), "--address", address, "--network", network, "--skip-deps"]
     run("nft", "add", "table", "inet", "ocrun_fixture")
     run(*(binary + ["--check"]))
-    assert not Path("/etc/ocrun-server/server.json").exists()
+    assert not Path("/etc/bits/center/server.json").exists()
     assert not install.CURRENT.exists()
     record("read-only fresh install preflight does not activate or write configuration")
     outputs = render.files(config, str(Path(sys.executable).resolve()))
-    outputs["/etc/ocrun-server/nginx.conf"] = ("this_is_invalid_nginx;\n", 0o644)
+    outputs["/etc/bits/center/nginx.conf"] = ("this_is_invalid_nginx;\n", 0o644)
     try:
         install.apply(config, source, outputs, manifest)
         raise AssertionError("Invalid nginx config installed")
     except ValueError as error:
         assert "nginx failed" in str(error), str(error)
     assert not install.CURRENT.exists()
-    assert not Path("/etc/ocrun-server/server.json").exists()
+    assert not Path("/etc/bits/center/server.json").exists()
     prepared_password = safe.load(install.STATE / "prepared.json")["config"]["password"]
     run("nft", "list", "table", "inet", "ocrun_fixture")
     record("failed activation rolls back owned files and retains credentials/unrelated firewall")
     run(*(binary + ["--apply"]))
-    config = safe.load("/etc/ocrun-server/server.json")
+    config = safe.load("/etc/bits/center/server.json")
     assert config["password"] == prepared_password
     redis = Redis(password=prepared_password)
-    result = json.loads(run("/usr/local/bin/ocrun-server", "check").stdout.decode())
+    result = json.loads(run("/usr/local/libexec/bits-center-service", "check").stdout.decode())
     assert result["status"] == "ok"
     record("corrected retry starts real systemd database/nginx/rsync with original credentials")
     before = safe.read(install.MANIFEST)
     run(*(binary + ["--apply"]))
     assert safe.read(install.MANIFEST) == before
     record("repeated install preserves managed bytes and credentials")
-    run("su", "-s", "/bin/sh", "ocuser", "-c", "/usr/local/bin/ocrun-server task status --node CLOUD-NODE")
-    record("ocuser can operate task management without root")
-    rejected = run("/usr/local/bin/ocrun-server", "task", "add", "--node", "CLOUD-NODE", "--id", "TYPO", "--task", "strss=60", success=False)
+    run("su", "-s", "/bin/sh", "bits", "-c", "/usr/local/libexec/bits-center-service task status --node CLOUD-NODE")
+    record("bits can operate task management without root")
+    rejected = run("/usr/local/libexec/bits-center-service", "task", "add", "--node", "CLOUD-NODE", "--id", "TYPO", "--task", "strss=60", success=False)
     assert rejected.returncode != 0 and redis.call("GET", "CLOUD-NODE") is None
     record("misspelled task rejected without writing host mapping or taking tasks")
     queued = tasks.add(redis, "CLOUD-NODE", "CLOUD-BATCH", "20260927-TEST", ["stress=60", "stress-ng=60"])
@@ -116,7 +116,7 @@ def main():
     os.chown(str(fixture / 'oc.env'), 201, 200)
     safe.save(fixture / '.mon-sensors-finish-install.json', {'version': '0.2.2'})
     private = Path('/root/fixture-node.json')
-    exported = run('/usr/local/bin/ocrun-server', 'node-config', '--node', socket.gethostname(), '--output', str(private))
+    exported = run('/usr/local/libexec/bits-center-service', 'node-config', '--node', socket.gethostname(), '--output', str(private))
     assert config['node_password'].encode() not in exported.stdout
     node_connect.ORIGINAL_ENV = safe.digest(env_before)  # test fixture only
     previous_args = sys.argv
@@ -189,7 +189,7 @@ def main():
     except ValueError:
         pass
     record('selected installer publishes by exact hash and private connection files are refused')
-    run("systemctl", "restart", "ocrun-server-db")
+    run("systemctl", "restart", "bits-center-db")
     for unused in range(50):
         try:
             assert redis.call("GET", "IDS", db=db) == "CLOUD-BATCH"
@@ -218,10 +218,10 @@ def main():
                 path = prefix / name
                 assert hashlib.sha256(path.read_bytes()).hexdigest() == checksum
                 assert path.stat().st_mode & 0o777 == 0o600
-            run("su", "-s", "/bin/sh", "ocuser", "-c", "sha256sum /data/cds/result/CLOUD-NODE_SERIAL/" + name)
-        record("four result files upload/download/hash-match and remain readable by ocuser with mode 0600")
+            run("su", "-s", "/bin/sh", "bits", "-c", "sha256sum /data/cds/result/CLOUD-NODE_SERIAL/" + name)
+        record("four result files upload/download/hash-match and remain readable by bits with mode 0600")
         retained = expected
-    nginx = Path("/etc/ocrun-server/nginx.conf")
+    nginx = Path("/etc/bits/center/nginx.conf")
     saved = nginx.read_bytes()
     nginx.write_bytes(saved + b"# local customization\n")
     assert run(*(binary + ["--apply"]), success=False).returncode != 0
@@ -236,7 +236,7 @@ def main():
     run("nft", "list", "table", "inet", "ocrun_fixture")
     record("rollback detaches only owned services/files while retaining results/database/accounts")
     run(*(binary + ["--apply"]))
-    assert safe.load("/etc/ocrun-server/server.json")["password"] == prepared_password
+    assert safe.load("/etc/bits/center/server.json")["password"] == prepared_password
     assert tasks.status(Redis(password=prepared_password), "CLOUD-NODE")["id"] == "CLOUD-BATCH"
     record("reinstall after rollback reuses prepared credentials and persisted task database")
     vm = os.environ.get('OCRUN_CLOUD_VM') == '1'

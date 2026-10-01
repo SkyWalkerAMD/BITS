@@ -27,7 +27,7 @@ cd /root/ocrun-server-materials && sha256sum -c SHA256SUMS
 ```
 
 ```bash
-tar -xzf ocrun-server-0.1.3.tar.gz && cd ocrun-server-0.1.3
+tar -xzf bits-center-runtime-0.3.0.tar.gz && cd bits-center-runtime-0.3.0
 ```
 
 先查看系统依赖方案，不安装：
@@ -107,15 +107,15 @@ chmod 600 /root/TEST-001.connection.json
 ```
 
 ```bash
-tar -xzf /root/ocrun-server-0.1.3.tar.gz -C /root
+tar -xzf /root/bits-center-runtime-0.3.0.tar.gz -C /root
 ```
 
 ```bash
-bash /root/ocrun-server-0.1.3/bits_core/center/connect-node.sh --app /root/ocrun --config /root/TEST-001.connection.json --check
+bash /root/bits-center-runtime-0.3.0/bits_core/center/connect-node.sh --app /root/ocrun --config /root/TEST-001.connection.json --check
 ```
 
 ```bash
-bash /root/ocrun-server-0.1.3/bits_core/center/connect-node.sh --app /root/ocrun --config /root/TEST-001.connection.json --apply
+bash /root/bits-center-runtime-0.3.0/bits_core/center/connect-node.sh --app /root/ocrun --config /root/TEST-001.connection.json --apply
 ```
 
 工具校验节点名、root 私密文件、已验证的原 `oc.env` 哈希和收尾版本，备份原文件及属主权限，仅修改服务器地址并加载私密凭据。遇到未知或手工改过的 `oc.env` 会保留现场并拒绝；不要手动忽略检查。已有未完成收尾时不得切换中心。导入不会启动任何任务，重复导入相同文件安全。
@@ -169,7 +169,7 @@ bash bits_core/center/install.sh --rollback
 节点撤回连接：
 
 ```bash
-bash /root/ocrun-server-0.1.3/bits_core/center/connect-node.sh --app /root/ocrun --rollback
+bash /root/bits-center-runtime-0.3.0/bits_core/center/connect-node.sh --app /root/ocrun --rollback
 ```
 
 然后才可按收尾组件手册降回原版本。原 `oc.env` 内容与权限恢复；工具不会自动启动旧调度。

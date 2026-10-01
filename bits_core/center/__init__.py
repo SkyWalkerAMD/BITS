@@ -1,3 +1,3 @@
 """Cross-distribution deployment, separate from the field-tested node add-ons."""
 
-VERSION = "0.1.3"
+VERSION = "0.3.0"

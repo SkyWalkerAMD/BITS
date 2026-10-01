@@ -208,12 +208,14 @@ class PluginRuntimeTests(unittest.TestCase):
         self.assertEqual(143, process.wait(timeout=3))
 
     def test_installed_entry_shares_guard_and_stops_its_supervisor(self):
-        source = Path(RUNTIME).parents[1]
+        source = Path(RUNTIME).parents[2]
         helper = self.app / "mon-sensors-plugin.d"
         helper.mkdir()
         for package in ("bits_core/collector", "sckocp_api"):
             shutil.copytree(str(source / package), str(helper / package),
                             ignore=shutil.ignore_patterns("__pycache__"))
+        for name in ('bits_layout.py', 'bits_core/__init__.py', 'bits_core/layout.py'):
+            shutil.copyfile(str(source / name), str(helper / name))
         # Hold open the real cleanup-to-exit window after the lock is released
         # and signal handlers restored. The old legacy fallback re-signalled
         # this already-cleaned supervisor, turning its intended 143 into -15.

@@ -99,6 +99,8 @@ def fresh_check(config, outputs):
         safe.directory(p.parent)
     if Path("/etc/ocrun/server.json").exists() or Path("/etc/ocrun/agent.json").exists():
         raise ValueError("Another OCRUN architecture is installed; use a separate fresh server")
+    if Path('/etc/ocrun-server/manifest.json').exists():
+        raise ValueError('A pre-0.3 BITS center is deployed; export and roll back that deployment before migration. Existing data was preserved.')
     for service in render.SERVICES:
         if command(["systemctl", "is-active", "--quiet", service], check=False).returncode == 0:
             raise ValueError("Existing unowned service: " + service)

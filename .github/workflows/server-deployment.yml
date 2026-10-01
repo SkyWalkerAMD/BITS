@@ -105,7 +105,7 @@ jobs:
             sleep 1
           done
           docker exec ocrun-server-test test -d /run/systemd/system
-          docker exec ocrun-server-test tar -xzf /src/server-dist/ocrun-server-0.1.3.tar.gz -C /root
+          docker exec ocrun-server-test tar -xzf /src/server-dist/bits-center-runtime-0.3.0.tar.gz -C /root
       - name: Verify installation, original protocol, persistence, transfer and rollback
         run: |
           set -o pipefail

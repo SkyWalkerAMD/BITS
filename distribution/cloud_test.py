@@ -51,8 +51,8 @@ def main():
     assert not Path('/etc/bits/center/server.json').exists()
     assert not APP.exists()
     passed('native package installation has matching revision and does not configure services or start tasks')
-    tools = data('bits-o-workloads', 'list')
-    assert tools['package_revision'] == '3'
+    tools = data('/usr/libexec/bits-workloads', 'list')
+    assert tools['package_revision'] == '4'
     assert tools['tools']['mlc'] == {'version': '3.13', 'delivery': 'included'}
     mlc = Path('/opt/bits/workloads/0.1.0/mlc/mlc')
     version = run(mlc, '-h', good=False)
@@ -108,7 +108,7 @@ def main():
         pass
     host = socket.gethostname()
     private = Path('/root/native-connection.json')
-    run('ocrun-server', 'node-config', '--node', host, '--output', private)
+    run('bits-center', 'node-config', '--node', host, '--output', private)
     assert private.stat().st_mode & 0o777 == 0o600
     passed('protected database and private node credential export remain active')
     configure = ['bits-node', 'configure', '--config', str(private), '--serial', 'CLOUD-SERIAL', '--keep-on']
@@ -146,8 +146,8 @@ def main():
     run('bits-node', 'check')
     assert not (APP / 'mon-sensors').exists()
     assert not (APP / 'mon-sensors-plugin').exists()
-    assert (APP / '.bits-collector').is_file()
-    assert run(APP / '.bits-collector', '--once', good=False).returncode != 0
+    assert (APP / 'collect').is_file()
+    assert run(APP / 'collect', '--once', good=False).returncode != 0
     passed('native BITS uses a private batch worker with no mon-sensors command or interactive hardware viewer')
     passed('original node protection, read-only setup, interrupted setup recovery and repeatable explicit tool binding')
     tasks.add(redis, host, 'TYPO', 'cloud', ['stress=3'])
@@ -193,7 +193,7 @@ def main():
             if case['stage'] == 'complete':
                 break
             if case.get('error'):
-                log = APP / '.mon-sensors-finish' / ('run-' + case['case']) / 'collector.log'
+                log = APP / 'state' / ('run-' + case['case']) / 'collector.log'
                 detail = log.read_bytes()[-4096:].decode('utf-8', 'replace') if log.exists() else ''
                 raise AssertionError(case['error'] + '\n' + detail)
         time.sleep(1)
@@ -208,7 +208,7 @@ def main():
     remote = Path('/data/cds/result') / (host + '_CLOUD-SERIAL')
     for name, receipt in files.items():
         assert sha(remote / name) == receipt['sha256']
-        run('su', '-s', '/bin/sh', 'ocuser', '-c', 'test -r ' + str(remote / name))
+        run('su', '-s', '/bin/sh', 'bits', '-c', 'test -r ' + str(remote / name))
     assert len(files) == 6
     acceptance = json.loads(Path(case['mon']).with_suffix('.report.json').read_text())
     assert acceptance['schema'] == 'ocrun-acceptance-report-v1'
@@ -221,13 +221,13 @@ def main():
                    (host + '_CLOUD-SERIAL/') + Path(case['mon']).with_suffix('.finish.json').name, '--json')
     assert checked['verified_here'] and checked['html_report_path'].endswith('.report.html')
     receipt_name = (host + '_CLOUD-SERIAL/') + Path(case['mon']).with_suffix('.finish.json').name
-    reader = json.loads(run('su', '-s', '/bin/sh', 'ocuser', '-c',
+    reader = json.loads(run('su', '-s', '/bin/sh', 'bits', '-c',
         'bits-center results verify --receipt ' + receipt_name + ' --json').stdout.decode())
     assert reader['verified_here'] and reader['html_report_path'] == checked['html_report_path']
     assert run('su', '-s', '/bin/sh', 'nobody', '-c',
         'bits-center results verify --receipt ' + receipt_name + ' --json', good=False).returncode
     for command in ('rollback', 'publish-node'):
-        assert run('su', '-s', '/bin/sh', 'ocuser', '-c', 'bits-center ' + command, good=False).returncode
+        assert run('su', '-s', '/bin/sh', 'bits', '-c', 'bits-center ' + command, good=False).returncode
     passed('management account verifies results without sudo; unauthorized reader and service mutations remain denied')
     workbook = Path(case['mon']).with_suffix('.xlsx')
     with zipfile.ZipFile(str(workbook)) as z:
@@ -255,7 +255,7 @@ def main():
     assert run(*reinstall, good=False).returncode != 0
     assert snapshot == {name: sha(remote / name) for name in files}
     passed('configured native node refuses package replacement and retains evidence')
-    pending = data(APP / 'mon-sensors-finish', 'begin', '--mon',
+    pending = data(APP / 'batch', 'begin', '--mon',
                    '/var/log/bits/node/' + host + '_CLOUD-SERIAL_PENDING_cloud.mon',
                    '--remote', address + '::logs/' + host + '_CLOUD-SERIAL', '--task-id', 'PENDING', '--task-time', 'cloud')
     assert run('bits-node', 'detach', good=False).returncode != 0
@@ -319,7 +319,7 @@ def main():
     assert len(old_packages) == len(new_packages) == 2
     installer = ['rpm', '-U'] if extension == '.rpm' else ['dpkg', '-i']
     run(*(installer + old_packages))
-    old_node = Path('/opt/bits/node/0.2.2')
+    old_node = Path('/opt/ocrun-node/0.2.2')
     assert json.loads((old_node / 'PACKAGE.json').read_text())['version'] == '0.2.2'
     # Unknown files in a new version directory are never treated as owned by the old package.
     NODE.mkdir()
@@ -342,8 +342,8 @@ def main():
     run(*(remover + ['ocrun-node', 'ocrun-center']))
     run(*(installer + new_packages))
     assert data('bits-node', 'check')['version'] == '0.3.0'
-    assert data('bits-o-workloads', 'list')['tools']['mlc']['delivery'] == 'included'
-    assert not old_node.exists() and not Path('/opt/bits/center/0.2.2').exists()
+    assert data('/usr/libexec/bits-workloads', 'list')['tools']['mlc']['delivery'] == 'included'
+    assert not old_node.exists() and not Path('/opt/ocrun-center/0.2.2').exists()
     passed('published 0.2.2 migrates after explicit detach/removal; coinstallation and unmanaged paths are refused')
     # Rollback uses explicit removal and the original retained artifacts, not forced downgrade.
     remover = ['rpm', '-e'] if extension == '.rpm' else ['dpkg', '-r']
@@ -362,7 +362,7 @@ if __name__ == '__main__':
     try:
         main()
     finally:
-        state = APP / '.mon-sensors-finish'
+        state = APP / 'state'
         for log in list(state.glob('run-*/collector.log')) + list(state.glob('scheduler.log')):
             # Only bounded execution diagnostics, never the private connection.
             (Path('/results') / (log.parent.name + '-' + log.name)).write_bytes(log.read_bytes()[-262144:])
