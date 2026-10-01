@@ -45,9 +45,16 @@ with sync_playwright() as p:
 
     def navigate(name):
         target = page.locator('a[data-nav="' + name + '"]')
-        if not target.is_visible():
-            page.locator("#navigation-toggle").click()
+        # A viewport resize returns before matchMedia's change callback moves
+        # the sidebar. Wait for the target layout, not an instantaneous probe.
+        if page.viewport_size["width"] <= 830:
+            expect(page.locator("#navigation-toggle")).to_have_attribute("aria-label", "打开导航")
+            if not page.locator("#navigation-dialog").is_visible():
+                page.locator("#navigation-toggle").click()
             expect(page.locator("#navigation-dialog")).to_be_visible()
+        else:
+            expect(page.locator("body > #main-navigation")).to_be_visible()
+        expect(target).to_be_visible()
         target.click()
 
     try:
