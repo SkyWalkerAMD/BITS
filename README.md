@@ -4,7 +4,7 @@
 
 ## 选择安装方式
 
-独立架构正在 0.4 预览分支验收：网页明确启动批次、HTTPS 节点连接、本地事务数据库、分段采集与可恢复交付。它使用独立任务协议；BITS-o 继续服务旧 OCRUN。[架构与 sckocp 权限边界](docs/development/BITS-INDEPENDENT.md) · [候选部署说明](docs/deployment/BITS-INDEPENDENT-PREVIEW.md)。正式生产安装仍以已发布稳定版为准。
+独立架构正在 0.4 预览分支验收：网页提供运行总览、节点实时状态、批次编排、报告和操作指引。明确点击开始后执行，显示步骤进度、温度与功耗趋势，自动生成并核验结果；断线和过期采样单独标明。它使用 HTTPS、独立任务协议和本地事务数据库；BITS-o 继续服务旧 OCRUN。[架构与 sckocp 权限边界](docs/development/BITS-INDEPENDENT.md) · [候选部署说明](docs/deployment/BITS-INDEPENDENT-PREVIEW.md)。正式生产安装仍以已发布稳定版为准。
 
 | 场景 | 发布包 | 操作说明 |
 | --- | --- | --- |

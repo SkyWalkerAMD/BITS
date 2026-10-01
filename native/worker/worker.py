@@ -27,7 +27,7 @@ import streaming
 import suite
 import workload
 
-VERSION = "0.4.0-alpha.1"
+VERSION = "0.4.0-alpha.2"
 # 128 explicitly identified steps plus the initial preparing sample.
 report_sheet.MAX_GROUPS = 129
 STOP = threading.Event()
@@ -38,6 +38,37 @@ def result(directory, execution, report="not_generated", error="", steps=None, q
     value = {"execution": execution, "quality": quality or "readings_reported_validity_unknown",
              "report": report, "error": error, "steps": steps or []}
     common.save(directory / "result.json", value)
+    return value
+
+
+def live_sample(record, extra):
+    """Only bounded display metrics, never raw native text or permission data."""
+    value = {"sequence": record["sequence"], "observed_at": record["observed_at"],
+             "available": record["provider"]["status"] == "ok"}
+    if not value["available"]:
+        return value
+    data = record["provider"]["data"]
+
+    def aggregate(rows, field, operation):
+        values = [row.get(field) for row in rows]
+        if not values or any(type(v) not in (int, float) for v in values):
+            return None
+        return operation(values)
+
+    sockets = data.get("sockets", [])
+    value.update({"temp_c": aggregate(sockets, "temp_max_c", max),
+                  "package_w": aggregate(sockets, "pkg_w", sum),
+                  "mhz": aggregate(data.get("cores", []), "mhz", lambda v: sum(v) / len(v)),
+                  "vid_v": aggregate(sockets, "vid_v", max),
+                  "tjmax_c": aggregate(sockets, "tjmax_c", min),
+                  "load": record["os"]["load1"]})
+    if extra is not None:
+        overview = extra["data"]
+        value.update({"extra_observed_at": extra["observed_at"],
+                      "memory_temp_c": aggregate(overview["sockets"], "memory_temp_max_c", max),
+                      "dram_w": aggregate(overview["sockets"], "dram_w", sum),
+                      "vccin_v": aggregate(overview["sockets"], "vccin_v", max),
+                      "psu_w": overview["system"]["psu_input_w_reported"]})
     return value
 
 
@@ -89,6 +120,7 @@ class Sampling:
         self.error = None
         self.rows = 0
         self.unavailable = 0
+        self.extra = None
         self.thread = threading.Thread(target=self.capture, name="BITS-local-sampling")
 
     def capture(self):
@@ -124,6 +156,9 @@ class Sampling:
                 if envelope["status"] == "ok" and supplemental is not None:
                     record["details"] = supplemental
                     next_details = time.monotonic() + 30
+                    overview = supplemental["parts"]["overview"]
+                    if overview["status"] == "ok":
+                        self.extra = overview
                 encoded = json.dumps(record, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
                 if len(encoded.encode("utf-8")) > 2 << 20:
                     raise ValueError("Sensor record exceeds 2 MiB")
@@ -131,6 +166,7 @@ class Sampling:
                 stream.flush()
                 os.fsync(stream.fileno())
                 self.rows += 1
+                common.save(self.directory.parent / "live.json", live_sample(record, self.extra))
                 self.ready.set()
                 if failures >= 3 or envelope["status"] not in ({"ok"} | collector.RETRYABLE_STATUSES):
                     raise ValueError("Sensor collection unavailable; stopping this batch")

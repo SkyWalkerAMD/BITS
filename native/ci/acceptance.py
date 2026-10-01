@@ -118,7 +118,27 @@ def main():
     time.sleep(6)
     assert api("batches/" + first["id"])["state"] == "draft"
     api("batches/" + first["id"] + "/start", {})
+    live_steps, live_samples = set(), []
+    for attempt in range(90):
+        frame = api("batches/" + first["id"] + "/live")["frames"]
+        if frame:
+            f = frame[0]
+            if f.get("step_id"):
+                live_steps.add(f["step_id"])
+            if f.get("sample", {}).get("available"):
+                live_samples.append(f["sample"])
+            assert "tRFC" not in json.dumps(f) and "raw_info" not in f
+        if api("batches/" + first["id"])["state"] == "delivered":
+            break
+        time.sleep(.5)
     finished = wait_batch(first["id"], "delivered")
+    assert live_steps == {"step-001", "step-002", "step-003"}, live_steps
+    assert live_samples and live_samples[-1]["sequence"] > live_samples[0]["sequence"]
+    live_last = live_samples[-1]
+    for field, expected in {"package_w":108, "temp_c":34, "psu_w":490,
+                            "memory_temp_c":33, "dram_w":1.8, "vccin_v":1.83,
+                            "vid_v":.91, "tjmax_c":94}.items():
+        assert live_last.get(field) == expected, (field, live_last)
     assert finished["result"]["execution"] == "completed", finished
     assert len(finished["result"]["steps"]) == 3
     assert all(s["cleanup_confirmed"] for s in finished["result"]["steps"])
@@ -143,7 +163,7 @@ def main():
     result["report"] = "not_generated"
     write(run_dir / "result.json", json.dumps(result))
     python = "/usr/libexec/platform-python" if Path("/usr/libexec/platform-python").exists() else "/usr/bin/python3"
-    worker = "/opt/bits/native/0.4.0-alpha.1/worker/worker.py"
+    worker = "/opt/bits/native/0.4.0-alpha.2/worker/worker.py"
     run(python, "-I", "-S", "-B", worker, "report", str(run_dir))
     assert json.loads((run_dir / "result.json").read_text())["report"] == "generated"
     assert receipt == (evidence / "receipt.json").read_bytes()
@@ -195,10 +215,12 @@ def main():
     assert all(call in [["mon", "--json"], ["mon", "--cols=1"], ["info"]] for call in calls)
     ports = run("ss", "-lntp")
     assert ":6379 " not in ports and ":873 " not in ports
-    summary = {"status": "passed", "version": "0.4.0-alpha.1", "python": sys.version,
+    summary = {"status": "passed", "version": "0.4.0-alpha.2", "python": sys.version,
         "os": Path("/etc/os-release").read_text(), "batch": finished["id"],
         "normal_steps": finished["result"]["steps"], "cancel_execution": cancel_result["result"]["execution"],
         "service_restart_execution": interrupted["result"]["execution"],
+        "live": {"steps": sorted(live_steps), "last_sample": live_last,
+                 "quality": "synthetic readings; validity remains unknown"},
         "sckocp": "synthetic fixed mon/info only; Primary-filter tested",
         "services": "real systemd, HTTPS, SQLite; no Redis/rsync",
         "native_authorization_denial": "base and supplemental denial: no workload, no permission-management call",

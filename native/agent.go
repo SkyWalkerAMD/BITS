@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-const WorkerRoot = "/opt/bits/native/0.4.0-alpha.1/worker"
+const WorkerRoot = "/opt/bits/native/0.4.0-alpha.2/worker"
 
 type LocalRun struct {
 	Batch        Batch               "json:\"batch\""
@@ -31,6 +31,8 @@ type Agent struct {
 	Client    *Client
 	Data      string
 	idleSince time.Time
+	lastLive time.Time
+	livePhase string
 	// Production always uses the installed, verified local worker. This seam
 	// permits isolated lifecycle tests without running hardware tools.
 	Worker func(context.Context, string, string, func()) error
@@ -148,13 +150,14 @@ func (a *Agent) update(ctx context.Context, dir string, run *LocalRun) error {
 }
 func (a *Agent) process(ctx context.Context, dir string, run *LocalRun, fresh bool) error {
 	base := "/node/v1/batches/" + run.Batch.ID
+	a.publishLive(ctx,dir,run)
 	if fresh {
 		// Before any acceptance or subprocess, persist an execution intent. An
 		// interrupted intent is never interpreted as permission to rerun.
 		if err := a.save(dir, run); err != nil {
 			return err
 		}
-		if err := a.Worker(ctx, "preflight", dir, func() {}); err != nil {
+		if err := a.Worker(ctx, "preflight", dir, func() { a.publishLive(ctx,dir,run) }); err != nil {
 			run.Result = Result{Execution: "preflight_failed", Quality: "not_collected", Report: "not_generated", Error: "Node preflight failed; inspect worker.log"}
 			run.Sequence = 1
 			run.Phase = "blocked"
@@ -173,11 +176,11 @@ func (a *Agent) process(ctx context.Context, dir string, run *LocalRun, fresh bo
 			var remote Batch
 			callCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
-			a.Client.JSON(callCtx, "GET", "/node/v1/poll", "", nil, nil)
 			if a.Client.JSON(callCtx, "GET", base, "", nil, &remote) == nil && remote.Cancel {
 				AtomicJSON(filepath.Join(dir, "cancel.json"), map[string]bool{"cancel": true})
 			}
 			a.update(callCtx, dir, run)
+			a.publishLive(callCtx,dir,run)
 		})
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -214,7 +217,8 @@ func (a *Agent) process(ctx context.Context, dir string, run *LocalRun, fresh bo
 		return a.update(ctx, dir, run)
 	}
 	if run.Phase == "finalizing" {
-		if err := a.Worker(ctx, "report", dir, func() {}); err != nil {
+		a.publishLive(ctx,dir,run)
+		if err := a.Worker(ctx, "report", dir, func() { a.update(ctx,dir,run);a.publishLive(ctx,dir,run) }); err != nil {
 			a.update(ctx, dir, run)
 			return err
 		}
@@ -236,6 +240,7 @@ func (a *Agent) process(ctx context.Context, dir string, run *LocalRun, fresh bo
 		}
 	}
 	if run.Phase == "delivering" {
+		a.publishLive(ctx,dir,run)
 		if err := a.update(ctx, dir, run); err != nil {
 			return err
 		}
@@ -243,6 +248,7 @@ func (a *Agent) process(ctx context.Context, dir string, run *LocalRun, fresh bo
 			return err
 		}
 		for name, meta := range run.Artifacts {
+			a.publishLive(ctx,dir,run)
 			file := filepath.Join(dir, "evidence", name)
 			actual, err := HashFile(file)
 			if err != nil {
@@ -267,6 +273,7 @@ func (a *Agent) process(ctx context.Context, dir string, run *LocalRun, fresh bo
 			}
 			// Empty files also need an explicit zero-byte upload.
 			for offset < meta.Bytes || meta.Bytes == 0 {
+				a.publishLive(ctx,dir,run)
 				size := meta.Bytes - offset
 				if size > 4<<20 {
 					size = 4 << 20
@@ -399,6 +406,10 @@ func (a *Agent) Run(ctx context.Context, once bool) error {
 		return err
 	}
 	defer lock.Close()
+	heartbeatCtx,stopHeartbeat:=context.WithCancel(ctx)
+	heartbeatDone:=make(chan struct{})
+	go func(){defer close(heartbeatDone);a.heartbeat(heartbeatCtx)}()
+	defer func(){stopHeartbeat();<-heartbeatDone}()
 	for {
 		err = a.once(ctx)
 		if once {

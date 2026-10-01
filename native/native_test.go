@@ -247,6 +247,10 @@ func TestResumableVerifiedDeliveryAndTamper(t *testing.T) {
 		t.Fatal(e)
 	}
 	before := final.ReceiptSHA
+	var receipt bytes.Buffer
+	if e:=admin.Download(ctx,"/api/v1/batches/"+b.ID+"/receipt","",&receipt);e!=nil||Digest(receipt.Bytes())!=before {
+		t.Fatal("operator receipt download differs",e)
+	}
 	if e := node.JSON(ctx, "POST", base+"/commit", b.Attempt, manifest, &final); e != nil || final.ReceiptSHA != before {
 		t.Fatal("recovery changed receipt", e)
 	}
@@ -394,6 +398,10 @@ func TestPendingSurvivesDashboardHistoryAndNoopDoesNotGrowEvents(t *testing.T) {
 	if e != nil || p == nil || p.ID != b.ID {
 		t.Fatal("active batch hidden behind history limit", e)
 	}
+	visible,e:=s.Batches("")
+	found:=false
+	for _,v:=range visible{if v.ID==b.ID{found=true}}
+	if e!=nil||!found{t.Fatal("dashboard omitted active old batch",e)}
 }
 func TestReservedReceiptAndCredentialFieldsRejected(t *testing.T) {
 	for _, name := range []string{"receipt.json", "license.json", "activation.db", "arbitrary.txt"} {

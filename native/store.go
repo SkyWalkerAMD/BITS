@@ -118,7 +118,7 @@ func (s *Store) Batch(id string) (Batch, error) {
 	return b, err
 }
 func (s *Store) Batches(node string) ([]Batch, error) {
-	query, args := "SELECT body FROM batches ORDER BY rowid DESC LIMIT 500", []any{}
+	query, args := "SELECT body FROM batches WHERE state IN ('armed','running','finishing','needs_attention') OR id IN (SELECT id FROM batches ORDER BY rowid DESC LIMIT 500) ORDER BY rowid DESC", []any{}
 	if node != "" {
 		query = "SELECT body FROM batches WHERE node=? ORDER BY rowid DESC LIMIT 500"
 		args = append(args, node)

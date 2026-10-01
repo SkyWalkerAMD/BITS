@@ -29,6 +29,10 @@ jobs:
           go mod verify
           gofmt -w .
           git diff -- . > /tmp/native-format.patch
+      - name: Format browser sources for review
+        run: |
+          npm exec --yes --package=prettier@3.6.2 -- prettier --write native/web/app.js native/web/style.css native/web/index.html
+          git diff -- native/ > /tmp/native-format.patch
       - name: Check the explicit public source export
         run: |
           python3 - <<'PY'
@@ -36,7 +40,7 @@ jobs:
           from distribution.source_export import export_sources
           print(export_sources('/tmp/bits-reviewed-source.tar.gz', os.environ['GITHUB_SHA']))
           PY
-      - name: Race, recovery, authentication and 200-node transaction tests
+      - name: Race, recovery, live fleet, authentication and 200-node transaction tests
         working-directory: native
         run: |
           set -o pipefail

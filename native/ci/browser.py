@@ -1,43 +1,156 @@
-"""Browser-only fixture: credentials remain in memory, never screenshots or artifacts."""
+"""Browser acceptance on the isolated Linux server; never export credentials."""
+import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
-from playwright.sync_api import sync_playwright
+import time
+from playwright.sync_api import sync_playwright, expect
 
+assert os.environ.get("GITHUB_ACTIONS") == "true"
 admin = json.loads(subprocess.check_output(["docker", "exec", "bits-independent-test",
     "cat", "/root/.bits/admin.json"]))
 out = Path(".independent-results")
+checks = []
 with sync_playwright() as p:
     browser = p.chromium.launch()
-    # Fixture self-signed certificate; production clients never disable checks.
     context = browser.new_context(ignore_https_errors=True, viewport={"width": 1440, "height": 1080})
     page = context.new_page()
     errors = []
     page.on("pageerror", lambda exc: errors.append(str(exc)))
-    page.goto(admin["url"])
-    page.locator("#login-token").fill(admin["token"])
-    page.locator("#login-form button").click()
-    page.locator("#node-list .node-card").wait_for()
-    page.locator("#create").click()
-    page.locator("#batch-label").fill("BROWSER-DRAFT")
-    page.locator("#batch-form button.primary").click()
-    page.get_by_text("BROWSER-DRAFT", exact=True).wait_for()
-    row = page.locator("#batch-list tr").filter(has_text="BROWSER-DRAFT")
-    assert "待开始" in row.inner_text()
-    row.get_by_text("详情", exact=True).click()
-    page.locator("#detail-title").filter(has_text="BROWSER-DRAFT").wait_for()
-    page.screenshot(path=str(out / "dashboard.png"), full_page=True)
-    page.set_viewport_size({"width": 430, "height": 932})
-    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), "page overflows mobile viewport"
-    assert page.locator("#batch-list .badge").evaluate_all(
-        "items => items.every(item => item.getBoundingClientRect().height < 40)"), "mobile status text became vertical"
-    row.get_by_text("开始", exact=True).scroll_into_view_if_needed()
-    assert row.get_by_text("开始", exact=True).is_visible()
-    page.locator("#batches .table-wrap").evaluate("element => element.scrollLeft = 0")
-    page.screenshot(path=str(out / "dashboard-mobile.png"), full_page=True)
-    assert not errors, errors
-    context.close()
-    browser.close()
-(out / "browser.json").write_text(json.dumps({"status": "passed", "checks": [
-    "login", "node listing", "create draft without dispatch", "batch details", "mobile layout"],
-    "certificate": "isolated self-signed fixture only; Go TLS validation tested separately"}))
+
+    def api(path):
+        response = context.request.get(admin["url"] + "/api/v1/" + path)
+        assert response.ok, response.status
+        return response.json()
+
+    def wait_batch(batch_id, state):
+        for _ in range(90):
+            value = api("batches/" + batch_id)
+            if value["state"] == state:
+                return value
+            page.wait_for_timeout(1000)
+        raise AssertionError(value)
+
+    try:
+        page.goto(admin["url"])
+        page.locator("#login-token").fill(admin["token"])
+        page.locator("#login-form button").click()
+        page.locator("#overview-node-list .node-card").wait_for()
+        checks.append("authenticated operator login")
+        # Real enrollment, credential download stays only in Playwright temporary storage.
+        for name in ("LAB-010", "LAB-002"):
+            page.locator("#enroll").click()
+            page.locator("#node-id").fill(name)
+            page.locator("#node-serial").fill("SYNTHETIC-" + name)
+            with page.expect_download() as download:
+                page.locator("#node-form button.primary").click()
+            assert download.value.suggested_filename == name + ".bits.json"
+            download.value.delete()
+            expect(page.locator("#view-guide")).to_be_visible()
+        checks.append("enroll node and download one-time connection file")
+        page.locator('a[data-nav="nodes"]').click()
+        page.locator("#node-list .node-card").first.wait_for()
+        expect(page.locator("#node-list .node-name strong")).to_have_text(["BITS-CLOUD", "LAB-002", "LAB-010"])
+        page.locator("#node-search").fill("LAB-002")
+        expect(page.locator("#node-list .node-card")).to_have_count(1)
+        page.locator("#node-search").fill("")
+        checks.append("node search and natural numeric ordering")
+        page.locator("#create").click()
+        page.locator("#batch-node").select_option("BITS-CLOUD")
+        page.locator("#batch-label").fill("BROWSER-LIVE")
+        page.locator("#batch-next").click()
+        for box in page.locator("#steps input").all():
+            box.fill("60")
+        page.locator("#batch-next").click()
+        expect(page.locator("#batch-review")).to_contain_text("stress-ng")
+        page.screenshot(path=str(out / "batch-wizard.png"))
+        page.locator("#batch-submit").click()
+        expect(page.locator("#detail-title")).to_have_text("BROWSER-LIVE")
+        batch_id = page.url.split("batch/")[-1]
+        page.wait_for_timeout(2500)
+        assert api("batches/" + batch_id)["state"] == "draft"
+        checks.append("three-stage wizard saves draft without dispatch")
+        page.locator("#detail-body").get_by_role("button", name="开始压测", exact=True).click()
+        page.locator("#confirm-submit").click()
+        page.wait_for_function("detailFrame && detailFrame.sample && detailFrame.sample.sequence >= 4", timeout=45000)
+        initial_sequence = page.evaluate("detailFrame.sample.sequence")
+        initial_elapsed = page.evaluate("detailFrame.elapsed_s")
+        page.wait_for_function("detailFrame.sample.sequence > " + str(initial_sequence), timeout=12000)
+        assert page.evaluate("detailFrame.elapsed_s") > initial_elapsed
+        expect(page.locator("#detail-body")).to_contain_text("整机 PSU 输入")
+        page.screenshot(path=str(out / "batch-running.png"), full_page=True)
+        checks.append("explicit start, advancing live samples and actual step elapsed")
+        page.locator('a[data-nav="overview"]').click()
+        page.locator("#overview-node-list .node-card.running").wait_for()
+        expect(page.locator("#overview-node-list .node-card.running")).to_contain_text("108.0")
+        page.screenshot(path=str(out / "dashboard.png"), full_page=True)
+        page.set_viewport_size({"width":430, "height":932})
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), "mobile page overflows"
+        expect(page.locator("#logout")).to_be_visible()
+        page.screenshot(path=str(out / "dashboard-mobile.png"), full_page=True)
+        page.locator('a[data-nav="batches"]').click()
+        assert page.locator("#batch-list .badge").evaluate_all("xs => xs.every(x => x.getBoundingClientRect().height < 40)")
+        checks.append("desktop/mobile overview, readable table and visible logout")
+        # Loss of browser connection is a distinct state, never a green live badge.
+        context.set_offline(True)
+        expect(page.locator("#connection")).to_contain_text("连接中断", timeout=15000)
+        context.set_offline(False)
+        expect(page.locator("#connection")).to_contain_text("实时同步", timeout=15000)
+        checks.append("browser disconnect and recovery feedback")
+        page.set_viewport_size({"width":1440, "height":1080})
+        page.goto(admin["url"] + "/#batch/" + batch_id)
+        page.wait_for_function("detailFrame && detailFrame.sample")
+        # A fresh status pulse must not disguise a stale measurement.
+        def stale(route):
+            response = route.fetch()
+            value = response.json()
+            for f in value["frames"]:
+                f["sample_received_at"] = "2020-01-01T00:00:00Z"
+                if f.get("sample"):
+                    f["sample"]["observed_at"] = "2020-01-01T00:00:00Z"
+            route.fulfill(response=response, json=value)
+        page.route("**/api/v1/**/live", stale)
+        expect(page.locator(".freshness.stale")).to_contain_text("数据已过期", timeout=12000)
+        page.unroute("**/api/v1/**/live", stale)
+        expect(page.locator(".freshness").first).to_contain_text("采样接收", timeout=12000)
+        checks.append("stale sample distinct from online heartbeat")
+        page.locator("#detail-body").get_by_role("button", name="取消压测", exact=True).click()
+        page.locator("#confirm-reason").fill("Isolated browser cancellation acceptance")
+        page.locator("#confirm-submit").click()
+        final = wait_batch(batch_id, "delivered")
+        assert final["result"]["execution"] == "interrupted", final
+        assert final["result"]["steps"][0]["cleanup_confirmed"]
+        response = context.request.get(admin["url"] + "/api/v1/batches/" + batch_id + "/receipt")
+        assert response.ok and hashlib.sha256(response.body()).hexdigest() == final["receipt_sha256"]
+        page.locator('a[data-nav="reports"]').click()
+        page.locator("#report-search").fill("BROWSER-LIVE")
+        expect(page.locator("#report-list .report-card")).to_have_count(1, timeout=15000)
+        report = page.locator("#report-list").get_by_role("link", name="查看 HTML ↗")
+        assert context.request.get(admin["url"] + report.get_attribute("href")).ok
+        checks.append("confirmed cancellation, cleanup, report access and receipt hash")
+        page.locator("#report-list").get_by_role("button", name="全部文件").click()
+        page.locator("#detail-body").get_by_role("button", name="复制计划为新草稿").click()
+        expect(page.locator("#batch-label")).to_have_value("BROWSER-LIVE-COPY")
+        page.locator("#batch-next").click()
+        page.locator("#batch-next").click()
+        page.locator("#batch-submit").click()
+        expect(page.locator("#detail-title")).to_have_text("BROWSER-LIVE-COPY")
+        copy_id = page.url.split("batch/")[-1]
+        assert api("batches/" + copy_id)["state"] == "draft"
+        checks.append("copy plan preserves explicit start boundary")
+        page.locator("#logout").click()
+        expect(page.locator("#login-dialog")).to_be_visible()
+        assert not errors, errors
+        checks.append("operator logout and no browser script errors")
+    except BaseException:
+        # Never screenshot an entered credential or connection-file contents.
+        if not page.locator("#login-dialog").is_visible():
+            page.screenshot(path=str(out / "browser-failure.png"), full_page=True)
+        raise
+    finally:
+        context.close()
+        browser.close()
+(out / "browser.json").write_text(json.dumps({"status":"passed", "checks":checks,
+    "certificate":"isolated self-signed fixture only; Go TLS validation tested separately",
+    "readings":"synthetic fixed provider; actual Linux stress and systemd services"}, indent=2))

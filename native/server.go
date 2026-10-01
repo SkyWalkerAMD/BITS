@@ -56,10 +56,11 @@ type Server struct {
 	logins   map[string][]time.Time
 	uploads  sync.Map
 	slots    chan struct{}
+	live     *LiveCache
 }
 
 func NewServer(store *Store, cfg CenterConfig) *Server {
-	return &Server{Store: store, Config: cfg, sessions: map[string]time.Time{}, logins: map[string][]time.Time{}, slots: make(chan struct{}, 64)}
+	return &Server{Store: store, Config: cfg, sessions: map[string]time.Time{}, logins: map[string][]time.Time{}, slots: make(chan struct{}, 64), live:NewLiveCache()}
 }
 func respond(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -215,6 +216,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 	path := strings.TrimPrefix(r.URL.Path, "/api/v1/")
+	if path=="live" && r.Method=="GET" {
+		respond(w,map[string]any{"frames":s.live.Snapshot(""),"time":UTC()})
+		return nil
+	}
 	if path == "logout" && r.Method == "POST" {
 		if c, e := r.Cookie("bits_session"); e == nil {
 			s.mu.Lock()
@@ -239,7 +244,8 @@ func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 			result := b.Result
 			result.Steps = nil
 			summary = append(summary, map[string]any{"id": b.ID, "state": b.State, "created_at": b.Created,
-				"plan": map[string]string{"node": b.Plan.Node, "label": b.Plan.Label}, "step_count": len(b.Plan.Steps), "result": result})
+				"plan": map[string]string{"node": b.Plan.Node, "label": b.Plan.Label}, "step_count": len(b.Plan.Steps), "result": result,
+				"budget_s":planSeconds(b.Plan),"cancel_requested":b.Cancel,"receipt_sha256":b.ReceiptSHA})
 		}
 		respond(w, map[string]any{"nodes": nodes, "batches": summary, "tools": Tools, "version": Version, "time": UTC()})
 		return nil
@@ -283,6 +289,16 @@ func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 		return errors.New("unknown operation")
 	}
 	id := parts[1]
+	if len(parts)==3 && parts[2]=="live" && r.Method=="GET" {
+		if _,err:=s.Store.Batch(id);err!=nil{return err}
+		respond(w,map[string]any{"frames":s.live.Snapshot(id),"time":UTC()})
+		return nil
+	}
+	if len(parts)==3 && parts[2]=="receipt" && r.Method=="GET" {
+		b,err:=s.Store.Batch(id)
+		if err!=nil{return err}
+		return s.receipt(w,b)
+	}
 	if len(parts) == 2 && r.Method == "GET" {
 		b, err := s.Store.Batch(id)
 		if err == nil {
@@ -334,6 +350,11 @@ func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 }
 func (s *Server) node(w http.ResponseWriter, r *http.Request, node string) error {
 	path := strings.TrimPrefix(r.URL.Path, "/node/v1/")
+	if path=="heartbeat" && r.Method=="GET" {
+		if err:=s.Store.Heartbeat(node,r.Header.Get("X-BITS-Version"));err!=nil{return err}
+		respond(w,map[string]string{"time":UTC()})
+		return nil
+	}
 	if path == "poll" && r.Method == "GET" {
 		if err := s.Store.Heartbeat(node, r.Header.Get("X-BITS-Version")); err != nil {
 			return err
@@ -367,6 +388,13 @@ func (s *Server) node(w http.ResponseWriter, r *http.Request, node string) error
 		return errors.New("attempt identity differs")
 	}
 	switch parts[2] {
+	case "live":
+		if r.Method!="POST" || len(parts)!=3 {break}
+		var in LiveUpdate
+		if err=decode(r,&in);err!=nil{return err}
+		if err=s.live.Put(b,in);err!=nil{return err}
+		respond(w,map[string]bool{"ok":true})
+		return nil
 	case "claim":
 		if r.Method != "POST" {
 			break
@@ -436,21 +464,30 @@ func (s *Server) node(w http.ResponseWriter, r *http.Request, node string) error
 		}
 		return s.commit(w, r, b)
 	case "receipt":
-		if r.Method != "GET" || b.State != "delivered" {
+		if r.Method != "GET" || len(parts)!=3 || b.State != "delivered" {
 			break
 		}
-		raw, e := os.ReadFile(filepath.Join(s.Config.Data, "artifacts", b.ID, "receipt.json"))
-		if e != nil {
-			return e
-		}
-		if Digest(raw) != b.ReceiptSHA {
-			return errors.New("receipt content changed")
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(raw)
-		return nil
+		return s.receipt(w,b)
 	}
 	return errors.New("unknown operation")
+}
+func planSeconds(p Plan) int { total:=0;for _,step:=range p.Steps{total+=step.Seconds};return total }
+func (s *Server) receipt(w http.ResponseWriter,b Batch) error {
+	if b.State!="delivered" || b.ReceiptSHA=="" {return errors.New("delivery receipt is not available")}
+	path:=filepath.Join(s.Config.Data,"artifacts",b.ID,"receipt.json")
+	if err:=PrivateDir(filepath.Dir(path));err!=nil{return err}
+	if err:=CheckFileIfExists(path);err!=nil{return err}
+	f,err:=os.OpenFile(path,os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK,0)
+	if err!=nil{return err}
+	defer f.Close()
+	raw,err:=io.ReadAll(io.LimitReader(f,(2<<20)+1))
+	if err!=nil{return err}
+	if len(raw)>2<<20{return errors.New("receipt is too large")}
+	if Digest(raw)!=b.ReceiptSHA{return errors.New("receipt content changed")}
+	w.Header().Set("Content-Type","application/json")
+	w.Header().Set("Content-Disposition","attachment; filename=\"receipt.json\"")
+	_,err=w.Write(raw)
+	return err
 }
 func (s *Server) batchDir(b Batch) (string, error) {
 	dir := filepath.Join(s.Config.Data, "artifacts", b.ID)
