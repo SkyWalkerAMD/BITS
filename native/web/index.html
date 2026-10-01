@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BITS · 压测工作台</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<body>
+<aside><div class="brand">BITS<span>TEST OPERATIONS</span></div><nav><a href="#workspace" class="selected">压测工作台</a><a href="#nodes">节点</a><a href="#batches">批次与报告</a></nav><p class="aside-note">明确开始 · 完整记录<br>本地采集 · 可核验交付</p><button id="logout" class="quiet">退出登录</button></aside>
+<main id="workspace">
+<header><div><p class="eyebrow">INDEPENDENT BITS</p><h1>压测工作台</h1><p class="muted">安排一次测试，留下一份完整证据。</p></div><div class="actions"><span id="connection">未连接</span><button id="enroll">添加节点</button><button id="create" class="primary">新建批次</button></div></header>
+<p id="notice" role="status"></p>
+<section id="summary" class="summary"></section>
+<section id="nodes"><div class="section-title"><h2>节点</h2><span class="muted">连接在线不代表自动领取任务</span></div><div id="node-list" class="node-grid"></div></section>
+<section id="batches"><div class="section-title"><h2>批次与报告</h2><span class="muted">最近 500 个批次</span></div><div class="table-wrap"><table><thead><tr><th>批次 / 节点</th><th>过程</th><th>压测执行</th><th>监控质量</th><th>报告</th><th>操作</th></tr></thead><tbody id="batch-list"></tbody></table></div></section>
+<section id="detail" hidden><div class="section-title"><h2 id="detail-title">批次详情</h2><button id="close-detail">收起</button></div><div id="detail-body"></div></section>
+<footer><span id="version"></span><span>传感器有效性与读数年龄未知；执行与交付完成不代表硬件合格。</span></footer>
+</main>
+<dialog id="login-dialog"><form id="login-form"><p class="eyebrow">BITS CENTER</p><h2>登录管理工作台</h2><p>使用新中心初始化时保存的管理口令。</p><label>管理口令<input id="login-token" type="password" required autocomplete="current-password"></label><p class="muted">这是 BITS 管理凭据，与 sckocp 激活码无关。</p><p id="login-error" class="error"></p><button class="primary">登录</button></form></dialog>
+<dialog id="batch-dialog"><form id="batch-form"><h2>新建压测批次</h2><label>节点<select id="batch-node" required></select></label><label>批次名称<input id="batch-label" required pattern="[A-Za-z0-9][A-Za-z0-9_.-]{0,95}" placeholder="ACCEPTANCE-001"></label><div id="steps"></div><button type="button" id="add-step">添加步骤</button><p class="muted">创建后处于待开始状态。相同工具可重复添加，每一步独立计时。</p><div class="actions"><button type="button" data-close="batch-dialog">取消</button><button class="primary">创建批次</button></div></form></dialog>
+<dialog id="node-dialog"><form id="node-form"><h2>添加测试节点</h2><label>节点主机名<input id="node-id" required pattern="[A-Za-z0-9][A-Za-z0-9_.-]{0,95}"></label><label>硬件 / 资产编号<input id="node-serial" required pattern="[A-Za-z0-9][A-Za-z0-9_.-]{0,95}"></label><label class="checkbox"><input id="node-keep-on" type="checkbox">完成后保持开机</label><p class="muted">未勾选时，成功交付后沿用 30 分钟空闲关机；有登录用户、任务或待处理失败时不关机。</p><p>创建后下载节点专属连接文件，通过可信方式交给该节点。请单独安装并激活原版 sckocp。</p><div class="actions"><button type="button" data-close="node-dialog">取消</button><button class="primary">创建并下载连接文件</button></div></form></dialog>
+</body></html>

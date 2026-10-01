@@ -207,6 +207,15 @@ def profile(app, name, runtime):
         raise ValueError('Unsupported workload binding; recheck package installation')
     if metadata(PREFIX / 'MANIFEST.json') != binding['manifest']:
         raise ValueError('Bound workload package changed; explicit rebind required')
+    return installed_profile(name, runtime)
+
+
+def installed_profile(name, runtime):
+    """Select a verified installed tool without depending on an OCRUN binding.
+
+    Native BITS owns its batch identity separately. Legacy callers still pass
+    through profile() and its original binding/manifest checks.
+    """
     manifest = check()
     match = P95.fullmatch(name)
     if name not in NAMES and not match:

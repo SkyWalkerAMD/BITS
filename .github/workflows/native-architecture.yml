@@ -1,0 +1,46 @@
+name: Independent BITS architecture
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/bits-independent-architecture]
+    paths: ['native/**', '.github/workflows/native-architecture.yml', 'bits_core/workloads/suite.py']
+permissions:
+  contents: read
+concurrency:
+  group: native-architecture-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  protocol:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false}
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with: {go-version: '1.27.1', cache: false}
+      - name: Resolve pinned database dependency and format review copy
+        working-directory: native
+        run: |
+          go mod tidy
+          gofmt -w .
+          git diff -- . > /tmp/native-format.patch
+      - name: Race, recovery, authentication and 200-node transaction tests
+        working-directory: native
+        run: |
+          set -o pipefail
+          go test -race -count=1 -v ./... | tee /tmp/native-tests.txt
+          go vet ./...
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOAMD64=v1 go build -trimpath -o /tmp/bits-center ./cmd/bits-center
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOAMD64=v1 go build -trimpath -o /tmp/bits-node ./cmd/bits-node
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: native-core-${{ github.run_id }}
+          path: |
+            /tmp/native-format.patch
+            /tmp/native-tests.txt
+            /tmp/bits-center
+            /tmp/bits-node
+            native/go.mod
+            native/go.sum
+          retention-days: 14
