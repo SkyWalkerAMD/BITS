@@ -404,7 +404,7 @@ func (s *Server) node(w http.ResponseWriter, r *http.Request, node string) error
 			return err
 		}
 		v, e := s.Store.Mutate(b.ID, "artifacts_sealed", func(current *Batch) error {
-			if current.State != "finishing" && current.State != "delivered" {
+			if (current.State != "finishing" && current.State != "delivered") || current.Result.Report != "generated" {
 				return errors.New("execution/report must end before sealing")
 			}
 			in, _ := json.Marshal(artifacts)

@@ -409,3 +409,30 @@ func TestReservedReceiptAndCredentialFieldsRejected(t *testing.T) {
 		}
 	}
 }
+
+func TestReportProgressIsNotPrematureFailureOrDelivery(t *testing.T) {
+	s, _, node := testServer(t)
+	b, _ := s.Store.Create(testPlan("N1"))
+	b, _ = s.Store.Arm(b.ID)
+	s.Store.Claim(b.ID, "N1", b.Attempt)
+	r := completedResult()
+	r.Report = "not_generated"
+	progress, err := s.Store.Update(b.ID, "N1", b.Attempt, 1, r)
+	if err != nil || progress.State != "finishing" {
+		t.Fatal("ordinary report progress became an alarm", progress, err)
+	}
+	manifest := map[string]Artifact{"report.html": {SHA256: Random(32)}}
+	if err = node.JSON(context.Background(), "POST", "/node/v1/batches/"+b.ID+"/manifest", b.Attempt, manifest, nil); err == nil {
+		t.Fatal("ungenerated report could be sealed")
+	}
+	r.Report = "failed"
+	progress, err = s.Store.Update(b.ID, "N1", b.Attempt, 2, r)
+	if err != nil || progress.State != "needs_attention" {
+		t.Fatal("actual report failure was not visible", progress, err)
+	}
+	r.Report = "generated"
+	progress, err = s.Store.Update(b.ID, "N1", b.Attempt, 3, r)
+	if err != nil || progress.State != "finishing" {
+		t.Fatal("report-only recovery was rejected", progress, err)
+	}
+}

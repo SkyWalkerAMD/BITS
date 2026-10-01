@@ -37,15 +37,16 @@ def download(url):
             time.sleep(n + 1)
 
 
-def prepare(mode, tag, local_package=None):
+def prepare(mode, tag, local_package=None, base_image='debian:11'):
     if os.environ.get('GITHUB_ACTIONS') != 'true' or sys.platform != 'linux':
         raise SystemExit('Only disposable cloud CI containers')
     container = 'ocrun-debian11-deps-' + str(os.getpid())
-    out = Path('.workload-results' if mode == 'runtime' else 'workload-dist')
+    out = Path('.independent-results' if mode == 'independent' else
+               '.workload-results' if mode == 'runtime' else 'workload-dist')
     out.mkdir(exist_ok=True)
     cache = out / 'debian11-cache'
     cache.mkdir(exist_ok=True)
-    run(['docker', 'create', '--name', container, 'debian:11', 'sleep', 'infinity'])
+    run(['docker', 'create', '--name', container, base_image, 'sleep', 'infinity'])
     run(['docker', 'start', container])
     def execute(*args):
         return run(['docker', 'exec', container] + list(args))
@@ -65,6 +66,10 @@ def prepare(mode, tag, local_package=None):
             packages = ['python3', 'rsync', 'redis-server', 'redis-tools', 'curl', 'tar', 'gzip',
                         'ca-certificates', 'util-linux', 'procps', 'findutils', 'perl', 'libnuma1',
                         'libgmp10', 'libatomic1', 'libstdc++6', 'iputils-ping', 'dmidecode', 'passwd']
+        elif mode == 'independent':
+            packages = ['systemd', 'systemd-sysv', 'dbus', 'procps', 'iproute2', 'python3',
+                        'ca-certificates', 'coreutils', 'passwd', 'perl', 'libnuma1',
+                        'libgmp10', 'libatomic1', 'libstdc++6']
         elif mode == 'security':
             packages = ['python3', 'python3-venv', 'tar', 'gzip', 'ca-certificates']
         else:
@@ -145,11 +150,14 @@ def prepare(mode, tag, local_package=None):
             # as pre-existing. Disable only their fresh default autostart links
             # before first boot, just as the normal fresh-image path does.
             print(execute('systemctl', 'disable', 'nginx.service', 'redis-server.service', 'rsync.service'), flush=True)
-        if mode == 'native':
+        if mode in ('native', 'independent'):
             execute('mkdir', '-p', '/root/native-packages')
             for package in sorted(local_package.rglob('*.deb')):
                 run(['docker', 'cp', str(package), container + ':/root/native-packages/' + package.name])
                 print(execute('dpkg', '-i', '/root/native-packages/' + package.name), flush=True)
+        if mode == 'independent':
+            print(execute('systemctl', 'mask', 'systemd-udevd.service', 'systemd-udev-trigger.service',
+                          'getty.target', 'console-getty.service'), flush=True)
         if mode == 'legacy':
             execute('mkdir', '-p', '/root/plugin-packages')
             run(['docker', 'cp', str(local_package) + '/.', container + ':/root/plugin-packages/'])
@@ -164,4 +172,5 @@ def prepare(mode, tag, local_package=None):
 
 
 if __name__ == '__main__':
-    prepare(sys.argv[1], sys.argv[2], Path(sys.argv[3]) if len(sys.argv) > 3 else None)
+    prepare(sys.argv[1], sys.argv[2], Path(sys.argv[3]) if len(sys.argv) > 3 else None,
+            sys.argv[4] if len(sys.argv) > 4 else 'debian:11')

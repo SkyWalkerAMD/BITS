@@ -25,6 +25,9 @@ for label in ("rocky8", "rocky9", "rocky10", "alma8", "alma9", "alma10",
     if summary["status"] != "passed" or summary["version"] != version:
         raise ValueError("Incomplete distribution acceptance: " + label)
     summary["image"] = (evidence / "image.txt").read_text().strip()
+    dependency_receipt = evidence / "debian11-dependency-receipt.json"
+    if dependency_receipt.exists():
+        summary["signed_index_dependency_receipt"] = json.loads(dependency_receipt.read_text())
     if label in ("rocky8", "ubuntu22"):
         summary["interface_tests"] = json.loads((evidence / "interface-tests.json").read_text())
         if summary["interface_tests"]["status"] != "passed":

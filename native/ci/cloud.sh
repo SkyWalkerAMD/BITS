@@ -5,7 +5,11 @@ mkdir -p .independent-results
 docker pull "$BASE_IMAGE"
 digest=$(docker image inspect "$BASE_IMAGE" --format '{{index .RepoDigests 0}}')
 printf '%s\n' "$digest" > .independent-results/image.txt
-docker build --progress plain --build-arg BASE_IMAGE="$digest" -f native/ci/Dockerfile -t bits-independent-test . 2>&1 | tee .independent-results/install.txt
+if [[ $BASE_IMAGE == debian:11 ]]; then
+    python3 bits_core/workloads/debian11_ci.py independent bits-independent-test native-dist "$digest" 2>&1 | tee .independent-results/install.txt
+else
+    docker build --progress plain --build-arg BASE_IMAGE="$digest" -f native/ci/Dockerfile -t bits-independent-test . 2>&1 | tee .independent-results/install.txt
+fi
 docker run -d --name bits-independent-test --hostname BITS-CLOUD --cpus=2 --memory=3g --pids-limit=512 \
     -e container=docker --privileged --cgroupns=private \
     --security-opt seccomp=unconfined --security-opt apparmor=unconfined \

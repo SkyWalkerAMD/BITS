@@ -320,7 +320,7 @@ func (s *Store) Update(id, node, attempt string, seq int64, r Result) (Batch, er
 		if seq < b.Sequence || IsTerminal(b.State) || len(b.Artifacts) > 0 {
 			return errors.New("stale result or sealed batch")
 		}
-		if b.State != "running" && !(b.State == "armed" && r.Execution == "preflight_failed") && b.State != "needs_attention" {
+		if b.State != "running" && b.State != "finishing" && !(b.State == "armed" && r.Execution == "preflight_failed") && b.State != "needs_attention" {
 			return errors.New("batch not accepted")
 		}
 		if b.Result.Execution != "running" && b.Result.Execution != "not_started" && r.Execution == "running" {
@@ -330,7 +330,10 @@ func (s *Store) Update(id, node, attempt string, seq int64, r Result) (Batch, er
 		b.Result = r
 		if r.Execution == "running" {
 			b.State = "running"
-		} else if r.Report == "generated" {
+		} else if r.Report == "generated" || (r.Report == "not_generated" && r.Execution != "preflight_failed") {
+			// Stopped execution may still be generating its evidence. Report
+			// failure is an explicit result, not a transient not-yet-generated
+			// snapshot received while the worker changes phase.
 			b.State = "finishing"
 		} else {
 			b.State = "needs_attention"
