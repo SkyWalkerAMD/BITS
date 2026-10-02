@@ -421,21 +421,44 @@ function connection() {
 }
 function online(n) {
   const elapsed = (now() - Date.parse(n.last_seen)) / 1000;
-  return !n.disabled && connectionFresh() && elapsed >= -5 && elapsed < 20 && !(powerFresh(n) && n.power.state === "off" && Date.parse(n.power.checked_at) > Date.parse(n.last_seen));
+  return (
+    !n.disabled &&
+    connectionFresh() &&
+    elapsed >= -5 &&
+    elapsed < 20 &&
+    !(
+      powerFresh(n) &&
+      n.power.state === "off" &&
+      Date.parse(n.power.checked_at) > Date.parse(n.last_seen)
+    )
+  );
 }
 function powerFresh(n) {
   const elapsed = (now() - Date.parse(n.power?.checked_at)) / 1000;
-  return connectionFresh() && n.power?.configured && elapsed >= -5 && elapsed < 90;
+  return (
+    connectionFresh() && n.power?.configured && elapsed >= -5 && elapsed < 90
+  );
 }
 function reachable(n) {
-  return !n.disabled && (online(n) || (powerFresh(n) && ["on", "off"].includes(n.power.state)));
+  return (
+    !n.disabled &&
+    (online(n) || (powerFresh(n) && ["on", "off"].includes(n.power.state)))
+  );
 }
 function nodePowerText(n) {
   if (!n.power?.configured) return "BMC 未绑定 · 电源状态未知";
-  const value = powerFresh(n) ? {off: "电源关", on: "电源开"}[n.power.state] : null;
+  const value = powerFresh(n)
+    ? { off: "电源关", on: "电源开" }[n.power.state]
+    : null;
   return "BMC " + n.power.address + " · " + (value || "状态待确认");
 }
-const nodeStateLabels = {idle:"空闲", wakeable:"已关机 · 可唤醒", awaiting_agent:"已开机 · 等待系统", offline:"状态待确认", disabled:"已禁用"};
+const nodeStateLabels = {
+  idle: "空闲",
+  wakeable: "已关机 · 可唤醒",
+  awaiting_agent: "已开机 · 等待系统",
+  offline: "状态待确认",
+  disabled: "已禁用",
+};
 function activeBatch(node) {
   return (
     snapshot.batches.find(
@@ -452,7 +475,12 @@ function latestBatch(node) {
 function nodeKind(n) {
   const b = activeBatch(n.id);
   if (n.disabled) return "disabled";
-  if (!online(n)) return powerFresh(n) && n.power.state === "off" ? "wakeable" : powerFresh(n) && n.power.state === "on" ? "awaiting_agent" : "offline";
+  if (!online(n))
+    return powerFresh(n) && n.power.state === "off"
+      ? "wakeable"
+      : powerFresh(n) && n.power.state === "on"
+        ? "awaiting_agent"
+        : "offline";
   if (b?.state === "needs_attention") return "attention";
   return b ? "running" : "idle";
 }
@@ -607,10 +635,9 @@ function nodeCard(n) {
         )
       : kind === "attention"
         ? badge("needs_attention")
-        : badge(
-            kind === "idle" ? "completed" : kind === "wakeable" ? "armed" : "offline",
-            nodeStateLabels[kind],
-          );
+        : ["wakeable", "awaiting_agent"].includes(kind)
+          ? el("span", nodeStateLabels[kind], "badge reachability " + kind)
+          : badge(kind === "idle" ? "completed" : "offline", nodeStateLabels[kind]);
   head.append(name, state);
   card.append(head);
   if (b && activeStates.includes(b.state)) {
@@ -642,14 +669,17 @@ function nodeCard(n) {
           ? "测试需要人工处理"
           : kind === "wakeable"
             ? "管理口可达，机器已关机"
-          : kind === "awaiting_agent"
-            ? "电源已开启，等待节点程序连接"
-          : kind === "offline"
-            ? (n.power?.configured ? "系统与管理口状态待确认" : "系统未连接，尚未绑定 BMC")
-          : kind === "disabled" ? "此节点已禁用"
-            : last?.state === "delivered"
-              ? "上一批已完成交付"
-              : "准备好下一次测试",
+            : kind === "awaiting_agent"
+              ? "电源已开启，等待节点程序连接"
+              : kind === "offline"
+                ? n.power?.configured
+                  ? "系统与管理口状态待确认"
+                  : "系统未连接，尚未绑定 BMC"
+                : kind === "disabled"
+                  ? "此节点已禁用"
+                  : last?.state === "delivered"
+                    ? "上一批已完成交付"
+                    : "准备好下一次测试",
       ),
       el(
         "span",
@@ -702,7 +732,7 @@ function nodeCard(n) {
 function renderOverview() {
   const on = snapshot.nodes.filter(online).length,
     accessible = snapshot.nodes.filter(reachable).length,
-    off = snapshot.nodes.filter(n => nodeKind(n) === "wakeable").length,
+    off = snapshot.nodes.filter((n) => nodeKind(n) === "wakeable").length,
     running = snapshot.batches.filter((b) =>
       activeStates.includes(b.state),
     ).length,
@@ -752,7 +782,15 @@ function renderOverview() {
       return d;
     }),
   );
-  const priority = { running: 0, attention: 1, idle: 2, wakeable: 3, awaiting_agent: 4, offline: 5, disabled: 6 },
+  const priority = {
+      running: 0,
+      attention: 1,
+      idle: 2,
+      wakeable: 3,
+      awaiting_agent: 4,
+      offline: 5,
+      disabled: 6,
+    },
     nodes = [...snapshot.nodes].sort(
       (a, b) =>
         priority[nodeKind(a)] - priority[nodeKind(b)] ||
@@ -806,7 +844,7 @@ function renderNodes() {
     Math.max(0, Math.ceil(nodes.length / count) - 1),
   );
   $("node-count").textContent =
-    `${nodes.length} 台节点 · 可达 ${nodes.filter(reachable).length} 台 · 系统在线 ${nodes.filter(online).length} 台 · 已关机 ${nodes.filter(n => nodeKind(n) === "wakeable").length} 台`;
+    `${nodes.length} 台节点 · 可达 ${nodes.filter(reachable).length} 台 · 系统在线 ${nodes.filter(online).length} 台 · 已关机 ${nodes.filter((n) => nodeKind(n) === "wakeable").length} 台`;
   replace(
     $("node-list"),
     ...nodes.slice(nodePage * count, (nodePage + 1) * count).map(nodeCard),
@@ -849,7 +887,14 @@ function renderNodeDetail() {
   );
   const items = [
     head,
-    el("p", (nodeStateLabels[nodeKind(n)] || (online(n) ? "系统在线" : "状态待确认")) + "　" + nodePowerText(n), "node-power-note"),
+    el(
+      "p",
+      (nodeStateLabels[nodeKind(n)] ||
+        (online(n) ? "系统在线" : "状态待确认")) +
+        "　" +
+        nodePowerText(n),
+      "node-power-note",
+    ),
     el(
       "p",
       "版本：" +
@@ -868,7 +913,14 @@ function renderNodeDetail() {
     items.push(row);
   }
   if (!list.length) items.push(el("p", "此节点尚无批次。", "muted"));
-  items.push(button(online(n) ? "为此节点新建批次" : "前往任务分发", () => online(n) ? newBatch(n.id) : (location.hash = "dispatch"), "", "node-new"));
+  items.push(
+    button(
+      online(n) ? "为此节点新建批次" : "前往任务分发",
+      () => (online(n) ? newBatch(n.id) : (location.hash = "dispatch")),
+      "",
+      "node-new",
+    ),
+  );
   replace(root, ...items);
   root.hidden = false;
 }

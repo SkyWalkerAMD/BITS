@@ -27,16 +27,16 @@ type LocalRun struct {
 	Artifacts    map[string]Artifact "json:\"artifacts,omitempty\""
 }
 type Agent struct {
-	Config    NodeConfig
-	Client    *Client
-	Data      string
-	idleSince time.Time
-	lastLive  time.Time
-	livePhase string
-	DiscoverBMC func(context.Context) BMCDiscovery
+	Config       NodeConfig
+	Client       *Client
+	Data         string
+	idleSince    time.Time
+	lastLive     time.Time
+	livePhase    string
+	DiscoverBMC  func(context.Context) BMCDiscovery
 	bmcDiscovery *BMCDiscovery
 	bmcNextProbe time.Time
-	bmcNextSend time.Time
+	bmcNextSend  time.Time
 	// Production always uses the installed, verified local worker. This seam
 	// permits isolated lifecycle tests without running hardware tools.
 	Worker func(context.Context, string, string, func()) error

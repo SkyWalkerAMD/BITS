@@ -58,11 +58,11 @@ type Server struct {
 	slots    chan struct{}
 	live     *LiveCache
 	power    *PowerManager
-	autoBMC *AutoBMC
+	autoBMC  *AutoBMC
 }
 
 func NewServer(store *Store, cfg CenterConfig) *Server {
-	return &Server{Store: store, Config: cfg, sessions: map[string]time.Time{}, logins: map[string][]time.Time{}, slots: make(chan struct{}, 64), live: NewLiveCache(), power: newPowerManager(cfg.Data), autoBMC:newAutoBMC(cfg.Data)}
+	return &Server{Store: store, Config: cfg, sessions: map[string]time.Time{}, logins: map[string][]time.Time{}, slots: make(chan struct{}, 64), live: NewLiveCache(), power: newPowerManager(cfg.Data), autoBMC: newAutoBMC(cfg.Data)}
 }
 func respond(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -247,8 +247,11 @@ func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			return err
 		}
-		power:=s.power.Snapshot()
-		for i:=range nodes { p:=power[nodes[i].ID]; nodes[i].Power=&p }
+		power := s.power.Snapshot()
+		for i := range nodes {
+			p := power[nodes[i].ID]
+			nodes[i].Power = &p
+		}
 		batches, err := s.Store.Batches("")
 		if err != nil {
 			return err
@@ -368,11 +371,16 @@ func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 }
 func (s *Server) node(w http.ResponseWriter, r *http.Request, node string) error {
 	path := strings.TrimPrefix(r.URL.Path, "/node/v1/")
-	if path=="bmc-discovery" && r.Method=="POST" {
+	if path == "bmc-discovery" && r.Method == "POST" {
 		var in BMCDiscovery
-		if err:=decodeBounded(r,&in,8192); err!=nil { return err }
-		if err:=s.autoBMC.discovery(node,in); err!=nil { return err }
-		respond(w,map[string]bool{"recorded":true,"power_command_sent":false}); return nil
+		if err := decodeBounded(r, &in, 8192); err != nil {
+			return err
+		}
+		if err := s.autoBMC.discovery(node, in); err != nil {
+			return err
+		}
+		respond(w, map[string]bool{"recorded": true, "power_command_sent": false})
+		return nil
 	}
 	if path == "heartbeat" && r.Method == "GET" {
 		if err := s.Store.Heartbeat(node, r.Header.Get("X-BITS-Version")); err != nil {

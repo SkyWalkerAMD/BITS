@@ -38,14 +38,15 @@ function dispatchRoute(id) {
 }
 async function syncDispatch() {
   const id = dispatchState.id;
-  const [fleet, groups, templates, group, operations, discoveries] = await Promise.all([
-    api("dispatch/nodes"),
-    api("dispatch/groups?offset=" + dispatchState.offset),
-    api("dispatch/templates"),
-    id ? api("dispatch/groups/" + id) : null,
-    id ? api("dispatch/groups/" + id + "/operations") : null,
-    api("dispatch/bmc-discoveries"),
-  ]);
+  const [fleet, groups, templates, group, operations, discoveries] =
+    await Promise.all([
+      api("dispatch/nodes"),
+      api("dispatch/groups?offset=" + dispatchState.offset),
+      api("dispatch/templates"),
+      id ? api("dispatch/groups/" + id) : null,
+      id ? api("dispatch/groups/" + id + "/operations") : null,
+      api("dispatch/bmc-discoveries"),
+    ]);
   dispatchState.nodes = fleet.nodes;
   dispatchState.discoveries = discoveries;
   dispatchState.groups = groups;
@@ -147,7 +148,15 @@ function renderDispatch() {
       identity.append(el("strong", n.node), el("small", powerText(n.power)));
       const found = dispatchState.discoveries[n.node];
       if (!n.power?.configured && found) {
-        identity.append(el("small", found.model ? "主板型号：" + found.model : found.candidates?.map(c => c.address).join("、") || "等待自动发现管理口"));
+        identity.append(
+          el(
+            "small",
+            found.model
+              ? "主板型号：" + found.model
+              : found.candidates?.map((c) => c.address).join("、") ||
+                  "等待自动发现管理口",
+          ),
+        );
         status.append(el("small", found.reason));
       }
       status.append(reachability(n), el("small", n.reason));
@@ -160,9 +169,18 @@ function renderDispatch() {
       configure.disabled = Boolean(n.active_batch);
       const actions = el("div", undefined, "dispatch-actions");
       actions.append(configure);
-      if (!n.active_batch && !n.power?.configured && ["failed", "interrupted"].includes(found?.state)) actions.append(button("重试自动绑定", async () => {
-        await api("dispatch/bmc-retry", "POST", {node:n.node}); await syncDispatch(); renderDispatch();
-      }));
+      if (
+        !n.active_batch &&
+        !n.power?.configured &&
+        ["failed", "interrupted"].includes(found?.state)
+      )
+        actions.append(
+          button("重试自动绑定", async () => {
+            await api("dispatch/bmc-retry", "POST", { node: n.node });
+            await syncDispatch();
+            renderDispatch();
+          }),
+        );
       row.append(identity, status, actions);
       return row;
     }),
@@ -521,31 +539,70 @@ function openBMC(n) {
   $("bmc-form").reset();
   $("bmc-node").textContent = "节点 " + n.node;
   const candidates = dispatchState.discoveries[n.node]?.candidates || [];
-  $("bmc-address").value = n.power?.address || (candidates.length === 1 ? candidates[0].address : "");
+  $("bmc-address").value =
+    n.power?.address || (candidates.length === 1 ? candidates[0].address : "");
   $("bmc-error").textContent = "";
   $("bmc-dialog").showModal();
 }
 function initializeDispatch() {
   $("bmc-profiles-open").onclick = async () => {
     try {
-    dispatchState.profiles = await api("dispatch/bmc-profiles");
-    replace($("bmc-profile-select"), ...[{name:""}, ...dispatchState.profiles].map(p => {
-      const option = el("option", p.name ? p.name + (p.enabled ? " · 已启用" : " · 已停用") : "新增模板"); option.value=p.name; return option;
-    }));
-    $("bmc-profiles-form").reset(); fillBMCProfile(); $("bmc-profiles-dialog").showModal();
-    } catch (err) { notice(err.message, true); }
+      dispatchState.profiles = await api("dispatch/bmc-profiles");
+      replace(
+        $("bmc-profile-select"),
+        ...[{ name: "" }, ...dispatchState.profiles].map((p) => {
+          const option = el(
+            "option",
+            p.name
+              ? p.name + (p.enabled ? " · 已启用" : " · 已停用")
+              : "新增模板",
+          );
+          option.value = p.name;
+          return option;
+        }),
+      );
+      $("bmc-profiles-form").reset();
+      fillBMCProfile();
+      $("bmc-profiles-dialog").showModal();
+    } catch (err) {
+      notice(err.message, true);
+    }
   };
   $("bmc-profile-select").onchange = fillBMCProfile;
-  $("bmc-profiles-dialog").addEventListener("close", () => { $("bmc-profile-password").value=""; });
-  $("bmc-profiles-form").onsubmit = async e => {
-    e.preventDefault(); const form=$("bmc-profiles-form"); if(formStates.has(form)) return;
-    const value={name:$("bmc-profile-name").value.trim(),enabled:$("bmc-profile-enabled").checked,
-      networks:$("bmc-profile-networks").value.trim().split(/[\s,]+/),node_prefix:$("bmc-profile-prefix").value.trim(),model:$("bmc-profile-model").value.trim(),
-      username:$("bmc-profile-user").value,password:$("bmc-profile-password").value,cipher:Number($("bmc-profile-cipher").value)};
-    formBusy(form,true);
-    try { await api("dispatch/bmc-profiles","POST",value); $("bmc-profiles-dialog").close(); notice("模板已保存，符合条件的节点将自动核对并绑定 BMC；没有发送开机指令。"); await syncDispatch(); renderDispatch(); }
-    catch(err) { $("bmc-profile-error").textContent=err.message; }
-    finally { value.password=""; formBusy(form,false); }
+  $("bmc-profiles-dialog").addEventListener("close", () => {
+    $("bmc-profile-password").value = "";
+  });
+  $("bmc-profiles-form").onsubmit = async (e) => {
+    e.preventDefault();
+    const form = $("bmc-profiles-form");
+    if (formStates.has(form)) return;
+    const value = {
+      name: $("bmc-profile-name").value.trim(),
+      enabled: $("bmc-profile-enabled").checked,
+      networks: $("bmc-profile-networks")
+        .value.trim()
+        .split(/[\s,]+/),
+      node_prefix: $("bmc-profile-prefix").value.trim(),
+      model: $("bmc-profile-model").value.trim(),
+      username: $("bmc-profile-user").value,
+      password: $("bmc-profile-password").value,
+      cipher: Number($("bmc-profile-cipher").value),
+    };
+    formBusy(form, true);
+    try {
+      await api("dispatch/bmc-profiles", "POST", value);
+      $("bmc-profiles-dialog").close();
+      notice(
+        "模板已保存，符合条件的节点将自动核对并绑定 BMC；没有发送开机指令。",
+      );
+      await syncDispatch();
+      renderDispatch();
+    } catch (err) {
+      $("bmc-profile-error").textContent = err.message;
+    } finally {
+      value.password = "";
+      formBusy(form, false);
+    }
   };
   $("group-create").onclick = () =>
     newGroup().catch((e) => notice(e.message, true));
@@ -646,11 +703,18 @@ function initializeDispatch() {
   };
 }
 function fillBMCProfile() {
-  const p=dispatchState.profiles.find(p => p.name===$("bmc-profile-select").value);
-  $("bmc-profile-name").value=p?.name || ""; $("bmc-profile-name").readOnly=Boolean(p);
-  $("bmc-profile-networks").value=p?.networks.join("\n") || "";
-  $("bmc-profile-prefix").value=p?.node_prefix || ""; $("bmc-profile-model").value=p?.model || "";
-  $("bmc-profile-user").value=p?.username || ""; $("bmc-profile-password").value="";
-  $("bmc-profile-password").required=!p; $("bmc-profile-cipher").value=String(p?.cipher || 17);
-  $("bmc-profile-enabled").checked=p?.enabled ?? true; $("bmc-profile-error").textContent="";
+  const p = dispatchState.profiles.find(
+    (p) => p.name === $("bmc-profile-select").value,
+  );
+  $("bmc-profile-name").value = p?.name || "";
+  $("bmc-profile-name").readOnly = Boolean(p);
+  $("bmc-profile-networks").value = p?.networks.join("\n") || "";
+  $("bmc-profile-prefix").value = p?.node_prefix || "";
+  $("bmc-profile-model").value = p?.model || "";
+  $("bmc-profile-user").value = p?.username || "";
+  $("bmc-profile-password").value = "";
+  $("bmc-profile-password").required = !p;
+  $("bmc-profile-cipher").value = String(p?.cipher || 17);
+  $("bmc-profile-enabled").checked = p?.enabled ?? true;
+  $("bmc-profile-error").textContent = "";
 }

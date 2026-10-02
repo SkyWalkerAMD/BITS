@@ -4,11 +4,11 @@
 
 ## 选择安装方式
 
-**BITS 0.4 网页版已发布预览包，当前版本为 `0.4.0-alpha.5`。** 它提供独立中心、节点实时状态、网页批次编排和报告下载，适合新建隔离测试环境。稳定版仍为 0.3.0；旧 OCRUN 使用 BITS-o。
+**BITS 0.4 网页版已发布预览包，当前版本为 `0.4.0-alpha.6`。** 它提供独立中心、节点实时状态、网页批次编排和报告下载，适合新建隔离测试环境。稳定版仍为 0.3.0；旧 OCRUN 使用 BITS-o。
 
 | 场景 | 发布包 | 操作说明 |
 | --- | --- | --- |
-| 新服务器体验独立架构、实时网页管理（预览版） | [BITS 0.4.0-alpha.5：管理端与节点 RPM/DEB](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.4.0-alpha.5) | [0.4 安装与网页操作手册](https://github.com/SkyWalkerAMD/BITS/blob/v0.4.0-alpha.5/docs/deployment/BITS-INDEPENDENT-PREVIEW.md) |
+| 新服务器体验独立架构、实时网页管理（预览版） | [BITS 0.4.0-alpha.6：管理端与节点 RPM/DEB](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.4.0-alpha.6) | [0.4 安装与网页操作手册](https://github.com/SkyWalkerAMD/BITS/blob/v0.4.0-alpha.6/docs/deployment/BITS-INDEPENDENT-PREVIEW.md) |
 | 部署现有稳定版完整系统 | [BITS 0.3.0：管理端与节点 RPM/DEB](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.3.0) | [0.3 完整系统部署](docs/deployment/DISTRIBUTION.md) |
 | 旧 OCRUN 增加功能，保留 ws/occt | [BITS-o 0.2.0：控制端与节点 RPM/DEB](https://github.com/SkyWalkerAMD/BITS/releases/tag/bits-o-v0.2.0) | [旧系统增强套件](docs/deployment/BITS.md) |
 | 第三方程序读取本机监控 | [sckocp-api 0.4.0 独立安装器](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.3.0/sckocp-api-0.4.0.run) | [接口操作手册](docs/monitoring/SCKOCP-API-操作手册.md) |
@@ -19,10 +19,10 @@
 
 | 机器角色 | Rocky / AlmaLinux 8–10：RPM | Debian 11–13、Ubuntu 22.04 / 24.04 / 26.04：DEB |
 | --- | --- | --- |
-| 管理服务器 | [bits-center RPM](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.5/bits-center-0.4.0-0.alpha.5.el8.x86_64.rpm) | [bits-center DEB](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.5/bits-center_0.4.0.alpha.5-1_amd64.deb) |
-| 压测节点，已含工具 | [bits-node RPM](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.5/bits-node-0.4.0-0.alpha.5.el8.x86_64.rpm) | [bits-node DEB](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.5/bits-node_0.4.0.alpha.5-1_amd64.deb) |
+| 管理服务器 | [bits-center RPM](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.6/bits-center-0.4.0-0.alpha.6.el8.x86_64.rpm) | [bits-center DEB](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.6/bits-center_0.4.0.alpha.6-1_amd64.deb) |
+| 压测节点，已含工具 | [bits-node RPM](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.6/bits-node-0.4.0-0.alpha.6.el8.x86_64.rpm) | [bits-node DEB](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.6/bits-node_0.4.0.alpha.6-1_amd64.deb) |
 
-[完整操作手册](https://github.com/SkyWalkerAMD/BITS/blob/v0.4.0-alpha.5/docs/deployment/BITS-INDEPENDENT-PREVIEW.md) · [离线手册下载](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.5/OPERATIONS.md) · [SHA256SUMS](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.5/SHA256SUMS) · [本版验证记录](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.5/VERIFICATION.json)
+[完整操作手册](https://github.com/SkyWalkerAMD/BITS/blob/v0.4.0-alpha.6/docs/deployment/BITS-INDEPENDENT-PREVIEW.md) · [离线手册下载](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.6/OPERATIONS.md) · [SHA256SUMS](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.6/SHA256SUMS) · [本版验证记录](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.6/VERIFICATION.json)
 
 部署流程：
 
@@ -30,22 +30,24 @@
 2. 在网页登记节点并下载专属连接文件。节点安装 `bits-node`，导入连接文件后启动节点服务。节点包已包含工具及采集 / 报告适配，无需 `bits-o-workloads`；原版 sckocp 单独安装，授权在 BITS 之外完成。
 3. 网页编排批次、保存草稿，核对后明确点击“开始”。在运行节点卡片点击 **实时监控 ↗**，查看整机指标、插槽概况及按数字排序的核心矩阵 / 表格；结束后查看 HTML / Excel 报告及核验回执。空闲节点不自动领取其他批次。
 
-alpha.5 新增网页任务组：一次选择 1–200 台可达节点、保存共用模板、明确批量开始、逐台跟进结果。绑定 BMC 后，关机但管理口可达的节点可按需开机，系统连接后再执行；不可达节点不能选择。保留固定导航、实时硬件监控与报告交付。
+alpha.6 新增 BMC 自动绑定：在网页配置一次统一或按机型区分的凭据模板，节点空闲接入后发现本机管理口，中心核对身份后绑定。运行总览、测试节点与任务分发统一显示关机可唤醒、等待系统与状态待确认，不再把关机笼统显示为未连接。保留 1–200 台网页任务组、明确批量开始、实时硬件监控和报告交付；已有手工绑定不自动覆盖。
 
 0.4 默认仅中心 HTTPS TCP 443 对节点开放，节点无需入站端口；使用本地 SQLite，不依赖 Redis / rsync。首次安装和系统服务操作仍在对应机器完成。0.3 的自动网络配置、升级或迁移命令不能直接套用到 0.4；当前预览版不提供生产系统原地迁移。可选 BMC 开机功能另需中心访问管理口 UDP 623。
 
-本版已通过 12 个 Linux 容器环境及桌面 / 手机浏览器流程验证，监控使用模拟读数。真实 BMC 开机、硬件、各发行版原生内核、多天运行和 200 台物理节点仍待另行验收。[独立架构与 sckocp 权限边界](https://github.com/SkyWalkerAMD/BITS/blob/v0.4.0-alpha.5/docs/development/BITS-INDEPENDENT.md)。
+本版已通过 12 个 Linux 容器环境及桌面 / 手机浏览器流程验证，监控使用模拟读数。真实 BMC 开机、硬件、各发行版原生内核、多天运行和 200 台物理节点仍待另行验收。[独立架构与 sckocp 权限边界](https://github.com/SkyWalkerAMD/BITS/blob/v0.4.0-alpha.6/docs/development/BITS-INDEPENDENT.md)。
 
 <details>
 <summary>查看 0.4 实时工作台截图（云端模拟读数）</summary>
 
-![BITS 0.4 实时工作台](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.5/dashboard.png)
+![BITS 0.4 实时工作台](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.6/dashboard.png)
 
-[批量分发](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.5/dispatch-workspace.png) · [任务组结果](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.5/dispatch-group.png) · [运行详情](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.5/batch-running.png) · [任务编排](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.5/batch-wizard.png) · [手机布局](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.5/dashboard-mobile.png)
+[批量分发](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.6/dispatch-workspace.png) · [任务组结果](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.6/dispatch-group.png) · [运行详情](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.6/batch-running.png) · [任务编排](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.6/batch-wizard.png) · [手机布局](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.6/dashboard-mobile.png)
 
-[硬件实时监控](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.5/hardware-monitor.png) · [逐核心表格](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.5/hardware-table.png) · [硬件监控手机版](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.5/hardware-mobile.png)
+[硬件实时监控](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.6/hardware-monitor.png) · [逐核心表格](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.6/hardware-table.png) · [硬件监控手机版](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.6/hardware-mobile.png)
 
-[滚动后的固定导航](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.5/hardware-scrolled.png) · [折叠侧栏](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.5/workspace-compact.png) · [手机导航菜单](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.5/navigation-mobile.png)
+[滚动后的固定导航](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.6/hardware-scrolled.png) · [折叠侧栏](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.6/workspace-compact.png) · [手机导航菜单](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.6/navigation-mobile.png)
+
+[总览关机可唤醒状态](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.6/bmc-overview.png) · [手机节点状态](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0-alpha.6/bmc-nodes-mobile.png)（BMC 状态模拟）
 
 </details>
 
@@ -58,7 +60,7 @@ alpha.5 新增网页任务组：一次选择 1–200 台可达节点、保存共
 ## 常用文档
 
 - [全部文档导航](docs/README.md)：部署、插件、节点、监控、报表、工具、安全及历史。
-- [0.4 网页版：安装、节点接入、批次运行、报告与回退](https://github.com/SkyWalkerAMD/BITS/blob/v0.4.0-alpha.5/docs/deployment/BITS-INDEPENDENT-PREVIEW.md)。
+- [0.4 网页版：安装、节点接入、批次运行、报告与回退](https://github.com/SkyWalkerAMD/BITS/blob/v0.4.0-alpha.6/docs/deployment/BITS-INDEPENDENT-PREVIEW.md)。
 - [0.3 稳定版任务、状态和失败恢复](docs/deployment/DISTRIBUTION.md)；[旧系统增强操作](docs/deployment/BITS.md)。
 - [机器压测报告与交付文件](docs/reports/ACCEPTANCE-REPORT.md)。
 - [0.3 迁移与回滚](docs/deployment/MIGRATION-0.3.md)。
@@ -78,7 +80,7 @@ alpha.5 新增网页任务组：一次选择 1–200 台可达节点、保存共
 | `docs/` | 使用文档；历史材料在 `docs/archive/` |
 | 私有研究 | 原生 sckocp 源码和安全研究保留在独立私有仓库，不在公开历史中 |
 
-0.3 完整系统使用统一的 bits_core 实现以及 `/opt/bits`、`/etc/bits`、`/var/lib/bits`、`/var/log/bits` 目录。旧 OCRUN 路径和挂钩集中在兼容适配中；历史协议、回执标识与原始数据保留。硬件查看使用 sckocp，批次内自动采集。[0.3 核心重构说明](docs/development/CORE-REFACTOR.md)。0.4 独立中心、网页及节点源码见 [v0.4.0-alpha.5 的 native 目录](https://github.com/SkyWalkerAMD/BITS/tree/v0.4.0-alpha.5/native)。
+0.3 完整系统使用统一的 bits_core 实现以及 `/opt/bits`、`/etc/bits`、`/var/lib/bits`、`/var/log/bits` 目录。旧 OCRUN 路径和挂钩集中在兼容适配中；历史协议、回执标识与原始数据保留。硬件查看使用 sckocp，批次内自动采集。[0.3 核心重构说明](docs/development/CORE-REFACTOR.md)。0.4 独立中心、网页及节点源码见 [v0.4.0-alpha.6 的 native 目录](https://github.com/SkyWalkerAMD/BITS/tree/v0.4.0-alpha.6/native)。
 
 ## 使用边界
 

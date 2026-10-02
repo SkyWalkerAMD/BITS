@@ -62,11 +62,11 @@ type Batch struct {
 	GroupID    string              `json:"group_id,omitempty"`
 }
 type Node struct {
-	ID       string "json:\"id\""
-	LastSeen string "json:\"last_seen,omitempty\""
-	Agent    string "json:\"agent_version,omitempty\""
-	Disabled bool   "json:\"disabled\""
-	Power *PowerStatus `json:"power,omitempty"`
+	ID       string       "json:\"id\""
+	LastSeen string       "json:\"last_seen,omitempty\""
+	Agent    string       "json:\"agent_version,omitempty\""
+	Disabled bool         "json:\"disabled\""
+	Power    *PowerStatus `json:"power,omitempty"`
 }
 type Event struct {
 	At     string "json:\"at\""

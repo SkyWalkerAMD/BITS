@@ -10,22 +10,50 @@ import (
 func (s *Server) dispatchAPI(w http.ResponseWriter, r *http.Request, path string) error {
 	switch path {
 	case "bmc-profiles":
-		if r.Method=="GET" { respond(w,s.autoBMC.profiles()); return nil }
-		if r.Method=="POST" {
-			var in BMCProfile; if err:=decodeBounded(r,&in,8192);err!=nil{return err}
-			if in.Revision!="" { return errors.New("模板版本由中心生成") }
-			if err:=s.autoBMC.profile(in);err!=nil{return err}
-			respond(w,map[string]bool{"saved":true,"power_command_sent":false});return nil
+		if r.Method == "GET" {
+			respond(w, s.autoBMC.profiles())
+			return nil
+		}
+		if r.Method == "POST" {
+			var in BMCProfile
+			if err := decodeBounded(r, &in, 8192); err != nil {
+				return err
+			}
+			if in.Revision != "" {
+				return errors.New("模板版本由中心生成")
+			}
+			if err := s.autoBMC.profile(in); err != nil {
+				return err
+			}
+			respond(w, map[string]bool{"saved": true, "power_command_sent": false})
+			return nil
 		}
 	case "bmc-discoveries":
-		if r.Method=="GET" {
-			nodes,err:=s.Store.Nodes();if err!=nil{return err};out:=map[string]AutoBMCView{}
-			for _,n:=range nodes {out[n.ID]=s.autoBMC.view(n.ID)};respond(w,out);return nil
+		if r.Method == "GET" {
+			nodes, err := s.Store.Nodes()
+			if err != nil {
+				return err
+			}
+			out := map[string]AutoBMCView{}
+			for _, n := range nodes {
+				out[n.ID] = s.autoBMC.view(n.ID)
+			}
+			respond(w, out)
+			return nil
 		}
 	case "bmc-retry":
-		if r.Method=="POST" {
-			var in struct{Node string `json:"node"`};if err:=decodeBounded(r,&in,1024);err!=nil{return err}
-			if err:=s.autoBMC.retry(in.Node);err!=nil{return err};respond(w,map[string]bool{"queued":true,"power_command_sent":false});return nil
+		if r.Method == "POST" {
+			var in struct {
+				Node string `json:"node"`
+			}
+			if err := decodeBounded(r, &in, 1024); err != nil {
+				return err
+			}
+			if err := s.autoBMC.retry(in.Node); err != nil {
+				return err
+			}
+			respond(w, map[string]bool{"queued": true, "power_command_sent": false})
+			return nil
 		}
 	case "nodes":
 		if r.Method != "GET" {
