@@ -4,7 +4,10 @@ import io
 import json
 import os
 from pathlib import Path
+import sys
 import tempfile
+import textwrap
+import time
 import unittest
 from unittest import mock
 
@@ -192,6 +195,94 @@ class DetailsTests(unittest.TestCase):
         section['lines'].append('      Refresh tRFC 123')
         with self.assertRaises(ValueError):
             provider.validate_details(poisoned)
+
+
+class SupplementalCaptureTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name)
+        self.binary = self.root / 'fake-sckocp'
+
+    def program(self, body):
+        self.binary.write_text('#!' + sys.executable + '\n' + textwrap.dedent(body), encoding='utf-8')
+        self.binary.chmod(0o700)
+        return str(self.binary)
+
+    def test_repeated_bmc_supplements_use_directory_and_fresh_readings(self):
+        # Model a BMC whose full enumeration needs 4 s and sensor read 2 s.
+        # Its reusable directory contains no measurements. Older settings
+        # either disable that path or cut the walk/read short, dropping fields.
+        state = self.root / 'sensors.json'
+        directory = self.root / 'sensor-directory'
+        binary = self.program('''
+            import json, os, sys
+            from pathlib import Path
+            state = Path(%r)
+            directory = Path(%r)
+            assert sys.argv[1:] in (['mon', '--cols=1'], ['info'])
+            assert os.environ['SCKOCP_MODE'] == 'ro'
+            assert os.environ['SCKOCP_MODPROBE'] == '0'
+            assert 'IPMITOOL' not in os.environ
+            assert 'BMCCACHE' not in os.environ
+            available = (int(os.environ['BMCSDRTTL']) > 0 and
+                         (directory.exists() or int(os.environ['BMCPROBET']) >= 4))
+            if available:
+                directory.write_text('voltage,power')
+            readings = json.loads(state.read_text())
+            if int(os.environ['BMCTTL']) > 0:
+                readings = {'vccin': 9.9, 'psu': 9999}  # stale measurement cache
+            if not available or int(os.environ['BMCREADT']) < 2:
+                readings = {}
+            if sys.argv[1] == 'mon':
+                print('== GenuineIntel fam6  Per-socket Overview ==')
+                line = '  S0  Core 4900 MHz'
+                if 'vccin' in readings:
+                    line += '  VCCIN %%s V' %% readings['vccin']
+                print(line)
+                if 'psu' in readings:
+                    print('      PSU In %%s W' %% readings['psu'])
+            else:
+                print('== Platform ==')
+                print('  HT Off')
+                print('== CPU ==')
+                print('  S0  Synthetic CPU')
+                print('== Power Supplies ==')
+                if 'psu' in readings:
+                    print('  Wall %%s W total' %% readings['psu'])
+            ''' % (str(state), str(directory)))
+        with mock.patch.dict(os.environ, {'BMCTTL': '600', 'BMCSDRTTL': '0', 'BMCREADT': '1',
+                                         'IPMITOOL': '/untrusted/helper', 'BMCCACHE': '/untrusted/cache'}):
+            for readings in ({'vccin': 2.1, 'psu': 500}, {'vccin': 2.2, 'psu': 600}, {}):
+                state.write_text(json.dumps(readings))
+                result = provider.collect_details(binary, .05, 12)
+                provider.validate_details(result)
+                for part in result['parts'].values():
+                    self.assertEqual('ok', part['status'])
+                overview = result['parts']['overview']['data']
+                self.assertEqual(readings.get('vccin'), overview['sockets'][0]['vccin_v'])
+                self.assertEqual(readings.get('psu'), overview['system']['psu_input_w_reported'])
+                self.assertEqual(readings.get('psu'), result['parts']['info']['data']['system']['psu_input_w_reported'])
+        self.assertTrue(directory.exists())
+
+    def test_supplement_hard_deadline_still_cleans_up_and_stops_next_command(self):
+        invoked = self.root / 'invoked'
+        binary = self.program('''
+            import os, time
+            from pathlib import Path
+            with Path(%r).open('a') as log:
+                log.write(str(os.getpid()) + '\\n')
+            time.sleep(20)
+            ''' % str(invoked))
+        started = time.monotonic()
+        result = provider.collect_details(binary, .05, .5)
+        self.assertLess(time.monotonic() - started, 3)
+        provider.validate_details(result)
+        self.assertEqual(['timeout', 'timeout'], [result['parts'][p]['status'] for p in ('overview', 'info')])
+        self.assertTrue(all(p['data'] is None for p in result['parts'].values()))
+        self.assertEqual(1, len(invoked.read_text().splitlines()))
+        with self.assertRaises(ProcessLookupError):
+            os.kill(int(invoked.read_text()), 0)
 
 
 class PrivateCollectorTests(unittest.TestCase):

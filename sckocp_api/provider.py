@@ -294,6 +294,15 @@ def _capture(binary, interval, timeout, native_format="v2"):
                    "SCKOCP_TIMEOUT": str(transport_seconds),
                    "INT": str(interval), "BMCPROBET": "2", "BMCREADT": "1",
                    "BMCTTL": "0", "BMCSDRTTL": "0"}
+    if native_format in ("overview", "info"):
+        # SDR records describe the sensors; they are not cached readings.
+        # Disabling this directory forces full BMC walks on every supplement
+        # and prevents the native direct-sensor path from being used. Leave
+        # measurement caching off and let the native program validate/reuse
+        # its directory. A slow/cold BMC is still bounded by the outer deadline.
+        environment.update({"BMCSDRTTL": "3600", "BMCTTL": "0",
+                            "BMCPROBET": str(max(1, min(10, int(timeout - interval)))),
+                            "BMCREADT": "3"})
     deadline = time.monotonic() + timeout
     selector = selectors.DefaultSelector()
     try:

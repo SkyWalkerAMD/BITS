@@ -191,6 +191,8 @@ PYTHONPATH="$PWD" python3 examples/read-sckocp.py --binary /usr/bin/sckocp
 
 新增可选 `sckocp-api --details`。默认 API 基础 JSON 保持兼容；启用时附加 `sckocp-details-v1`，包含固定只读 overview/info 两次授权调用的独立状态、开始和观察时间、解析字段及经过白名单过滤的文本。总超时仍覆盖全部调用，基础授权失败不再读取补充信息。
 
+补充调用允许原生程序校验并复用 BMC 的 SDR 传感器目录（`BMCSDRTTL=3600`），读数缓存仍关闭（`BMCTTL=0`）。目录保存传感器定义，不用旧电压或旧功耗填补当前缺值。探测预算在剩余总期限内最多 10 秒，单次传感器读取预算为 3 秒，外层硬期限仍覆盖全部子进程。冷目录或很慢的 BMC 仍可能超时，不能据此承诺所有机器都有完整读数。先前禁用目录、探测 2 秒和读取 1 秒的组合会使补充调用反复遍历 BMC，可能导致手动命令能显示 VCCIN/PSU、自动采集却缺值。
+
 **内存时序仅输出 Primary 组**：原生 Primary 行及同组 tCWL/tRC（如提供）。Refresh、Secondary、Tertiary、未知分组及其原文不返回、不进入日志或报告。原机 rmal 解锁状态不改变该规则，API 没有 rmal/任意命令/任意参数转发入口。
 
 Pkg、DRAM 功耗、整机 PSU、内存/DIMM 温度、VCCIN、VID、TjMax、CPU stepping、平台和配置进入补充数据。未提供的数值为 null；传感器有效性和读数年龄没有原生证据时仍为未知。CLI 请求 details 且任一补充项失败时退出非零，但返回各部分状态供诊断，不泄露原生错误全文或授权信息。
