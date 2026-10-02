@@ -63,7 +63,7 @@ const pageInfo = {
   monitor: [
     "硬件实时监控",
     "LIVE HARDWARE MONITOR",
-    "从整机到每个核心，查看压测中的硬件读数。",
+    "节点系统在线即可查看整机、插槽与逐核心读数。",
   ],
 };
 const iconPaths = {
@@ -86,10 +86,13 @@ const iconPaths = {
 };
 let snapshot = { nodes: [], batches: [], tools: [], version: "" };
 let frames = new Map(),
+  nodeFrames = new Map(),
   history = new Map(),
   detailData = null,
   detailEvents = [],
   detailFrame = null;
+let monitorNode = null,
+  nodeMonitorData = null;
 let page = "overview",
   selected = null,
   selectedNode = null,
@@ -488,6 +491,20 @@ function frameFor(b) {
   const f = b ? frames.get(b.plan.node) : null;
   return f?.batch === b?.id ? f : null;
 }
+function nodeFrameFor(n, b) {
+  if (b && ["armed", "running"].includes(b.state)) return frameFor(b);
+  return nodeFrames.get(n.id) || frameFor(b);
+}
+function nodeMetrics(f, connected) {
+  const metrics = el("div", undefined, "node-metrics" + (connected && freshSample(f) ? "" : " stale")),
+    sample = f?.sample || {};
+  metrics.append(
+    metric("CPU 温度", sample.temp_c, "°C"),
+    metric("CPU Pkg", sample.package_w, "W", 1),
+    metric("核心频率", sample.mhz, "MHz"),
+  );
+  return metrics;
+}
 function freshSample(f) {
   return (
     connectionFresh() &&
@@ -618,6 +635,7 @@ function nodeCard(n) {
   const b = activeBatch(n.id),
     last = latestBatch(n.id),
     f = frameFor(b),
+    m = nodeFrameFor(n, b),
     kind = nodeKind(n),
     card = el("article", undefined, "node-card " + kind),
     head = el("div", undefined, "node-card-heading"),
@@ -648,18 +666,7 @@ function nodeCard(n) {
       el("span", duration(f?.elapsed_s) + " / " + duration(b.budget_s)),
     );
     card.append(line, progress(f?.elapsed_s || 0, b.budget_s));
-    const metrics = el(
-        "div",
-        undefined,
-        "node-metrics" + (freshSample(f) ? "" : " stale"),
-      ),
-      sample = f?.sample || {};
-    metrics.append(
-      metric("CPU 温度", sample.temp_c, "°C"),
-      metric("CPU Pkg", sample.package_w, "W", 1),
-      metric("核心频率", sample.mhz, "MHz"),
-    );
-    card.append(metrics);
+    card.append(nodeMetrics(m, online(n)));
   } else {
     const idle = el("div", undefined, "node-idle");
     idle.append(
@@ -693,10 +700,15 @@ function nodeCard(n) {
       ),
     );
     card.append(idle);
+    if (online(n) || m?.sample) card.append(nodeMetrics(m, online(n)));
   }
   const foot = el("div", undefined, "node-card-foot"),
     info =
-      b && activeStates.includes(b.state)
+      m?.phase === "monitoring"
+        ? freshSample(m) && online(n)
+          ? "采样接收 " + ago(m.sample_received_at)
+          : "最近采样 " + ago(m.sample_received_at)
+        : b && activeStates.includes(b.state)
         ? ["finalizing", "delivering"].includes(f?.phase)
           ? "采集已结束 · 正在交付"
           : freshSample(f)
@@ -709,11 +721,11 @@ function nodeCard(n) {
           : "系统尚未连接";
   card.append(el("small", nodePowerText(n), "node-power-note"));
   foot.append(el("span", info));
-  if (b && activeStates.includes(b.state))
+  if (online(n) || m?.sample || (b && activeStates.includes(b.state)))
     foot.append(
       button(
         "实时监控 ↗",
-        () => openMonitor(b.id),
+        () => openNodeMonitor(n.id),
         "quiet",
         "monitor-" + n.id,
       ),
@@ -931,6 +943,9 @@ function openBatch(id) {
 }
 function openMonitor(id) {
   location.hash = "monitor/" + id;
+}
+function openNodeMonitor(id) {
+  location.hash = "monitor-node/" + encodeURIComponent(id);
 }
 function operationButtons(b) {
   const ops = el("div", undefined, "actions");
@@ -1401,23 +1416,25 @@ function monitorPair(label, value) {
   return pair;
 }
 function renderMonitor() {
-  const b = detailData;
-  if (!b || b.id !== selected) return;
-  const f = detailFrame?.batch === b.id ? detailFrame : frameFor(b),
+  const byNode = !!monitorNode,
+    b = byNode ? nodeMonitorData?.batch : detailData;
+  if (byNode ? nodeMonitorData?.node !== monitorNode : !b || b.id !== selected) return;
+  const f = byNode ? nodeMonitorData.frames[0] : detailFrame?.batch === b.id ? detailFrame : frameFor(b),
     sample = f?.sample || {},
     hardware = sample.available ? sample.hardware : null,
-    node = snapshot.nodes.find((n) => n.id === b.plan.node),
-    running = b.state === "running" && f?.phase === "executing",
+    nodeID = byNode ? monitorNode : b.plan.node,
+    node = snapshot.nodes.find((n) => n.id === nodeID),
+    running = (byNode && f?.phase === "monitoring") || (b?.state === "running" && f?.phase === "executing"),
     fresh = running && !!node && online(node) && freshSample(f),
     supplementalFresh =
       fresh && Math.abs(now() - Date.parse(sample.extra_observed_at)) < 50000,
     status = !connectionFresh()
       ? "连接中断 · 保留最后读数"
       : node && !online(node)
-        ? "节点失联 · 状态待确认"
-        : !activeStates.includes(b.state) ||
+        ? nodeKind(node) === "wakeable" ? "已关机 · 最后读数" : "系统未连接 · 最后读数"
+        : !byNode && (!activeStates.includes(b.state) ||
             ["finalizing", "delivering"].includes(f?.phase)
-          ? "采集已结束 · 最后读数"
+          ) ? "采集已结束 · 最后读数"
           : !sample.sequence
             ? "等待采样"
             : !sample.available
@@ -1429,7 +1446,7 @@ function renderMonitor() {
     items = [],
     hero = el("section", undefined, "monitor-hero"),
     title = el("div"),
-    heading = el("h2", b.plan.node),
+    heading = el("h2", nodeID),
     state = el(
       "span",
       status,
@@ -1444,23 +1461,22 @@ function renderMonitor() {
     heading,
     el(
       "p",
-      b.plan.label +
+      !b ? "日常硬件监控" : b.plan.label +
         " · " +
         (f?.step_tool || labels[f?.phase] || labels[b.state]),
       "monitor-subtitle",
     ),
   );
   const action = el("div", undefined, "monitor-hero-actions");
-  action.append(
-    state,
-    button("批次进度与报告 ↗", () => openBatch(b.id), "", "monitor-batch"),
-  );
+  action.append(state);
+  if (b) action.append(button("批次进度与报告 ↗", () => openBatch(b.id), "", "monitor-batch"));
+  if (!byNode) action.append(button("节点当前状态 ↗", () => openNodeMonitor(nodeID), "", "monitor-node"));
   hero.append(title, action);
   items.push(hero);
   const sections = el("nav", undefined, "monitor-section-nav");
   sections.setAttribute("aria-label", "硬件信息分区");
   sections.dataset.scrollKey = "monitor-sections";
-  sections.append(el("strong", b.plan.node, "monitor-context"));
+  sections.append(el("strong", nodeID, "monitor-context"));
   for (const [label, selector] of [
     ["整机概况", ".monitor-summary"],
     ["插槽信息", ".monitor-sockets"],
@@ -1520,7 +1536,9 @@ function renderMonitor() {
           : "当前没有可用的硬件快照",
         sample.available
           ? "旧版节点仅上报汇总指标。请在空闲时将中心和节点升级到 0.4.0-alpha.3 或更高兼容版本。"
-          : "开始压测并成功采样后自动显示；查看页面不会启动采集。采集结束后的完整记录可在批次报告中查看。",
+          : byNode
+            ? "节点系统在线并成功采样后自动显示，无需开始压测。请确认节点服务和 sckocp 采集可用。"
+            : "此处显示本批次的采样；完整记录可在批次报告中查看。日常读数请打开节点当前状态。",
       ),
     );
   } else {
@@ -1804,7 +1822,7 @@ function renderMonitor() {
     items.push(section);
   }
   const trends = el("section", undefined, "monitor-trends"),
-    rows = f?.history || history.get(b.id) || [];
+    rows = f?.history || (b && history.get(b.id)) || [];
   for (const [field, label, unit] of [
     ["temp_c", "CPU 最高温度", "°C"],
     ["package_w", "CPU Pkg 总功耗", "W"],
@@ -1855,7 +1873,7 @@ function render() {
   if (page === "detail") renderDetail();
   if (page === "monitor") renderMonitor();
   if (page === "dispatch" || page === "group") renderDispatch();
-  if (restorePosition !== null && (!selected || detailData?.id === selected)) {
+  if (restorePosition !== null && (!selected || detailData?.id === selected) && (!monitorNode || nodeMonitorData?.node === monitorNode)) {
     window.scrollTo({ top: restorePosition, behavior: "instant" });
     restorePosition = null;
   }
@@ -1864,18 +1882,19 @@ function render() {
 function route() {
   notice("");
   const hash = location.hash.slice(1),
-    detail = hash.match(/^(batch|monitor|group)\/([a-f0-9]{32})$/);
+    detail = hash.match(/^(batch|monitor|group)\/([a-f0-9]{32})$/),
+    nodeRoute = hash.match(/^monitor-node\/([A-Za-z0-9][A-Za-z0-9_.-]{0,95})$/);
   page = detail
     ? detail[1] === "group"
       ? "group"
       : detail[1] === "monitor"
         ? "monitor"
         : "detail"
-    : Object.hasOwn(pageInfo, hash) &&
+    : nodeRoute ? "monitor" : Object.hasOwn(pageInfo, hash) &&
         !["detail", "monitor", "group"].includes(hash)
       ? hash
       : "overview";
-  const nextRouteKey = detail ? detail[0] : page;
+  const nextRouteKey = detail ? detail[0] : nodeRoute ? nodeRoute[0] : page;
   if (routeKey !== nextRouteKey) {
     if (routeKey) routePositions.set(routeKey, window.scrollY);
     // Retain useful back-navigation positions without an unbounded session cache.
@@ -1885,6 +1904,13 @@ function route() {
     routeKey = nextRouteKey;
   }
   selected = detail && page !== "group" ? detail[2] : null;
+  monitorNode = nodeRoute ? nodeRoute[1] : null;
+  if (monitorNode && nodeMonitorData?.node !== monitorNode) {
+    nodeMonitorData = null;
+    coreSocket = "all";
+    corePage = 0;
+    $("monitor-body").replaceChildren(empty("正在读取节点实况", "系统在线时持续采集，无需创建压测批次。"));
+  }
   dispatchRoute(page === "group" ? detail[2] : null);
   if (selected && detailData?.id !== selected) {
     detailData = null;
@@ -1936,7 +1962,8 @@ async function sync(force = false) {
   $("refresh").setAttribute("aria-busy", "true");
   try {
     const refreshOverview = force || Date.now() - lastOverview >= 5000,
-      requested = selected;
+      requested = selected,
+      requestedNode = monitorNode;
     const [live, overview] = await Promise.all([
       api("live"),
       refreshOverview ? api("overview") : Promise.resolve(null),
@@ -1952,6 +1979,7 @@ async function sync(force = false) {
     if (refreshOverview && (page === "dispatch" || page === "group"))
       await syncDispatch();
     frames = new Map(live.frames.map((v) => [v.node, v]));
+    nodeFrames = new Map((live.monitors || []).map((v) => [v.node, v]));
     for (const f of live.frames) {
       if (!f.sample) continue;
       let rows = history.get(f.batch) || [];
@@ -1980,6 +2008,10 @@ async function sync(force = false) {
         detailEvents = events;
         if (needsDetail) lastDetail = Date.now();
       }
+    }
+    if (requestedNode) {
+      const monitored = await api("nodes/" + encodeURIComponent(requestedNode) + "/live");
+      if (monitorNode === requestedNode) nodeMonitorData = monitored;
     }
     render();
   } catch (e) {

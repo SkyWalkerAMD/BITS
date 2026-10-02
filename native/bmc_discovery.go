@@ -110,6 +110,7 @@ func (a *Agent) reportBMC(ctx context.Context) {
 		return
 	}
 	if a.bmcDiscovery == nil || time.Now().After(a.bmcNextProbe) {
+		if a.stopMonitor() != nil { return }
 		d := a.DiscoverBMC(ctx)
 		a.bmcDiscovery = &d
 		a.bmcNextProbe = time.Now().Add(time.Hour)

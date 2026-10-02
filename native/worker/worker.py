@@ -455,15 +455,50 @@ def report(directory, value):
         raise
 
 
+def monitor(directory):
+    """Continuous read-only node snapshots, outside all batch evidence."""
+    sequence, extra, next_details = 0, None, 0
+    while not STOP:
+        began = time.monotonic()
+        sequence += 1
+        try:
+            include_details = began >= next_details
+            envelope = data_api.sample(include_details=include_details)
+            details = envelope.pop("details", None)
+            if envelope["status"] != "ok":
+                extra = None
+                envelope["data"] = None
+            if include_details:
+                next_details = time.monotonic() + 30
+                overview = details.get("parts", {}).get("overview") if details else None
+                extra = overview if overview and overview["status"] == "ok" else None
+            record = {"sequence": sequence, "observed_at": common.now(),
+                      "provider": envelope, "os": collector.os_context("Node monitoring")}
+            sample = live_sample(record, extra)
+        except (OSError, ValueError, KeyError, TypeError):
+            # Missing provider/failed reads do not keep earlier values live.
+            extra = None
+            sample = {"sequence": sequence, "observed_at": common.now(), "available": False}
+        if STOP:
+            return
+        common.save(directory / "live.json", sample)
+        delay = 2 if sample["available"] else 10
+        while not STOP and time.monotonic() - began < delay:
+            time.sleep(.1)
+
+
 def main():
     os.umask(0o077)
     if os.geteuid() != 0:
         raise ValueError("Node hardware worker requires root")
     for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
         signal.signal(sig, request_stop)
-    if len(sys.argv) != 3 or sys.argv[1] not in ("preflight", "execute", "recover", "report"):
+    if len(sys.argv) != 3 or sys.argv[1] not in ("preflight", "execute", "recover", "report", "monitor"):
         raise ValueError("Use the BITS node agent")
     action, directory = sys.argv[1], Path(sys.argv[2])
+    if action == "monitor":
+        monitor(directory)
+        return
     value = request(directory)
     globals()[action](directory, value)
 

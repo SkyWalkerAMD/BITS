@@ -229,7 +229,7 @@ func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 		return s.dispatchAPI(w, r, strings.TrimPrefix(path, "dispatch/"))
 	}
 	if path == "live" && r.Method == "GET" {
-		respond(w, map[string]any{"frames": s.live.Snapshot(""), "time": UTC()})
+		respond(w, map[string]any{"frames": s.live.Snapshot(""), "monitors": s.live.MonitorSnapshot(""), "time": UTC()})
 		return nil
 	}
 	if path == "logout" && r.Method == "POST" {
@@ -303,6 +303,11 @@ func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	parts := strings.Split(path, "/")
+	if len(parts) == 3 && parts[0] == "nodes" && parts[2] == "live" && r.Method == "GET" {
+		value, err := s.nodeMonitoring(parts[1])
+		if err == nil { respond(w, value) }
+		return err
+	}
 	if len(parts) < 2 || parts[0] != "batches" || !idRE.MatchString(parts[1]) {
 		return errors.New("unknown operation")
 	}
@@ -372,6 +377,13 @@ func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 }
 func (s *Server) node(w http.ResponseWriter, r *http.Request, node string) error {
 	path := strings.TrimPrefix(r.URL.Path, "/node/v1/")
+	if path == "monitor" && r.Method == "POST" {
+		var in MonitorUpdate
+		if err := decodeBounded(r, &in, 2<<20); err != nil { return err }
+		if err := s.live.PutMonitor(node, in); err != nil { return err }
+		respond(w, map[string]bool{"ok": true})
+		return nil
+	}
 	if path == "bmc-discovery" && r.Method == "POST" {
 		var in BMCDiscovery
 		if err := decodeBounded(r, &in, 8192); err != nil {

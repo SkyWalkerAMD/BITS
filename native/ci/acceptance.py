@@ -58,6 +58,22 @@ def new_batch(label, tools):
         "steps": [{"tool": tool, "seconds": seconds} for tool, seconds in tools]})
 
 
+def wait_monitor(available=True, after=None, seconds=70):
+    deadline = time.monotonic() + seconds
+    value = {}
+    while time.monotonic() < deadline:
+        value = api("nodes/BITS-CLOUD/live")
+        frames = value["frames"]
+        if value["batch"] is None and frames:
+            frame = frames[0]
+            sample = frame.get("sample", {})
+            advanced = after is None or (frame["session"], sample["sequence"]) != after
+            if frame["phase"] == "monitoring" and sample.get("available") is available and advanced:
+                return frame
+        time.sleep(.5)
+    raise AssertionError(value)
+
+
 def interrupt_node(batch_id):
     # Exercise overlapping parent/systemd stop requests, as found on Alma 9.
     # Pin only this isolated batch's installed worker, never signal by name.
@@ -145,6 +161,15 @@ def main():
     run("bits-node", "enroll", "--file", "/root/node.json")
     run("bits-node", "check")
     run("systemctl", "start", "bits-node")
+    idle_first = wait_monitor()
+    idle_next = wait_monitor(after=(idle_first["session"], idle_first["sample"]["sequence"]))
+    assert idle_next["sample"]["sequence"] > idle_first["sample"]["sequence"]
+    assert len(idle_next["sample"]["hardware"]["cores"]) == 24
+    assert not api("overview")["batches"]
+    assert not list(Path("/var/lib/bits/node/runs").iterdir())
+    monitor_dir = Path("/var/lib/bits/node/monitor")
+    assert {p.name for p in monitor_dir.iterdir()} == {"live.json"}
+    assert all("hardware" not in f.get("sample", {}) for f in api("live")["monitors"])
     first = new_batch("CLOUD-NORMAL", [("stress", 4), ("stress-ng", 4), ("stress", 3)])
     time.sleep(6)
     assert api("batches/" + first["id"])["state"] == "draft"
@@ -194,6 +219,11 @@ def main():
     assert detail["statistics"]["details"]["last_info"]
     html = (evidence / "report.html").read_text()
     assert "Primary" in html and "1.83" in html and "490.00" in html
+    sealed_frame = api("batches/" + first["id"] + "/live")["frames"][0]
+    idle_resumed = wait_monitor()
+    wait_monitor(after=(idle_resumed["session"], idle_resumed["sample"]["sequence"]))
+    assert api("batches/" + first["id"] + "/live")["frames"][0]["sample"] == sealed_frame["sample"]
+    assert receipt == (evidence / "receipt.json").read_bytes()
     # A crash after sealing must restore only publication, not execute again.
     run("systemctl", "stop", "bits-node")
     run_dir = Path("/var/lib/bits/node/runs") / first["id"]
@@ -237,6 +267,10 @@ def main():
     # Native authorization denial remains a hard stop; no activation/refresh
     # operation or fallback collector may be attempted by BITS.
     write("/root/bits-ci-provider-deny", "CI gate")
+    idle_denied = wait_monitor(available=False)
+    assert "hardware" not in idle_denied["sample"]
+    assert all(v is None for k, v in idle_denied["sample"].items()
+               if k not in {"sequence", "observed_at", "available"})
     denied = new_batch("CLOUD-NATIVE-DENIAL", [("stress", 4)])
     api("batches/" + denied["id"] + "/start", {})
     denied = wait_batch(denied["id"], "needs_attention")
@@ -252,6 +286,7 @@ def main():
     assert not (Path("/var/lib/bits/node/runs") / info_denied["id"] / "execution.json").exists()
     api("batches/" + info_denied["id"] + "/close-incomplete", {"reason": "Synthetic supplemental denial retained"})
     Path("/root/bits-ci-provider-info-deny").unlink()
+    wait_monitor()
     calls = [json.loads(line) for line in Path("/root/bits-ci-provider-calls.jsonl").read_text().splitlines()]
     assert all(call in [["mon", "--json"], ["mon", "--cols=1"], ["info"]] for call in calls)
     ports = run("ss", "-lntp")
@@ -266,6 +301,7 @@ def main():
         "sckocp": "synthetic fixed mon/info only; Primary-filter tested",
         "services": "real systemd, HTTPS, SQLite; no Redis/rsync",
         "native_authorization_denial": "base and supplemental denial: no workload, no permission-management call",
+        "continuous_node_monitor": "idle samples advance without batches; resumes after execution; denial clears metrics; sealed batch unchanged",
         "hardware_validated": False}
     write("/results/acceptance.json", json.dumps(summary, ensure_ascii=False, indent=2))
     shutil.copy2(str(evidence / "report.html"), "/results/report-preview.html")

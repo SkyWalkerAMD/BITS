@@ -37,6 +37,7 @@ type LiveUpdate struct {
 }
 type LiveFrame struct {
 	LiveUpdate
+	Session        string       `json:"session,omitempty"`
 	Node           string       "json:\"node\""
 	StepTool       string       "json:\"step_tool,omitempty\""
 	Batch          string       "json:\"batch\""
@@ -47,9 +48,10 @@ type LiveFrame struct {
 type LiveCache struct {
 	mu    sync.Mutex
 	nodes map[string]LiveFrame
+	monitors map[string]LiveFrame
 }
 
-func NewLiveCache() *LiveCache { return &LiveCache{nodes: map[string]LiveFrame{}} }
+func NewLiveCache() *LiveCache { return &LiveCache{nodes: map[string]LiveFrame{}, monitors: map[string]LiveFrame{}} }
 func finite(v float64, low, high float64) bool {
 	return !math.IsNaN(v) && !math.IsInf(v, 0) && v >= low && v <= high
 }

@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 import importlib.util
@@ -42,6 +43,43 @@ worker_spec.loader.exec_module(worker)
 
 
 class LiveProjection(unittest.TestCase):
+    def test_idle_monitor_replaces_snapshot_clears_denial_and_recovers_without_batch(self):
+        clock, snapshots, detail_reads = [0.0], [], []
+        original_save = worker.common.save
+
+        def sample(include_details):
+            detail_reads.append(include_details)
+            if len(detail_reads) == 3:
+                raise OSError("synthetic unavailable provider")
+            denied = len(detail_reads) == 2
+            return {"status": "license_required" if denied else "ok", "data": {
+                "sockets": [{"id": 0, "pkg_w": 108, "temp_max_c": 34}],
+                "cores": [{"cpu": 0, "socket": 0, "mhz": 3300}]}}
+
+        def save(path, value):
+            original_save(path, value)
+            snapshots.append(value)
+            clock[0] += 31  # Advance past the supplemental interval without sleeping.
+            if len(snapshots) == 4:
+                worker.STOP = True
+
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            with patch.object(worker, "STOP", False), \
+                 patch.object(worker.time, "monotonic", side_effect=lambda: clock[0]), \
+                 patch.object(worker.data_api, "sample", side_effect=sample), \
+                 patch.object(worker.collector, "os_context", return_value={"load1": 0}), \
+                 patch.object(worker.common, "save", side_effect=save):
+                worker.monitor(directory)
+            self.assertEqual(["live.json"], [p.name for p in directory.iterdir()])
+            self.assertEqual(snapshots[-1], json.loads((directory / "live.json").read_text()))
+        self.assertEqual([1, 2, 3, 4], [v["sequence"] for v in snapshots])
+        self.assertEqual([True, False, False, True], [v["available"] for v in snapshots])
+        self.assertEqual([True] * 4, detail_reads)
+        for denied in snapshots[1:3]:
+            self.assertEqual({"sequence", "observed_at", "available"}, set(denied))
+        self.assertEqual(108, snapshots[-1]["package_w"])
+
     def test_hardware_whitelist_and_numeric_core_order(self):
         from sckocp_detail_fixture import OVERVIEW
         from sckocp_api.provider import parse_console

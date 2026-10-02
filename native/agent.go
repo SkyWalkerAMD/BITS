@@ -33,6 +33,10 @@ type Agent struct {
 	idleSince    time.Time
 	lastLive     time.Time
 	livePhase    string
+	monitorEnabled bool
+	monitorCancel context.CancelFunc
+	monitorDone chan error
+	monitorRetry time.Time
 	DiscoverBMC  func(context.Context) BMCDiscovery
 	bmcDiscovery *BMCDiscovery
 	bmcNextProbe time.Time
@@ -85,14 +89,16 @@ func (a *Agent) runWorker(ctx context.Context, action, dir string, tick func()) 
 	cmd := exec.Command(python, "-I", "-S", "-B", WorkerRoot+"/worker.py", action, dir)
 	cmd.Env = []string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "HOME=/root", "LANG=C.UTF-8", "LC_ALL=C.UTF-8"}
 	cmd.SysProcAttr = &syscall.SysProcAttr{Pdeathsig: syscall.SIGTERM}
-	log, err := os.OpenFile(filepath.Join(dir, "worker.log"), os.O_WRONLY|os.O_APPEND|os.O_CREATE|syscall.O_NOFOLLOW, 0600)
-	if err != nil {
-		return err
+	if action == "monitor" {
+		// The idle monitor keeps one bounded snapshot, not a growing log.
+		cmd.Stdout, cmd.Stderr = io.Discard, io.Discard
+	} else {
+		log, err := os.OpenFile(filepath.Join(dir, "worker.log"), os.O_WRONLY|os.O_APPEND|os.O_CREATE|syscall.O_NOFOLLOW, 0600)
+		if err != nil { return err }
+		defer log.Close()
+		cmd.Stdout, cmd.Stderr = log, log
 	}
-	defer log.Close()
-	cmd.Stdout = log
-	cmd.Stderr = log
-	if err = cmd.Start(); err != nil {
+	if err := cmd.Start(); err != nil {
 		return err
 	}
 	done := make(chan error, 1)
@@ -102,7 +108,7 @@ func (a *Agent) runWorker(ctx context.Context, action, dir string, tick func()) 
 	cancelled := false
 	for {
 		select {
-		case err = <-done:
+		case err := <-done:
 			return err
 		case <-ticker.C:
 			tick()
@@ -154,6 +160,11 @@ func (a *Agent) update(ctx context.Context, dir string, run *LocalRun) error {
 	return err
 }
 func (a *Agent) process(ctx context.Context, dir string, run *LocalRun, fresh bool) error {
+	if fresh || run.Phase == "prepared" || run.Phase == "executing" {
+		if err := a.stopMonitor(); err != nil { return err }
+	} else if err := a.startMonitor(ctx); err != nil {
+		fmt.Fprintln(os.Stderr, "BITS node monitoring:", err)
+	}
 	base := "/node/v1/batches/" + run.Batch.ID
 	a.publishLive(ctx, dir, run)
 	if fresh {
@@ -218,10 +229,12 @@ func (a *Agent) process(ctx context.Context, dir string, run *LocalRun, fresh bo
 		}
 	}
 	if run.Phase == "blocked" {
+		if err := a.startMonitor(ctx); err != nil { fmt.Fprintln(os.Stderr, "BITS node monitoring:", err) }
 		// Retry only publication of the existing failure. No implicit task retry.
 		return a.update(ctx, dir, run)
 	}
 	if run.Phase == "finalizing" {
+		if err := a.startMonitor(ctx); err != nil { fmt.Fprintln(os.Stderr, "BITS node monitoring:", err) }
 		a.publishLive(ctx, dir, run)
 		if err := a.Worker(ctx, "report", dir, func() { a.update(ctx, dir, run); a.publishLive(ctx, dir, run) }); err != nil {
 			a.update(ctx, dir, run)
@@ -365,6 +378,7 @@ func (a *Agent) once(ctx context.Context) error {
 			var remote Batch
 			if e := a.Client.JSON(ctx, "GET", "/node/v1/batches/"+run.Batch.ID, "", nil, &remote); e == nil && (remote.State == "closed_incomplete" || (remote.State == "cancelled" && (run.Phase == "prepared" || run.Phase == "blocked"))) {
 				if _, e = os.Stat(filepath.Join(dir, "execution.json")); e == nil {
+					if e = a.stopMonitor(); e != nil { return e }
 					if e = a.Worker(ctx, "recover", dir, func() {}); e != nil {
 						return e
 					}
@@ -388,7 +402,7 @@ func (a *Agent) once(ctx context.Context) error {
 	if pending.Batch == nil {
 		// Discover only while idle, never competing with stress telemetry.
 		a.reportBMC(ctx)
-		return nil
+		return a.startMonitor(ctx)
 	}
 	if err = ValidatePlan(&pending.Batch.Plan); err != nil {
 		return err
@@ -413,6 +427,8 @@ func (a *Agent) Run(ctx context.Context, once bool) error {
 		return err
 	}
 	defer lock.Close()
+	a.monitorEnabled = !once
+	defer func() { a.stopMonitor(); a.monitorEnabled = false }()
 	heartbeatCtx, stopHeartbeat := context.WithCancel(ctx)
 	heartbeatDone := make(chan struct{})
 	go func() { defer close(heartbeatDone); a.heartbeat(heartbeatCtx) }()

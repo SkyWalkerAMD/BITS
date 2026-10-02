@@ -63,6 +63,28 @@ with sync_playwright() as p:
         page.locator("#login-form button").click()
         page.locator("#overview-node-list .node-card").wait_for()
         checks.append("authenticated operator login")
+        # No running batch is needed to open a node and receive new readings.
+        batch_count = len(api("overview")["batches"])
+        page.locator("#overview-node-list .node-card").get_by_role("button", name="实时监控 ↗").click()
+        expect(page.locator("#monitor-title")).to_have_text("BITS-CLOUD")
+        expect(page.locator(".monitor-subtitle")).to_have_text("日常硬件监控")
+        expect(page.locator("#monitor-status")).to_have_text("实时采集中", timeout=20000)
+        expect(page.locator(".core-tile")).to_have_count(24)
+        initial_idle_sequence = int(page.locator("#monitor-body").get_attribute("data-live-sequence"))
+        for _ in range(30):
+            if int(page.locator("#monitor-body").get_attribute("data-live-sequence")) > initial_idle_sequence:
+                break
+            page.wait_for_timeout(500)
+        else:
+            raise AssertionError("idle monitor samples did not advance")
+        assert len(api("overview")["batches"]) == batch_count
+        page.screenshot(path=str(out / "hardware-idle.png"), full_page=True)
+        page.set_viewport_size({"width":430, "height":932})
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), "idle mobile overflow"
+        page.screenshot(path=str(out / "hardware-idle-mobile.png"), full_page=True)
+        page.set_viewport_size({"width":1440, "height":1080})
+        navigate("overview")
+        checks.append("idle node monitor advances without creating a batch, on desktop and mobile")
         # Real enrollment, credential download stays only in Playwright temporary storage.
         for name in ("LAB-010", "LAB-002"):
             page.locator("#enroll").click()
@@ -142,7 +164,7 @@ with sync_playwright() as p:
         checks.append("desktop sidebar/topbar remain in the viewport after scrolling; compact navigation persists")
         page.locator(".skip-link").focus()
         page.keyboard.press("Enter")
-        assert page.url.endswith("monitor/" + batch_id)
+        assert page.url.endswith("monitor-node/BITS-CLOUD")
         expect(page.locator("#workspace")).to_be_focused()
         checks.append("keyboard skip link keeps the current route and focuses the workspace")
         page.get_by_role("button", name="详细表格", exact=True).click()
@@ -215,7 +237,7 @@ with sync_playwright() as p:
                     "temp_c":30 + i, "package_w":100 + i}
                     for i, seconds in enumerate((18, 4, 2))]
             route.fulfill(response=response, json=value)
-        live_path = "**/api/v1/batches/" + batch_id + "/live"
+        live_path = "**/api/v1/nodes/BITS-CLOUD/live"
         page.route(live_path, topology)
         expect(page.locator(".socket-card")).to_have_count(2, timeout=12000)
         expect(page.locator(".core-table tbody tr")).to_have_count(64)
@@ -286,6 +308,24 @@ with sync_playwright() as p:
         page.locator("#detail-body").get_by_role("button", name="硬件实时监控", exact=True).click()
         expect(page.locator("#monitor-status")).to_have_text("采集已结束 · 最后读数", timeout=15000)
         checks.append("terminal batch monitor never presents its cached reading as live")
+        ended_sample = api("batches/" + batch_id + "/live")["frames"][0]["sample"]
+        page.get_by_role("button", name="节点当前状态 ↗", exact=True).click()
+        expect(page.locator("#monitor-status")).to_have_text("实时采集中", timeout=20000)
+        expect(page.locator(".monitor-subtitle")).to_have_text("日常硬件监控")
+        assert api("batches/" + batch_id + "/live")["frames"][0]["sample"] == ended_sample
+        def node_offline(route):
+            response = route.fetch()
+            value = response.json()
+            for node in value["nodes"]:
+                if node["id"] == "BITS-CLOUD":
+                    node["last_seen"] = "2020-01-01T00:00:00Z"
+            route.fulfill(response=response, json=value)
+        page.route("**/api/v1/overview", node_offline)
+        expect(page.locator("#monitor-status")).to_have_text("系统未连接 · 最后读数", timeout=15000)
+        expect(page.locator("#monitor-body")).to_have_class("monitor-history")
+        page.unroute("**/api/v1/overview", node_offline)
+        expect(page.locator("#monitor-status")).to_have_text("实时采集中", timeout=15000)
+        checks.append("completed batch stays sealed while node monitoring resumes; disconnected node cannot show live readings")
         response = context.request.get(admin["url"] + "/api/v1/batches/" + batch_id + "/receipt")
         assert response.ok and hashlib.sha256(response.body()).hexdigest() == final["receipt_sha256"]
         navigate("reports")
