@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const Version = "0.4.0-alpha.6"
+const Version = "0.4.0-alpha.7"
 
 var nameRE = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$")
 var idRE = regexp.MustCompile("^[0-9a-f]{32}$")
@@ -67,6 +67,7 @@ type Node struct {
 	Agent    string       "json:\"agent_version,omitempty\""
 	Disabled bool         "json:\"disabled\""
 	Power    *PowerStatus `json:"power,omitempty"`
+	BMCProfile string     `json:"bmc_profile,omitempty"`
 }
 type Event struct {
 	At     string "json:\"at\""

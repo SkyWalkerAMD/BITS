@@ -403,7 +403,7 @@ func TestDispatchMigrationBackupAndPersistence(t *testing.T) {
 	}
 	readyNode(t, s, "N1")
 	b, _ := s.Create(testPlan("N1"))
-	for _, q := range []string{"DROP TABLE group_members", "DROP TABLE dispatch_operations", "DROP TABLE dispatch_groups", "DROP TABLE task_templates", "UPDATE metadata SET value='1' WHERE key='schema'"} {
+	for _, q := range []string{"DROP TABLE node_bmc_profiles", "DROP TABLE group_members", "DROP TABLE dispatch_operations", "DROP TABLE dispatch_groups", "DROP TABLE task_templates", "UPDATE metadata SET value='1' WHERE key='schema'"} {
 		if _, e = s.db.Exec(q); e != nil {
 			t.Fatal(e)
 		}

@@ -532,6 +532,81 @@ with sync_playwright() as p:
         expect(page.locator("#bmc-profiles-dialog")).not_to_be_visible()
         assert not api("dispatch/bmc-profiles")[0]["enabled"]
         checks.append("mobile credential template creation/edit/disable uses real admin API; blank edit retains password and GET never returns it")
+
+        # Create a custom template within enrollment without losing node fields.
+        page.locator("#enroll").click()
+        page.locator("#node-id").fill("LAB-PROFILE")
+        page.locator("#node-serial").fill("SYNTHETIC-PROFILE")
+        expect(page.locator("#node-submit")).to_be_enabled()
+        assert page.locator('#node-bmc-profile option[value="browser-fixture"]').count() == 0
+        page.locator("#node-profile-create").click()
+        expect(page.locator("#bmc-profiles-dialog")).to_be_visible()
+        page.locator("#bmc-profile-name").fill("onboarding-fixture")
+        page.locator("#bmc-profile-networks").fill("192.168.50.0/24")
+        page.locator("#bmc-profile-prefix").fill("LAB-")
+        page.locator("#bmc-profile-user").fill("lab-operator")
+        page.locator("#bmc-profile-password").fill("ENROLL-FIXTURE-KEY")
+        page.locator("#bmc-profiles-form button.primary").click()
+        expect(page.locator("#bmc-profiles-dialog")).not_to_be_visible()
+        expect(page.locator("#node-bmc-profile")).to_have_value("onboarding-fixture")
+        expect(page.locator("#node-id")).to_have_value("LAB-PROFILE")
+        expect(page.locator("#node-serial")).to_have_value("SYNTHETIC-PROFILE")
+        expect(page.locator("#node-profile-summary")).to_contain_text("lab-operator")
+        expect(page.locator("#node-profile-summary")).to_contain_text("Cipher 17")
+        expect(page.locator("#bmc-profile-password")).to_have_value("")
+        assert "ENROLL-FIXTURE-KEY" not in page.locator("#node-dialog").inner_text()
+        page.set_viewport_size({"width":1440, "height":1080})
+        page.locator("#node-id").scroll_into_view_if_needed()
+        page.screenshot(path=str(out / "node-template.png"))
+        page.set_viewport_size({"width":390, "height":844})
+        page.locator("#node-bmc-profile").scroll_into_view_if_needed()
+        assert page.locator("#node-dialog").evaluate("e => e.scrollWidth <= e.clientWidth")
+        page.screenshot(path=str(out / "node-template-mobile.png"))
+        with page.expect_download() as download:
+            page.locator("#node-submit").click()
+        cfg = json.loads(Path(download.value.path()).read_text())
+        assert set(cfg) == {"url", "node", "token", "ca_pem", "serial", "keep_on"}
+        assert cfg["node"] == "LAB-PROFILE"
+        assert "ENROLL-FIXTURE-KEY" not in json.dumps(cfg)
+        download.value.delete()
+        del cfg
+        selected = next(n for n in api("overview")["nodes"] if n["id"] == "LAB-PROFILE")
+        assert selected["bmc_profile"] == "onboarding-fixture"
+        assert api("dispatch/bmc-discoveries")["LAB-PROFILE"]["profile"] == "onboarding-fixture"
+        checks.append("custom BMC template created during enrollment, selected automatically, persisted on center and omitted from connection download; desktop/mobile layout")
+
+        # Load errors block enrollment, and a stale disabled selection cannot
+        # silently become automatic matching or create a partial node.
+        page.locator("#enroll").click()
+        page.locator("#node-id").fill("LAB-REJECTED")
+        page.locator("#node-serial").fill("SYNTHETIC-REJECTED")
+        expect(page.locator("#node-bmc-profile")).to_be_enabled()
+        page.locator("#node-bmc-profile").select_option("onboarding-fixture")
+        def unavailable_profiles(route):
+            route.fulfill(status=503, content_type="application/json", body=json.dumps({"error":"Fixture template list unavailable"}))
+        page.route("**/api/v1/dispatch/bmc-profiles", unavailable_profiles)
+        page.locator("#node-profile-reload").click()
+        expect(page.locator("#node-profile-error")).to_contain_text("Fixture template list unavailable")
+        expect(page.locator("#node-submit")).to_be_disabled()
+        page.unroute("**/api/v1/dispatch/bmc-profiles", unavailable_profiles)
+        page.locator("#node-profile-reload").click()
+        expect(page.locator("#node-submit")).to_be_enabled()
+        expect(page.locator("#node-bmc-profile")).to_have_value("onboarding-fixture")
+        disabled = next(p for p in api("dispatch/bmc-profiles") if p["name"] == "onboarding-fixture")
+        disabled["enabled"] = False
+        response = context.request.post(admin["url"] + "/api/v1/dispatch/bmc-profiles", data=disabled, headers={"X-BITS-Request":"1"})
+        assert response.ok
+        page.locator("#node-submit").click()
+        expect(page.locator("#node-error")).to_contain_text("节点未创建")
+        assert not any(n["id"] == "LAB-REJECTED" for n in api("overview")["nodes"])
+        page.locator("#node-profile-reload").click()
+        expect(page.locator("#node-profile-summary")).to_contain_text("已停用或不存在")
+        expect(page.locator("#node-bmc-profile")).to_have_value("onboarding-fixture")
+        expect(page.locator("#node-submit")).to_be_disabled()
+        page.locator("#node-bmc-profile").select_option("")
+        expect(page.locator("#node-submit")).to_be_enabled()
+        page.locator('#node-dialog button[data-close="node-dialog"]').last.click()
+        checks.append("template list failure retry and concurrent template disable preserve explicit selection and prevent partial enrollment")
         page.set_viewport_size({"width":1440, "height":1080})
         page.locator("#logout").click()
         expect(page.locator("#login-dialog")).to_be_visible()

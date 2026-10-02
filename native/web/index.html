@@ -335,7 +335,7 @@
               <h3>登记与连接节点</h3>
               <p>
                 安装 <code>bits-node</code> 包和原版
-                sckocp。点击“添加节点”，将下载的连接文件安全传到对应节点
+                sckocp。点击“添加节点”，可选择或新建 BMC 模板；将下载的连接文件安全传到对应节点
                 /root，再由 root 执行：
               </p>
               <pre id="enroll-example">
@@ -761,7 +761,21 @@ systemctl enable --now bits-node.service</pre
             maxlength="96"
             pattern="[A-Za-z0-9][A-Za-z0-9_.-]{0,95}"
             placeholder="ASSET-001" /></label
-        ><label class="checkbox"
+        >
+        <section class="node-profile-section" aria-labelledby="node-profile-title">
+          <div class="node-profile-heading">
+            <h3 id="node-profile-title">BMC 凭据模板</h3>
+            <button type="button" id="node-profile-create" class="quiet">＋ 新建模板</button>
+          </div>
+          <label>使用模板<select id="node-bmc-profile" aria-describedby="node-profile-summary">
+            <option value="">自动匹配模板</option>
+          </select></label>
+          <div id="node-profile-summary" class="node-profile-summary" role="status"></div>
+          <p id="node-profile-error" class="error" role="alert"></p>
+          <button type="button" id="node-profile-reload" class="quiet">刷新模板列表</button>
+          <p class="field-help">接入后自动发现管理口并核对身份。凭据保存在中心，连接文件不含 BMC 密码。</p>
+        </section>
+        <label class="checkbox"
           ><input id="node-keep-on" type="checkbox" />完成后保持开机</label
         >
         <p class="field-help">
@@ -774,7 +788,7 @@ systemctl enable --now bits-node.service</pre
         <p id="node-error" class="error" role="alert"></p>
         <div class="dialog-actions">
           <button type="button" data-close="node-dialog">取消</button
-          ><button class="primary">创建并下载连接文件</button>
+          ><button id="node-submit" class="primary">创建并下载连接文件</button>
         </div>
       </form>
     </dialog>

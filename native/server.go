@@ -272,6 +272,7 @@ func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 			ID     string "json:\"id\""
 			Serial string "json:\"serial\""
 			KeepOn bool   "json:\"keep_on\""
+			BMCProfile string `json:"bmc_profile"`
 		}
 		if err := decode(r, &in); err != nil {
 			return err
@@ -279,12 +280,12 @@ func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 		if !ValidName(in.Serial) {
 			return errors.New("stable serial is required")
 		}
-		token := Random(32)
-		if err := s.Store.AddNode(in.ID, token); err != nil {
-			return err
-		}
 		cert, err := os.ReadFile(s.Config.Cert)
 		if err != nil {
+			return err
+		}
+		token := Random(32)
+		if err := s.addNodeWithBMCProfile(in.ID, token, in.BMCProfile); err != nil {
 			return err
 		}
 		respond(w, NodeConfig{URL: s.Config.URL, Node: in.ID, Token: token, CA: string(cert), Serial: in.Serial, KeepOn: in.KeepOn})

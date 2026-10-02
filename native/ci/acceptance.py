@@ -61,7 +61,7 @@ def new_batch(label, tools):
 def interrupt_node(batch_id):
     # Exercise overlapping parent/systemd stop requests, as found on Alma 9.
     # Pin only this isolated batch's installed worker, never signal by name.
-    expected = ["/opt/bits/native/0.4.0-alpha.6/worker/worker.py", "execute",
+    expected = ["/opt/bits/native/0.4.0-alpha.7/worker/worker.py", "execute",
                 "/var/lib/bits/node/runs/" + batch_id]
     pinned = []
     for entry in Path("/proc").iterdir():
@@ -201,7 +201,7 @@ def main():
     result["report"] = "not_generated"
     write(run_dir / "result.json", json.dumps(result))
     python = "/usr/libexec/platform-python" if Path("/usr/libexec/platform-python").exists() else "/usr/bin/python3"
-    worker = "/opt/bits/native/0.4.0-alpha.6/worker/worker.py"
+    worker = "/opt/bits/native/0.4.0-alpha.7/worker/worker.py"
     run(python, "-I", "-S", "-B", worker, "report", str(run_dir))
     assert json.loads((run_dir / "result.json").read_text())["report"] == "generated"
     assert receipt == (evidence / "receipt.json").read_bytes()
@@ -256,7 +256,7 @@ def main():
     assert all(call in [["mon", "--json"], ["mon", "--cols=1"], ["info"]] for call in calls)
     ports = run("ss", "-lntp")
     assert ":6379 " not in ports and ":873 " not in ports
-    summary = {"status": "passed", "version": "0.4.0-alpha.6", "python": sys.version,
+    summary = {"status": "passed", "version": "0.4.0-alpha.7", "python": sys.version,
         "os": Path("/etc/os-release").read_text(), "batch": finished["id"],
         "normal_steps": finished["result"]["steps"], "cancel_execution": cancel_result["result"]["execution"],
         "service_restart_execution": interrupted["result"]["execution"],

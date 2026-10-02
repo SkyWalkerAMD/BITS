@@ -904,6 +904,8 @@ function renderNodeDetail() {
       "muted",
     ),
   ];
+  if (n.bmc_profile)
+    items.push(el("p", "接入时选择的 BMC 模板：" + n.bmc_profile, "muted"));
   for (const b of list.slice(0, 8)) {
     const row = el("div", undefined, "file-row");
     row.append(
@@ -2178,9 +2180,78 @@ $("create").onclick = () =>
     ? newGroup().catch((e) => notice(e.message, true))
     : newBatch();
 $("guide-create").onclick = () => newBatch();
+let nodeBMCProfiles = [], nodeBMCProfilesReady = false, nodeBMCProfilesRequest = 0;
+function renderNodeBMCProfile() {
+  const selected = $("node-bmc-profile").value,
+    p = nodeBMCProfiles.find((p) => p.name === selected && p.enabled),
+    root = $("node-profile-summary");
+  $("node-submit").disabled = !nodeBMCProfilesReady || Boolean(selected && !p);
+  if (!nodeBMCProfilesReady) return;
+  if (!selected) {
+    replace(root, el("p", nodeBMCProfiles.some((p) => p.enabled)
+      ? "按节点名前缀、主板型号和管理网段自动匹配；只有唯一匹配时才会绑定。"
+      : "尚无启用的模板。可以先新建模板，也可以添加节点后再配置。"));
+    return;
+  }
+  if (!p) {
+    replace(root, el("p", "所选模板已停用或不存在，请重新选择。"));
+    return;
+  }
+  const facts = el("dl", undefined, "node-profile-facts");
+  for (const [name, value] of [
+    ["IPMI 用户名", p.username], ["加密套件", "LANplus · Cipher " + p.cipher],
+    ["管理网段", p.networks.join("、")],
+    ["适用范围", [p.node_prefix && "节点名以 " + p.node_prefix + " 开头", p.model && "主板 " + p.model].filter(Boolean).join("；") || "所有节点名和主板型号"],
+  ]) {
+    const row = el("div");
+    row.append(el("dt", name), el("dd", value));
+    facts.append(row);
+  }
+  replace(root, facts, el("p", "仅使用此模板，仍需符合以上条件。以后修改模板不会覆盖已经完成的 BMC 绑定。"));
+}
+async function loadNodeBMCProfiles(selected = $("node-bmc-profile").value) {
+  const request = ++nodeBMCProfilesRequest;
+  nodeBMCProfilesReady = false;
+  $("node-submit").disabled = true;
+  $("node-bmc-profile").disabled = true;
+  $("node-profile-create").disabled = true;
+  $("node-profile-reload").disabled = true;
+  $("node-profile-error").textContent = "";
+  $("node-profile-summary").textContent = "正在加载中心模板…";
+  try {
+    const profiles = await api("dispatch/bmc-profiles");
+    if (request !== nodeBMCProfilesRequest) return;
+    nodeBMCProfiles = profiles;
+    const options = [new Option("自动匹配模板", ""), ...profiles.filter((p) => p.enabled).map((p) => new Option(p.name, p.name))];
+    if (selected && !profiles.some((p) => p.name === selected && p.enabled)) {
+      const missing = new Option(selected + " · 不可用", selected);
+      missing.disabled = true;
+      options.push(missing);
+    }
+    replace($("node-bmc-profile"), ...options);
+    $("node-bmc-profile").value = selected;
+    nodeBMCProfilesReady = true;
+    $("node-bmc-profile").disabled = false;
+    renderNodeBMCProfile();
+  } catch (err) {
+    if (request !== nodeBMCProfilesRequest) return;
+    $("node-profile-summary").textContent = "模板列表尚未加载。";
+    $("node-profile-error").textContent = err.message + "；请刷新模板列表后再创建节点。";
+  } finally {
+    if (request === nodeBMCProfilesRequest) {
+      $("node-profile-create").disabled = false;
+      $("node-profile-reload").disabled = false;
+    }
+  }
+}
+$("node-bmc-profile").onchange = renderNodeBMCProfile;
+$("node-profile-reload").onclick = () => loadNodeBMCProfiles();
+$("node-profile-create").onclick = () => openBMCProfiles(true);
 $("enroll").onclick = () => {
+  $("node-form").reset();
   $("node-error").textContent = "";
   $("node-dialog").showModal();
+  loadNodeBMCProfiles("");
 };
 $("guide-enroll").onclick = $("enroll").onclick;
 $("close-detail").onclick = () => (location.hash = "batches");
@@ -2296,12 +2367,14 @@ $("batch-form").onsubmit = async (e) => {
 $("node-form").onsubmit = async (e) => {
   e.preventDefault();
   if (formStates.has($("node-form"))) return;
+  if (!nodeBMCProfilesReady || $("node-submit").disabled) return;
   formBusy($("node-form"), true);
   try {
     const cfg = await api("nodes", "POST", {
         id: $("node-id").value,
         serial: $("node-serial").value,
         keep_on: $("node-keep-on").checked,
+        bmc_profile: $("node-bmc-profile").value,
       }),
       url = URL.createObjectURL(
         new Blob([JSON.stringify(cfg, null, 2)], { type: "application/json" }),
@@ -2319,7 +2392,9 @@ $("node-form").onsubmit = async (e) => {
     notice(
       "节点 " +
         cfg.node +
-        " 已登记，专属连接文件已下载。请安全保存并按下方指引接入。",
+        " 已登记，专属连接文件已下载。" +
+        ($("node-bmc-profile").value ? "已选择 BMC 模板 " + $("node-bmc-profile").value + "，接入后自动核对绑定。" : "") +
+        "请安全保存并按下方指引接入。",
     );
     location.hash = "guide";
     lastOverview = 0;

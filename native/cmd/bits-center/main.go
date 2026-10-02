@@ -46,6 +46,7 @@ func run() error {
 	node := f.String("node", "", "node hostname")
 	serial := f.String("serial", "", "stable asset serial")
 	keepOn := f.Bool("keep-on", false, "keep accepted node powered on after delivery")
+	bmcProfile := f.String("bmc-profile", "", "center BMC template for this node; empty selects automatic matching")
 	label := f.String("label", "", "batch label")
 	batch := f.String("batch", "", "batch ID")
 	tasks := f.String("steps", "", "comma-separated tool=seconds, repeats allowed")
@@ -150,7 +151,7 @@ func run() error {
 			return e
 		}
 		var cfg bits.NodeConfig
-		err = client.JSON(context.Background(), "POST", "/api/v1/nodes", "", map[string]any{"id": *node, "serial": *serial, "keep_on": *keepOn}, &cfg)
+		err = client.JSON(context.Background(), "POST", "/api/v1/nodes", "", map[string]any{"id": *node, "serial": *serial, "keep_on": *keepOn, "bmc_profile": *bmcProfile}, &cfg)
 		if err == nil {
 			err = bits.WriteCredential(*output, cfg)
 		}

@@ -41,7 +41,7 @@ func OpenStore(dir string) (*Store, error) {
 	}
 	if tables > 0 {
 		var version string
-		if err = db.QueryRow("SELECT value FROM metadata WHERE key='schema'").Scan(&version); err != nil || (version != "1" && version != "2") {
+		if err = db.QueryRow("SELECT value FROM metadata WHERE key='schema'").Scan(&version); err != nil || (version != "1" && version != "2" && version != "3") {
 			db.Close()
 			return nil, errors.New("unsupported existing database; no schema changes were made")
 		}
@@ -62,7 +62,7 @@ func OpenStore(dir string) (*Store, error) {
 	}
 	var schema string
 	err = db.QueryRow("SELECT value FROM metadata WHERE key='schema'").Scan(&schema)
-	if err != nil || (schema != "1" && schema != "2") {
+	if err != nil || (schema != "1" && schema != "2" && schema != "3") {
 		db.Close()
 		return nil, errors.New("unsupported database schema; retain database and use its matching binary")
 	}
@@ -74,15 +74,39 @@ func OpenStore(dir string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
+	if err = migrateBMCEnrollment(db, dbpath); err != nil {
+		db.Close()
+		return nil, err
+	}
 	return &Store{db: db}, nil
 }
 func (s *Store) Close() error { return s.db.Close() }
 func (s *Store) AddNode(id, token string) error {
-	if !ValidName(id) || !digestRE.MatchString(token) {
+	return s.addNodeWithProfile(id, token, "")
+}
+func (s *Store) addNodeWithProfile(id, token, profile string) error {
+	if !ValidName(id) || !digestRE.MatchString(token) || (profile != "" && !ValidName(profile)) {
 		return errors.New("invalid node identity or credential")
 	}
-	_, err := s.db.Exec("INSERT INTO nodes(id,token_sha) VALUES(?,?)", id, Digest([]byte(token)))
-	return err
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err = tx.Exec("INSERT INTO nodes(id,token_sha) VALUES(?,?)", id, Digest([]byte(token))); err != nil {
+		return err
+	}
+	if profile != "" {
+		if _, err = tx.Exec("INSERT INTO node_bmc_profiles(node,profile) VALUES(?,?)", id, profile); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+func (s *Store) nodeBMCProfile(id string) (string, error) {
+	var profile string
+	err := s.db.QueryRow("SELECT coalesce(p.profile,'') FROM nodes n LEFT JOIN node_bmc_profiles p ON p.node=n.id WHERE n.id=?", id).Scan(&profile)
+	return profile, err
 }
 func (s *Store) AuthNode(id, token string) bool {
 	var expected string
@@ -90,7 +114,7 @@ func (s *Store) AuthNode(id, token string) bool {
 	return err == nil && subtle.ConstantTimeCompare([]byte(expected), []byte(Digest([]byte(token)))) == 1
 }
 func (s *Store) Nodes() ([]Node, error) {
-	rows, err := s.db.Query("SELECT id,last_seen,agent,disabled FROM nodes ORDER BY id")
+	rows, err := s.db.Query("SELECT n.id,n.last_seen,n.agent,n.disabled,coalesce(p.profile,'') FROM nodes n LEFT JOIN node_bmc_profiles p ON p.node=n.id ORDER BY n.id")
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +122,7 @@ func (s *Store) Nodes() ([]Node, error) {
 	out := []Node{}
 	for rows.Next() {
 		var n Node
-		if err = rows.Scan(&n.ID, &n.LastSeen, &n.Agent, &n.Disabled); err != nil {
+		if err = rows.Scan(&n.ID, &n.LastSeen, &n.Agent, &n.Disabled, &n.BMCProfile); err != nil {
 			return nil, err
 		}
 		out = append(out, n)

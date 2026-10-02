@@ -2,6 +2,7 @@ package bits
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"net"
@@ -45,6 +46,7 @@ type AutoBMC struct {
 }
 type AutoBMCView struct {
 	State      string         `json:"state"`
+	Profile    string         `json:"profile,omitempty"`
 	Reason     string         `json:"reason"`
 	Model      string         `json:"model,omitempty"`
 	Candidates []BMCCandidate `json:"candidates,omitempty"`
@@ -60,6 +62,68 @@ var autoReasons = map[string]string{
 	"checking": "正在核对 BMC 身份与电源状态", "failed": "自动核对未通过；检查管理网络、凭据、Cipher 与 GUID 后再重试",
 	"bound": "已自动绑定并核对 BMC 身份", "interrupted": "上次核对未完成，请检查后重试",
 	"conflict": "管理口地址或 BMC 身份被多个节点上报，请手工核对对应关系",
+	"profile_unavailable": "所选模板已停用或不存在，请检查模板设置；不会改用其他模板",
+	"profile_mismatch": "所选模板与管理网段、节点名前缀或主板型号不符，请检查模板条件",
+}
+
+// Schema 3 makes the enrollment choice durable in the same transaction as the
+// node identity. Older centers must reject it rather than ignore that choice.
+func migrateBMCEnrollment(db *sql.DB, path string) error {
+	var schema string
+	if err := db.QueryRow("SELECT value FROM metadata WHERE key='schema'").Scan(&schema); err != nil {
+		return err
+	}
+	if schema == "3" {
+		return nil
+	}
+	if schema != "2" {
+		return errors.New("unsupported schema for BMC enrollment")
+	}
+	var count int
+	if err := db.QueryRow("SELECT count(*) FROM nodes").Scan(&count); err != nil {
+		return err
+	}
+	if count > 0 {
+		backup := path + ".before-bmc-enrollment-v2"
+		if _, err := os.Lstat(backup); !os.IsNotExist(err) {
+			return errors.New("BMC enrollment migration backup already exists; retain it and inspect database before retrying")
+		}
+		if _, err := db.Exec("VACUUM INTO ?", backup); err != nil {
+			return err
+		}
+		if err := os.Chmod(backup, 0600); err != nil {
+			return err
+		}
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err = tx.Exec("CREATE TABLE node_bmc_profiles(node TEXT PRIMARY KEY REFERENCES nodes(id), profile TEXT NOT NULL)"); err != nil {
+		return err
+	}
+	if _, err = tx.Exec("UPDATE metadata SET value='3' WHERE key='schema'"); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Server) addNodeWithBMCProfile(node, token, profile string) error {
+	s.Store.mu.Lock()
+	defer s.Store.mu.Unlock()
+	s.autoBMC.mu.Lock()
+	defer s.autoBMC.mu.Unlock()
+	if profile != "" {
+		p, ok := s.autoBMC.data.Profiles[profile]
+		if !ok || !p.Enabled {
+			return errors.New("所选 BMC 模板不存在或已停用，请重新选择；节点未创建")
+		}
+		if !strings.HasPrefix(node, p.NodePrefix) {
+			return errors.New("节点主机名不符合所选模板的适用前缀；节点未创建")
+		}
+	}
+	return s.Store.addNodeWithProfile(node, token, profile)
 }
 
 func newAutoBMC(data string) *AutoBMC {
@@ -227,9 +291,16 @@ type autoChoice struct {
 	Fingerprint string
 }
 
-func (a *AutoBMC) choose(node string) (AutoBMCView, autoChoice) {
-	v := AutoBMCView{State: "waiting"}
+func (a *AutoBMC) choose(node, profile string) (AutoBMCView, autoChoice) {
+	v := AutoBMCView{State: "waiting", Profile: profile}
 	choice := autoChoice{}
+	if profile != "" {
+		if p, ok := a.data.Profiles[profile]; !ok || !p.Enabled {
+			v.State = "profile_unavailable"
+			v.Reason = autoReasons[v.State]
+			return v, choice
+		}
+	}
 	d, ok := a.data.Discoveries[node]
 	if !ok {
 		v.Reason = autoReasons[v.State]
@@ -247,6 +318,9 @@ func (a *AutoBMC) choose(node string) (AutoBMCView, autoChoice) {
 			count := 0
 			for _, c := range d.Discovery.Candidates {
 				for _, p := range a.data.Profiles {
+					if profile != "" && p.Name != profile {
+						continue
+					}
 					if !p.Enabled || !strings.HasPrefix(node, p.NodePrefix) || (p.Model != "" && p.Model != d.Discovery.Model) {
 						continue
 					}
@@ -268,6 +342,9 @@ func (a *AutoBMC) choose(node string) (AutoBMCView, autoChoice) {
 			}
 			if count == 0 {
 				v.State = "no_profile"
+				if profile != "" {
+					v.State = "profile_mismatch"
+				}
 			} else if count > 1 {
 				v.State = "ambiguous"
 			} else {
@@ -296,18 +373,23 @@ func (a *AutoBMC) choose(node string) (AutoBMCView, autoChoice) {
 	v.Reason = autoReasons[v.State]
 	return v, choice
 }
-func (a *AutoBMC) view(node string) AutoBMCView {
+func (a *AutoBMC) view(node, profile string) AutoBMCView {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	v, _ := a.choose(node)
+	v, _ := a.choose(node, profile)
 	return v
 }
 func (s *Server) autoBindBMC(ctx context.Context, node string) {
 	// Serialize registration/start checks and recheck after network I/O.
 	s.Store.mu.Lock()
+	profile, err := s.Store.nodeBMCProfile(node)
+	if err != nil {
+		s.Store.mu.Unlock()
+		return
+	}
 	a := s.autoBMC
 	a.mu.Lock()
-	v, c := a.choose(node)
+	v, c := a.choose(node, profile)
 	if v.State != "ready" || !s.autoBindingAllowed(node) {
 		a.mu.Unlock()
 		s.Store.mu.Unlock()
@@ -324,7 +406,7 @@ func (s *Server) autoBindBMC(ctx context.Context, node string) {
 			return
 		}
 	}
-	err := a.save(d)
+	err = a.save(d)
 	a.mu.Unlock()
 	s.Store.mu.Unlock()
 	if err != nil {
@@ -353,11 +435,11 @@ func (s *Server) autoBindBMC(ctx context.Context, node string) {
 	defer s.Store.mu.Unlock()
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	_, current := a.choose(node)
+	_, current := a.choose(node, profile)
 	if current.Fingerprint != c.Fingerprint {
 		return
 	}
-	currentView, _ := a.choose(node)
+	currentView, _ := a.choose(node, profile)
 	if currentView.State != "checking" {
 		return
 	}

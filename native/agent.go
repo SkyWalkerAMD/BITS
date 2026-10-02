@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-const WorkerRoot = "/opt/bits/native/0.4.0-alpha.6/worker"
+const WorkerRoot = "/opt/bits/native/0.4.0-alpha.7/worker"
 
 type LocalRun struct {
 	Batch        Batch               "json:\"batch\""

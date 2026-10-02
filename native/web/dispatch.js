@@ -16,6 +16,7 @@ const dispatchState = {
   bmcNode: "",
   discoveries: {},
   profiles: [],
+  profileForEnrollment: false,
 };
 const reachabilityLabels = {
   ready: "系统在线 · 可执行",
@@ -147,6 +148,7 @@ function renderDispatch() {
         status = el("div");
       identity.append(el("strong", n.node), el("small", powerText(n.power)));
       const found = dispatchState.discoveries[n.node];
+      if (found?.profile) identity.append(el("small", "接入模板：" + found.profile));
       if (!n.power?.configured && found) {
         identity.append(
           el(
@@ -544,8 +546,7 @@ function openBMC(n) {
   $("bmc-error").textContent = "";
   $("bmc-dialog").showModal();
 }
-function initializeDispatch() {
-  $("bmc-profiles-open").onclick = async () => {
+async function openBMCProfiles(forEnrollment = false) {
     try {
       dispatchState.profiles = await api("dispatch/bmc-profiles");
       replace(
@@ -562,12 +563,16 @@ function initializeDispatch() {
         }),
       );
       $("bmc-profiles-form").reset();
+      dispatchState.profileForEnrollment = forEnrollment;
       fillBMCProfile();
       $("bmc-profiles-dialog").showModal();
     } catch (err) {
-      notice(err.message, true);
+      if (forEnrollment) $("node-profile-error").textContent = err.message;
+      else notice(err.message, true);
     }
-  };
+}
+function initializeDispatch() {
+  $("bmc-profiles-open").onclick = () => openBMCProfiles();
   $("bmc-profile-select").onchange = fillBMCProfile;
   $("bmc-profiles-dialog").addEventListener("close", () => {
     $("bmc-profile-password").value = "";
@@ -592,11 +597,15 @@ function initializeDispatch() {
     try {
       await api("dispatch/bmc-profiles", "POST", value);
       $("bmc-profiles-dialog").close();
+      if (dispatchState.profileForEnrollment && $("node-dialog").open) {
+        await loadNodeBMCProfiles(value.name);
+        $("node-bmc-profile").focus();
+      }
       notice(
         "模板已保存，符合条件的节点将自动核对并绑定 BMC；没有发送开机指令。",
       );
       await syncDispatch();
-      renderDispatch();
+      if (["dispatch", "group"].includes(page)) renderDispatch();
     } catch (err) {
       $("bmc-profile-error").textContent = err.message;
     } finally {

@@ -36,7 +36,7 @@ func (s *Server) dispatchAPI(w http.ResponseWriter, r *http.Request, path string
 			}
 			out := map[string]AutoBMCView{}
 			for _, n := range nodes {
-				out[n.ID] = s.autoBMC.view(n.ID)
+				out[n.ID] = s.autoBMC.view(n.ID, n.BMCProfile)
 			}
 			respond(w, out)
 			return nil
