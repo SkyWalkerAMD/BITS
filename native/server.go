@@ -269,9 +269,9 @@ func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 	}
 	if path == "nodes" && r.Method == "POST" {
 		var in struct {
-			ID     string "json:\"id\""
-			Serial string "json:\"serial\""
-			KeepOn bool   "json:\"keep_on\""
+			ID         string "json:\"id\""
+			Serial     string "json:\"serial\""
+			KeepOn     bool   "json:\"keep_on\""
 			BMCProfile string `json:"bmc_profile"`
 		}
 		if err := decode(r, &in); err != nil {
@@ -305,7 +305,9 @@ func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 	parts := strings.Split(path, "/")
 	if len(parts) == 3 && parts[0] == "nodes" && parts[2] == "live" && r.Method == "GET" {
 		value, err := s.nodeMonitoring(parts[1])
-		if err == nil { respond(w, value) }
+		if err == nil {
+			respond(w, value)
+		}
 		return err
 	}
 	if len(parts) < 2 || parts[0] != "batches" || !idRE.MatchString(parts[1]) {
@@ -379,8 +381,12 @@ func (s *Server) node(w http.ResponseWriter, r *http.Request, node string) error
 	path := strings.TrimPrefix(r.URL.Path, "/node/v1/")
 	if path == "monitor" && r.Method == "POST" {
 		var in MonitorUpdate
-		if err := decodeBounded(r, &in, 2<<20); err != nil { return err }
-		if err := s.live.PutMonitor(node, in); err != nil { return err }
+		if err := decodeBounded(r, &in, 2<<20); err != nil {
+			return err
+		}
+		if err := s.live.PutMonitor(node, in); err != nil {
+			return err
+		}
 		respond(w, map[string]bool{"ok": true})
 		return nil
 	}

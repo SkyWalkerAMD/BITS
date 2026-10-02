@@ -27,20 +27,20 @@ type LocalRun struct {
 	Artifacts    map[string]Artifact "json:\"artifacts,omitempty\""
 }
 type Agent struct {
-	Config       NodeConfig
-	Client       *Client
-	Data         string
-	idleSince    time.Time
-	lastLive     time.Time
-	livePhase    string
+	Config         NodeConfig
+	Client         *Client
+	Data           string
+	idleSince      time.Time
+	lastLive       time.Time
+	livePhase      string
 	monitorEnabled bool
-	monitorCancel context.CancelFunc
-	monitorDone chan error
-	monitorRetry time.Time
-	DiscoverBMC  func(context.Context) BMCDiscovery
-	bmcDiscovery *BMCDiscovery
-	bmcNextProbe time.Time
-	bmcNextSend  time.Time
+	monitorCancel  context.CancelFunc
+	monitorDone    chan error
+	monitorRetry   time.Time
+	DiscoverBMC    func(context.Context) BMCDiscovery
+	bmcDiscovery   *BMCDiscovery
+	bmcNextProbe   time.Time
+	bmcNextSend    time.Time
 	// Production always uses the installed, verified local worker. This seam
 	// permits isolated lifecycle tests without running hardware tools.
 	Worker func(context.Context, string, string, func()) error
@@ -94,7 +94,9 @@ func (a *Agent) runWorker(ctx context.Context, action, dir string, tick func()) 
 		cmd.Stdout, cmd.Stderr = io.Discard, io.Discard
 	} else {
 		log, err := os.OpenFile(filepath.Join(dir, "worker.log"), os.O_WRONLY|os.O_APPEND|os.O_CREATE|syscall.O_NOFOLLOW, 0600)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		defer log.Close()
 		cmd.Stdout, cmd.Stderr = log, log
 	}
@@ -161,7 +163,9 @@ func (a *Agent) update(ctx context.Context, dir string, run *LocalRun) error {
 }
 func (a *Agent) process(ctx context.Context, dir string, run *LocalRun, fresh bool) error {
 	if fresh || run.Phase == "prepared" || run.Phase == "executing" {
-		if err := a.stopMonitor(); err != nil { return err }
+		if err := a.stopMonitor(); err != nil {
+			return err
+		}
 	} else if err := a.startMonitor(ctx); err != nil {
 		fmt.Fprintln(os.Stderr, "BITS node monitoring:", err)
 	}
@@ -229,12 +233,16 @@ func (a *Agent) process(ctx context.Context, dir string, run *LocalRun, fresh bo
 		}
 	}
 	if run.Phase == "blocked" {
-		if err := a.startMonitor(ctx); err != nil { fmt.Fprintln(os.Stderr, "BITS node monitoring:", err) }
+		if err := a.startMonitor(ctx); err != nil {
+			fmt.Fprintln(os.Stderr, "BITS node monitoring:", err)
+		}
 		// Retry only publication of the existing failure. No implicit task retry.
 		return a.update(ctx, dir, run)
 	}
 	if run.Phase == "finalizing" {
-		if err := a.startMonitor(ctx); err != nil { fmt.Fprintln(os.Stderr, "BITS node monitoring:", err) }
+		if err := a.startMonitor(ctx); err != nil {
+			fmt.Fprintln(os.Stderr, "BITS node monitoring:", err)
+		}
 		a.publishLive(ctx, dir, run)
 		if err := a.Worker(ctx, "report", dir, func() { a.update(ctx, dir, run); a.publishLive(ctx, dir, run) }); err != nil {
 			a.update(ctx, dir, run)
@@ -378,7 +386,9 @@ func (a *Agent) once(ctx context.Context) error {
 			var remote Batch
 			if e := a.Client.JSON(ctx, "GET", "/node/v1/batches/"+run.Batch.ID, "", nil, &remote); e == nil && (remote.State == "closed_incomplete" || (remote.State == "cancelled" && (run.Phase == "prepared" || run.Phase == "blocked"))) {
 				if _, e = os.Stat(filepath.Join(dir, "execution.json")); e == nil {
-					if e = a.stopMonitor(); e != nil { return e }
+					if e = a.stopMonitor(); e != nil {
+						return e
+					}
 					if e = a.Worker(ctx, "recover", dir, func() {}); e != nil {
 						return e
 					}

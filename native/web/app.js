@@ -496,7 +496,11 @@ function nodeFrameFor(n, b) {
   return nodeFrames.get(n.id) || frameFor(b);
 }
 function nodeMetrics(f, connected) {
-  const metrics = el("div", undefined, "node-metrics" + (connected && freshSample(f) ? "" : " stale")),
+  const metrics = el(
+      "div",
+      undefined,
+      "node-metrics" + (connected && freshSample(f) ? "" : " stale"),
+    ),
     sample = f?.sample || {};
   metrics.append(
     metric("CPU 温度", sample.temp_c, "°C"),
@@ -655,7 +659,10 @@ function nodeCard(n) {
         ? badge("needs_attention")
         : ["wakeable", "awaiting_agent"].includes(kind)
           ? el("span", nodeStateLabels[kind], "badge reachability " + kind)
-          : badge(kind === "idle" ? "completed" : "offline", nodeStateLabels[kind]);
+          : badge(
+              kind === "idle" ? "completed" : "offline",
+              nodeStateLabels[kind],
+            );
   head.append(name, state);
   card.append(head);
   if (b && activeStates.includes(b.state)) {
@@ -709,16 +716,16 @@ function nodeCard(n) {
           ? "采样接收 " + ago(m.sample_received_at)
           : "最近采样 " + ago(m.sample_received_at)
         : b && activeStates.includes(b.state)
-        ? ["finalizing", "delivering"].includes(f?.phase)
-          ? "采集已结束 · 正在交付"
-          : freshSample(f)
-            ? "采样接收 " + ago(f.sample_received_at)
-            : f?.sample
-              ? "采样已过期 · " + ago(f.sample_received_at)
-              : "等待采样"
-        : n.last_seen
-          ? "系统最后联系 " + ago(n.last_seen)
-          : "系统尚未连接";
+          ? ["finalizing", "delivering"].includes(f?.phase)
+            ? "采集已结束 · 正在交付"
+            : freshSample(f)
+              ? "采样接收 " + ago(f.sample_received_at)
+              : f?.sample
+                ? "采样已过期 · " + ago(f.sample_received_at)
+                : "等待采样"
+          : n.last_seen
+            ? "系统最后联系 " + ago(n.last_seen)
+            : "系统尚未连接";
   card.append(el("small", nodePowerText(n), "node-power-note"));
   foot.append(el("span", info));
   if (online(n) || m?.sample || (b && activeStates.includes(b.state)))
@@ -1418,23 +1425,33 @@ function monitorPair(label, value) {
 function renderMonitor() {
   const byNode = !!monitorNode,
     b = byNode ? nodeMonitorData?.batch : detailData;
-  if (byNode ? nodeMonitorData?.node !== monitorNode : !b || b.id !== selected) return;
-  const f = byNode ? nodeMonitorData.frames[0] : detailFrame?.batch === b.id ? detailFrame : frameFor(b),
+  if (byNode ? nodeMonitorData?.node !== monitorNode : !b || b.id !== selected)
+    return;
+  const f = byNode
+      ? nodeMonitorData.frames[0]
+      : detailFrame?.batch === b.id
+        ? detailFrame
+        : frameFor(b),
     sample = f?.sample || {},
     hardware = sample.available ? sample.hardware : null,
     nodeID = byNode ? monitorNode : b.plan.node,
     node = snapshot.nodes.find((n) => n.id === nodeID),
-    running = (byNode && f?.phase === "monitoring") || (b?.state === "running" && f?.phase === "executing"),
+    running =
+      (byNode && f?.phase === "monitoring") ||
+      (b?.state === "running" && f?.phase === "executing"),
     fresh = running && !!node && online(node) && freshSample(f),
     supplementalFresh =
       fresh && Math.abs(now() - Date.parse(sample.extra_observed_at)) < 50000,
     status = !connectionFresh()
       ? "连接中断 · 保留最后读数"
       : node && !online(node)
-        ? nodeKind(node) === "wakeable" ? "已关机 · 最后读数" : "系统未连接 · 最后读数"
-        : !byNode && (!activeStates.includes(b.state) ||
-            ["finalizing", "delivering"].includes(f?.phase)
-          ) ? "采集已结束 · 最后读数"
+        ? nodeKind(node) === "wakeable"
+          ? "已关机 · 最后读数"
+          : "系统未连接 · 最后读数"
+        : !byNode &&
+            (!activeStates.includes(b.state) ||
+              ["finalizing", "delivering"].includes(f?.phase))
+          ? "采集已结束 · 最后读数"
           : !sample.sequence
             ? "等待采样"
             : !sample.available
@@ -1461,16 +1478,29 @@ function renderMonitor() {
     heading,
     el(
       "p",
-      !b ? "日常硬件监控" : b.plan.label +
-        " · " +
-        (f?.step_tool || labels[f?.phase] || labels[b.state]),
+      !b
+        ? "日常硬件监控"
+        : b.plan.label +
+            " · " +
+            (f?.step_tool || labels[f?.phase] || labels[b.state]),
       "monitor-subtitle",
     ),
   );
   const action = el("div", undefined, "monitor-hero-actions");
   action.append(state);
-  if (b) action.append(button("批次进度与报告 ↗", () => openBatch(b.id), "", "monitor-batch"));
-  if (!byNode) action.append(button("节点当前状态 ↗", () => openNodeMonitor(nodeID), "", "monitor-node"));
+  if (b)
+    action.append(
+      button("批次进度与报告 ↗", () => openBatch(b.id), "", "monitor-batch"),
+    );
+  if (!byNode)
+    action.append(
+      button(
+        "节点当前状态 ↗",
+        () => openNodeMonitor(nodeID),
+        "",
+        "monitor-node",
+      ),
+    );
   hero.append(title, action);
   items.push(hero);
   const sections = el("nav", undefined, "monitor-section-nav");
@@ -1873,7 +1903,11 @@ function render() {
   if (page === "detail") renderDetail();
   if (page === "monitor") renderMonitor();
   if (page === "dispatch" || page === "group") renderDispatch();
-  if (restorePosition !== null && (!selected || detailData?.id === selected) && (!monitorNode || nodeMonitorData?.node === monitorNode)) {
+  if (
+    restorePosition !== null &&
+    (!selected || detailData?.id === selected) &&
+    (!monitorNode || nodeMonitorData?.node === monitorNode)
+  ) {
     window.scrollTo({ top: restorePosition, behavior: "instant" });
     restorePosition = null;
   }
@@ -1890,10 +1924,12 @@ function route() {
       : detail[1] === "monitor"
         ? "monitor"
         : "detail"
-    : nodeRoute ? "monitor" : Object.hasOwn(pageInfo, hash) &&
-        !["detail", "monitor", "group"].includes(hash)
-      ? hash
-      : "overview";
+    : nodeRoute
+      ? "monitor"
+      : Object.hasOwn(pageInfo, hash) &&
+          !["detail", "monitor", "group"].includes(hash)
+        ? hash
+        : "overview";
   const nextRouteKey = detail ? detail[0] : nodeRoute ? nodeRoute[0] : page;
   if (routeKey !== nextRouteKey) {
     if (routeKey) routePositions.set(routeKey, window.scrollY);
@@ -1909,7 +1945,9 @@ function route() {
     nodeMonitorData = null;
     coreSocket = "all";
     corePage = 0;
-    $("monitor-body").replaceChildren(empty("正在读取节点实况", "系统在线时持续采集，无需创建压测批次。"));
+    $("monitor-body").replaceChildren(
+      empty("正在读取节点实况", "系统在线时持续采集，无需创建压测批次。"),
+    );
   }
   dispatchRoute(page === "group" ? detail[2] : null);
   if (selected && detailData?.id !== selected) {
@@ -2010,7 +2048,9 @@ async function sync(force = false) {
       }
     }
     if (requestedNode) {
-      const monitored = await api("nodes/" + encodeURIComponent(requestedNode) + "/live");
+      const monitored = await api(
+        "nodes/" + encodeURIComponent(requestedNode) + "/live",
+      );
       if (monitorNode === requestedNode) nodeMonitorData = monitored;
     }
     render();
@@ -2212,7 +2252,9 @@ $("create").onclick = () =>
     ? newGroup().catch((e) => notice(e.message, true))
     : newBatch();
 $("guide-create").onclick = () => newBatch();
-let nodeBMCProfiles = [], nodeBMCProfilesReady = false, nodeBMCProfilesRequest = 0;
+let nodeBMCProfiles = [],
+  nodeBMCProfilesReady = false,
+  nodeBMCProfilesRequest = 0;
 function renderNodeBMCProfile() {
   const selected = $("node-bmc-profile").value,
     p = nodeBMCProfiles.find((p) => p.name === selected && p.enabled),
@@ -2220,9 +2262,15 @@ function renderNodeBMCProfile() {
   $("node-submit").disabled = !nodeBMCProfilesReady || Boolean(selected && !p);
   if (!nodeBMCProfilesReady) return;
   if (!selected) {
-    replace(root, el("p", nodeBMCProfiles.some((p) => p.enabled)
-      ? "按节点名前缀、主板型号和管理网段自动匹配；只有唯一匹配时才会绑定。"
-      : "尚无启用的模板。可以先新建模板，也可以添加节点后再配置。"));
+    replace(
+      root,
+      el(
+        "p",
+        nodeBMCProfiles.some((p) => p.enabled)
+          ? "按节点名前缀、主板型号和管理网段自动匹配；只有唯一匹配时才会绑定。"
+          : "尚无启用的模板。可以先新建模板，也可以添加节点后再配置。",
+      ),
+    );
     return;
   }
   if (!p) {
@@ -2231,15 +2279,31 @@ function renderNodeBMCProfile() {
   }
   const facts = el("dl", undefined, "node-profile-facts");
   for (const [name, value] of [
-    ["IPMI 用户名", p.username], ["加密套件", "LANplus · Cipher " + p.cipher],
+    ["IPMI 用户名", p.username],
+    ["加密套件", "LANplus · Cipher " + p.cipher],
     ["管理网段", p.networks.join("、")],
-    ["适用范围", [p.node_prefix && "节点名以 " + p.node_prefix + " 开头", p.model && "主板 " + p.model].filter(Boolean).join("；") || "所有节点名和主板型号"],
+    [
+      "适用范围",
+      [
+        p.node_prefix && "节点名以 " + p.node_prefix + " 开头",
+        p.model && "主板 " + p.model,
+      ]
+        .filter(Boolean)
+        .join("；") || "所有节点名和主板型号",
+    ],
   ]) {
     const row = el("div");
     row.append(el("dt", name), el("dd", value));
     facts.append(row);
   }
-  replace(root, facts, el("p", "仅使用此模板，仍需符合以上条件。以后修改模板不会覆盖已经完成的 BMC 绑定。"));
+  replace(
+    root,
+    facts,
+    el(
+      "p",
+      "仅使用此模板，仍需符合以上条件。以后修改模板不会覆盖已经完成的 BMC 绑定。",
+    ),
+  );
 }
 async function loadNodeBMCProfiles(selected = $("node-bmc-profile").value) {
   const request = ++nodeBMCProfilesRequest;
@@ -2254,7 +2318,12 @@ async function loadNodeBMCProfiles(selected = $("node-bmc-profile").value) {
     const profiles = await api("dispatch/bmc-profiles");
     if (request !== nodeBMCProfilesRequest) return;
     nodeBMCProfiles = profiles;
-    const options = [new Option("自动匹配模板", ""), ...profiles.filter((p) => p.enabled).map((p) => new Option(p.name, p.name))];
+    const options = [
+      new Option("自动匹配模板", ""),
+      ...profiles
+        .filter((p) => p.enabled)
+        .map((p) => new Option(p.name, p.name)),
+    ];
     if (selected && !profiles.some((p) => p.name === selected && p.enabled)) {
       const missing = new Option(selected + " · 不可用", selected);
       missing.disabled = true;
@@ -2268,7 +2337,8 @@ async function loadNodeBMCProfiles(selected = $("node-bmc-profile").value) {
   } catch (err) {
     if (request !== nodeBMCProfilesRequest) return;
     $("node-profile-summary").textContent = "模板列表尚未加载。";
-    $("node-profile-error").textContent = err.message + "；请刷新模板列表后再创建节点。";
+    $("node-profile-error").textContent =
+      err.message + "；请刷新模板列表后再创建节点。";
   } finally {
     if (request === nodeBMCProfilesRequest) {
       $("node-profile-create").disabled = false;
@@ -2425,7 +2495,11 @@ $("node-form").onsubmit = async (e) => {
       "节点 " +
         cfg.node +
         " 已登记，专属连接文件已下载。" +
-        ($("node-bmc-profile").value ? "已选择 BMC 模板 " + $("node-bmc-profile").value + "，接入后自动核对绑定。" : "") +
+        ($("node-bmc-profile").value
+          ? "已选择 BMC 模板 " +
+            $("node-bmc-profile").value +
+            "，接入后自动核对绑定。"
+          : "") +
         "请安全保存并按下方指引接入。",
     );
     location.hash = "guide";

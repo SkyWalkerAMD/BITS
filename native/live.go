@@ -46,12 +46,14 @@ type LiveFrame struct {
 	History        []LiveSample "json:\"history,omitempty\""
 }
 type LiveCache struct {
-	mu    sync.Mutex
-	nodes map[string]LiveFrame
+	mu       sync.Mutex
+	nodes    map[string]LiveFrame
 	monitors map[string]LiveFrame
 }
 
-func NewLiveCache() *LiveCache { return &LiveCache{nodes: map[string]LiveFrame{}, monitors: map[string]LiveFrame{}} }
+func NewLiveCache() *LiveCache {
+	return &LiveCache{nodes: map[string]LiveFrame{}, monitors: map[string]LiveFrame{}}
+}
 func finite(v float64, low, high float64) bool {
 	return !math.IsNaN(v) && !math.IsInf(v, 0) && v >= low && v <= high
 }

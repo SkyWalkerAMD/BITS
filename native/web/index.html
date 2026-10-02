@@ -335,8 +335,8 @@
               <h3>登记与连接节点</h3>
               <p>
                 安装 <code>bits-node</code> 包和原版
-                sckocp。点击“添加节点”，可选择或新建 BMC 模板；将下载的连接文件安全传到对应节点
-                /root，再由 root 执行：
+                sckocp。点击“添加节点”，可选择或新建 BMC
+                模板；将下载的连接文件安全传到对应节点 /root，再由 root 执行：
               </p>
               <pre id="enroll-example">
 bits-node enroll --file /root/节点名.bits.json
@@ -348,7 +348,10 @@ systemctl enable --now bits-node.service</pre
                 连接文件是节点专属凭据。sckocp 的激活与权限管理仍在 BITS
                 以外完成。
               </p>
-              <p>账号统一或按机型统一时，在“任务分发 → 自动绑定设置”配置 BMC 凭据与管理网段。节点首次开机接入后自动发现管理口，中心核对身份后绑定；多个匹配或检查失败会显示原因，已有手工绑定保留。</p>
+              <p>
+                账号统一或按机型统一时，在“任务分发 → 自动绑定设置”配置 BMC
+                凭据与管理网段。节点首次开机接入后自动发现管理口，中心核对身份后绑定；多个匹配或检查失败会显示原因，已有手工绑定保留。
+              </p>
             </article>
             <article class="panel guide-card">
               <span class="guide-number">03</span>
@@ -361,7 +364,12 @@ systemctl enable --now bits-node.service</pre
                 节点完成当前批次后等待明确开始指令，不自动运行其他草稿。离线节点的开始授权超过
                 5 分钟未接受会取消。
               </p>
-              <p>批量操作进入“任务分发”，选择系统在线或 BMC 可达的节点创建任务组，再明确点击开始。已关机节点会先开机，最多等待 10 分钟连接；需要中心至管理口 UDP 623 可达、节点服务随系统启动、到中心的路由在重启后仍有效。</p>
+              <p>
+                批量操作进入“任务分发”，选择系统在线或 BMC
+                可达的节点创建任务组，再明确点击开始。已关机节点会先开机，最多等待
+                10 分钟连接；需要中心至管理口 UDP 623
+                可达、节点服务随系统启动、到中心的路由在重启后仍有效。
+              </p>
             </article>
             <article class="panel guide-card">
               <span class="guide-number">04</span>
@@ -373,13 +381,17 @@ systemctl enable --now bits-node.service</pre
               <p class="muted">
                 断线时数据标为过期。报告或上传失败由节点重试证据处理，不重跑压测。无法恢复时，确认节点进程已停止，再填写原因“关闭未完成”。
               </p>
-              <p>运行总览、测试节点与任务分发均区分系统连接和 BMC 状态。“已关机 · 可唤醒”表示管理口仍可达；“状态待确认”需检查管理网络或绑定信息，不能仅据此判断机器没有接电。</p>
+              <p>
+                运行总览、测试节点与任务分发均区分系统连接和 BMC 状态。“已关机 ·
+                可唤醒”表示管理口仍可达；“状态待确认”需检查管理网络或绑定信息，不能仅据此判断机器没有接电。
+              </p>
             </article>
             <article class="panel guide-card">
               <span class="guide-number">05</span>
               <h3>查看报告与下载证据</h3>
               <p>
-                压测后结束本批次证据采集，恢复日常监控，并生成 HTML / Excel 报告、上传并下载核对
+                压测后结束本批次证据采集，恢复日常监控，并生成 HTML / Excel
+                报告、上传并下载核对
                 SHA-256。通过“结果与报告”浏览报告，下载完成回执和原始文件。
               </p>
               <p class="muted">
@@ -760,20 +772,39 @@ systemctl enable --now bits-node.service</pre
             required
             maxlength="96"
             pattern="[A-Za-z0-9][A-Za-z0-9_.-]{0,95}"
-            placeholder="ASSET-001" /></label
+            placeholder="ASSET-001"
+        /></label>
+        <section
+          class="node-profile-section"
+          aria-labelledby="node-profile-title"
         >
-        <section class="node-profile-section" aria-labelledby="node-profile-title">
           <div class="node-profile-heading">
             <h3 id="node-profile-title">BMC 凭据模板</h3>
-            <button type="button" id="node-profile-create" class="quiet">＋ 新建模板</button>
+            <button type="button" id="node-profile-create" class="quiet">
+              ＋ 新建模板
+            </button>
           </div>
-          <label>使用模板<select id="node-bmc-profile" aria-describedby="node-profile-summary">
-            <option value="">自动匹配模板</option>
-          </select></label>
-          <div id="node-profile-summary" class="node-profile-summary" role="status"></div>
+          <label
+            >使用模板<select
+              id="node-bmc-profile"
+              aria-describedby="node-profile-summary"
+            >
+              <option value="">自动匹配模板</option>
+            </select></label
+          >
+          <div
+            id="node-profile-summary"
+            class="node-profile-summary"
+            role="status"
+          ></div>
           <p id="node-profile-error" class="error" role="alert"></p>
-          <button type="button" id="node-profile-reload" class="quiet">刷新模板列表</button>
-          <p class="field-help">接入后自动发现管理口并核对身份。凭据保存在中心，连接文件不含 BMC 密码。</p>
+          <button type="button" id="node-profile-reload" class="quiet">
+            刷新模板列表
+          </button>
+          <p class="field-help">
+            接入后自动发现管理口并核对身份。凭据保存在中心，连接文件不含 BMC
+            密码。
+          </p>
         </section>
         <label class="checkbox"
           ><input id="node-keep-on" type="checkbox" />完成后保持开机</label
