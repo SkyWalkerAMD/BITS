@@ -1,10 +1,10 @@
 # 文档导航
 
-先按场景选择手册。BITS 网页版预览为 **0.4.0-alpha.4**，完整系统稳定版为 **0.3.0**，BITS-o 旧系统增强套件为 **0.2.0**。不同版本使用各自手册，安装以对应 Release 的验证记录和校验清单为准。
+先按场景选择手册。BITS 网页版预览为 **0.4.0-alpha.6**，完整系统稳定版为 **0.3.0**，BITS-o 旧系统增强套件为 **0.2.0**。不同版本使用各自手册，安装以对应 Release 的验证记录和校验清单为准。
 
 | 分类 | 阅读入口 |
 | --- | --- |
-| 0.4 网页版预览 | [RPM/DEB 下载](releases/DOWNLOADS.md)、[安装、节点接入与网页操作](https://github.com/SkyWalkerAMD/BITS/blob/v0.4.0-alpha.4/docs/deployment/BITS-INDEPENDENT-PREVIEW.md)、[独立架构](https://github.com/SkyWalkerAMD/BITS/blob/v0.4.0-alpha.4/docs/development/BITS-INDEPENDENT.md) |
+| 0.4 网页版预览 | [RPM/DEB 下载](releases/DOWNLOADS.md)、[安装、节点接入与网页操作](https://github.com/SkyWalkerAMD/BITS/blob/v0.4.0-alpha.6/docs/deployment/BITS-INDEPENDENT-PREVIEW.md)、[独立架构](https://github.com/SkyWalkerAMD/BITS/blob/v0.4.0-alpha.6/docs/development/BITS-INDEPENDENT.md) |
 | 0.3 稳定版部署 | [简明 BITS 部署](deployment/BITS.md)、[RPM/DEB 完整说明](deployment/DISTRIBUTION.md) |
 | 旧系统插件 | [BITS-o 接入原 ws/occt](deployment/BITS.md)、[历史 0.1.1 说明](plugins/OCRUN-PLUGIN.md) |
 | 节点运行 | [任务启停与恢复](node/OPERATIONS.md)、[新中心认证接入](node/AUTH.md) |
