@@ -24,6 +24,8 @@ type BMCBinding struct {
 	Password string `json:"password"`
 	Cipher   int    `json:"cipher"`
 	Revision string `json:"revision,omitempty"`
+	ExpectedGUID string `json:"expected_guid,omitempty"`
+	Profile string `json:"profile,omitempty"`
 }
 type PowerStatus struct {
 	Configured bool   `json:"configured"`
@@ -49,6 +51,7 @@ type PowerAttempt struct {
 }
 
 func validateBinding(b BMCBinding) error {
+	if (b.ExpectedGUID!="" && !validGUID(b.ExpectedGUID)) || (b.Profile!="" && !ValidName(b.Profile)) { return errors.New("BMC 身份或模板标识无效") }
 	ip := net.ParseIP(b.Address)
 	if !ValidName(b.Node) || ip == nil || ip.To4() == nil || !ip.IsPrivate() || ip.IsLoopback() || b.Address != ip.String() {
 		return errors.New("BMC 需要注册节点名和规范的内网 IPv4 地址")
@@ -85,7 +88,7 @@ func (o *limitedOutput) Write(b []byte) (int, error) {
 	return n, nil
 }
 func runIPMI(ctx context.Context, b BMCBinding, action string) (string, error) {
-	if action != "status" && action != "on" {
+	if action != "status" && action != "on" && action != "identity" {
 		return "", errors.New("power operation rejected")
 	}
 	if err := validateBinding(b); err != nil {
@@ -97,7 +100,9 @@ func runIPMI(ctx context.Context, b BMCBinding, action string) (string, error) {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 6*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, program, "-I", "lanplus", "-C", strconv.Itoa(b.Cipher), "-H", b.Address, "-U", b.Username, "-E", "-L", "OPERATOR", "-N", "1", "-R", "1", "chassis", "power", action)
+	args := []string{"-I", "lanplus", "-C", strconv.Itoa(b.Cipher), "-H", b.Address, "-U", b.Username, "-E", "-L", "OPERATOR", "-N", "1", "-R", "1"}
+	if action=="identity" { args=append(args,"mc","guid") } else { args=append(args,"chassis","power",action) }
+	cmd := exec.CommandContext(ctx, program, args...)
 	cmd.Env = []string{"PATH=/usr/bin:/bin", "LC_ALL=C", "HOME=/nonexistent", "IPMI_PASSWORD=" + b.Password}
 	out := &limitedOutput{}
 	cmd.Stdout = out
@@ -108,6 +113,7 @@ func runIPMI(ctx context.Context, b BMCBinding, action string) (string, error) {
 	return strings.TrimSpace(string(out.data)), nil
 }
 func (ipmiDriver) Status(ctx context.Context, b BMCBinding) (string, error) {
+	if b.ExpectedGUID!="" { if err:=checkBMCIdentity(ctx,b); err!=nil { return "unknown",err } }
 	raw, err := runIPMI(ctx, b, "status")
 	if err != nil {
 		return "unknown", err
@@ -121,8 +127,16 @@ func (ipmiDriver) Status(ctx context.Context, b BMCBinding) (string, error) {
 	return "unknown", errors.New("BMC 电源状态无法识别")
 }
 func (ipmiDriver) On(ctx context.Context, b BMCBinding) error {
+	if b.ExpectedGUID!="" { if err:=checkBMCIdentity(ctx,b); err!=nil { return err } }
 	_, err := runIPMI(ctx, b, "on")
 	return err // Exit 0 acknowledges a command, not a booted OS.
+}
+func (ipmiDriver) Identity(ctx context.Context,b BMCBinding)(string,error) {
+	raw,err:=runIPMI(ctx,b,"identity"); if err!=nil { return "",err }
+	g:=parseGUID(raw); if g=="" { return "",errors.New("BMC 未提供可核对的 GUID") }; return g,nil
+}
+func checkBMCIdentity(ctx context.Context,b BMCBinding) error {
+	g,e:=(ipmiDriver{}).Identity(ctx,b); if e!=nil { return e }; if g!=b.ExpectedGUID { return errors.New("BMC 身份已变化，保持原绑定并停止电源操作") }; return nil
 }
 
 type PowerManager struct {
@@ -396,6 +410,9 @@ func (s *Server) bootFailure(id, message string) {
 }
 func (s *Server) RunDispatch(ctx context.Context) {
 	monitorDone := make(chan struct{})
+	autoDone := make(chan struct{})
+	go func(){defer close(autoDone);s.runAutoBMC(ctx)}()
+	defer func(){<-autoDone}()
 	go func() { defer close(monitorDone); s.power.Monitor(ctx) }()
 	defer func() { <-monitorDone }()
 	for {
@@ -415,4 +432,4 @@ func (s *Server) RunDispatch(ctx context.Context) {
 		}
 	}
 }
-func (s *Server) LoadPower() error { return s.power.Load() }
+func (s *Server) LoadPower() error { if e:=s.power.Load(); e!=nil { return e }; return s.autoBMC.load() }

@@ -10,7 +10,7 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.4.0-alpha.5"
+VERSION = "0.4.0-alpha.6"
 PREFIX = "/opt/bits/native/" + VERSION
 BASELINES = {
     "rpm": ("bits-node-0.3.0-1.el8.x86_64.rpm", "28c98ed53b162c9727b54d8d68e77f72b8f89326be2fcf1ee5ba01e16439da36"),
@@ -133,12 +133,12 @@ def package(role, kind, binaries, baseline, output):
         name = "bits-" + role
         if kind == "deb":
             control = stage / "DEBIAN"
-            requirements = "systemd, ca-certificates, coreutils"
+            requirements = "systemd, ca-certificates, coreutils, ipmitool"
             if role == "center":
-                requirements += ", passwd, ipmitool"
+                requirements += ", passwd"
             else:
                 requirements += ", python3 (>= 3.6), libnuma1, libgmp10, libatomic1, libstdc++6, perl"
-            put(control / "control", "Package: " + name + "\nVersion: 0.4.0~alpha.5-1\nArchitecture: amd64\n"
+            put(control / "control", "Package: " + name + "\nVersion: 0.4.0~alpha.6-1\nArchitecture: amd64\n"
                 "Maintainer: BITS project\nSection: admin\nPriority: optional\nDepends: " + requirements +
                 "\nConflicts: ocrun-node, ocrun-center, bits-o-node, bits-o-control, bits-o-workloads, ocrun-workloads\n"
                 "Description: Independent BITS " + role + " architecture preview\n Explicit setup; no task or service starts during installation.\n")
@@ -148,15 +148,15 @@ def package(role, kind, binaries, baseline, output):
             put(control / "md5sums", "".join(hashlib.md5(p.read_bytes()).hexdigest() + "  " + p.relative_to(stage).as_posix() + "\n"
                 for p in sorted(stage.rglob("*")) if p.is_file() and control not in p.parents))
             subprocess.run(["dpkg-deb", "-Zxz", "--uniform-compression", "--root-owner-group", "--build", str(stage),
-                            str(output / (name + "_0.4.0.alpha.5-1_amd64.deb"))], check=True)
+                            str(output / (name + "_0.4.0.alpha.6-1_amd64.deb"))], check=True)
         else:
             spec = work / "package.spec"
-            requirements = "systemd, ca-certificates, coreutils"
+            requirements = "systemd, ca-certificates, coreutils, ipmitool"
             if role == "center":
-                requirements += ", shadow-utils, ipmitool"
+                requirements += ", shadow-utils"
             else:
                 requirements += ", python3 >= 3.6, numactl-libs, gmp, libatomic, libstdc++, perl"
-            spec.write_text("Name: " + name + "\nVersion: 0.4.0\nRelease: 0.alpha.5.el8\n"
+            spec.write_text("Name: " + name + "\nVersion: 0.4.0\nRelease: 0.alpha.6.el8\n"
                 "Summary: Independent BITS " + role + " architecture preview\n"
                 "License: GPLv2+ and GPLv3+ and BSD and GIMPS and LicenseRef-Intel-Limited-Tools\n"
                 "BuildArch: x86_64\nRequires: " + requirements +

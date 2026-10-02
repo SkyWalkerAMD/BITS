@@ -144,6 +144,8 @@ func availability(n Node, active string, power PowerStatus) Availability {
 		a.State = "awaiting_agent"
 		a.CanSelect = true
 		a.Reason = "BMC 确认已开机；开始后等待节点程序连接"
+	case !power.Configured:
+		a.Reason = "系统未连接且 BMC 未绑定；电源状态尚不明确"
 	}
 	return a
 }

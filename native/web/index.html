@@ -195,7 +195,9 @@
               ><button data-filter="running">运行中</button
               ><button data-filter="idle">空闲</button
               ><button data-filter="attention">待处理</button
-              ><button data-filter="offline">未连接</button>
+              ><button data-filter="wakeable">已关机</button
+              ><button data-filter="awaiting_agent">等待系统</button
+              ><button data-filter="offline">状态待确认</button>
             </div>
           </div>
           <p id="node-count" class="list-meta"></p>
@@ -277,7 +279,7 @@
               <h2>一次编排，多台协同</h2>
               <p>选择可达节点，共用任务计划。每台机器独立执行、独立交付。</p>
             </div>
-            <button id="group-create" class="primary">＋ 新建任务组</button>
+            <div class="dispatch-actions"><button id="bmc-profiles-open">自动绑定设置</button><button id="group-create" class="primary">＋ 新建任务组</button></div>
           </div>
           <div class="toolbar">
             <h2>分发记录</h2>
@@ -510,6 +512,24 @@ systemctl enable --now bits-node.service</pre
             保存任务组草稿
           </button>
         </div>
+      </form>
+    </dialog>
+    <dialog id="bmc-profiles-dialog" aria-labelledby="bmc-profiles-title">
+      <form id="bmc-profiles-form">
+        <div class="dialog-heading"><h2 id="bmc-profiles-title">自动绑定 BMC</h2><button type="button" class="icon-button" data-close="bmc-profiles-dialog" aria-label="关闭自动绑定设置">×</button></div>
+        <p class="form-note">配置一次，节点接入后自动发现管理口并核对身份。只使用唯一匹配的模板；已有绑定保持不变，保存模板不会开机。</p>
+        <label>选择模板<select id="bmc-profile-select"><option value="">新增模板</option></select></label>
+        <label>模板标识<input id="bmc-profile-name" required maxlength="96" placeholder="例如 default 或 k6c" autocomplete="off" /></label>
+        <label>允许的 BMC 管理网段<textarea id="bmc-profile-networks" required rows="2" placeholder="例如 192.168.10.0/24；多个网段用换行分隔"></textarea></label>
+        <label>适用节点名前缀（可选）<input id="bmc-profile-prefix" maxlength="96" placeholder="例如 K6C-；留空匹配全部节点名" autocomplete="off" /></label>
+        <label>主板型号（可选，完整匹配）<input id="bmc-profile-model" maxlength="128" placeholder="以节点自动发现显示的主板型号为准" autocomplete="off" /></label>
+        <label>IPMI 用户名<input id="bmc-profile-user" required maxlength="16" autocomplete="off" /></label>
+        <label>IPMI 密码<input id="bmc-profile-password" type="password" maxlength="20" autocomplete="new-password" placeholder="新模板必填；编辑时留空保留原密码" /></label>
+        <label>加密套件<select id="bmc-profile-cipher"><option value="17">LANplus · Cipher 17（优先）</option><option value="3">LANplus · Cipher 3（兼容设备）</option></select></label>
+        <label class="inline-label"><input id="bmc-profile-enabled" type="checkbox" checked />启用此模板自动绑定</label>
+        <p class="form-note">凭据仅保存在中心。节点需先开机接入一次；没有本机 IPMI 接口或身份不明时仍可手工绑定。多个模板或地址同时匹配时停止自动绑定，不轮流尝试密码。停用模板不删除已有绑定。</p>
+        <p id="bmc-profile-error" class="error" role="alert"></p>
+        <button class="primary">保存模板</button>
       </form>
     </dialog>
     <dialog id="bmc-dialog" aria-labelledby="bmc-title">

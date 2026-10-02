@@ -1134,6 +1134,9 @@ main {
   border-radius: 7px;
   padding: 3px;
 }
+#node-filters {
+  flex-wrap: wrap;
+}
 .segmented button {
   border: 0;
   background: transparent;
@@ -2682,3 +2685,6 @@ dialog h2 {
     grid-template-columns: 1fr;
   }
 }
+/* Shared BMC status stays visible on node cards at desktop and phone widths. */
+.node-power-note { display: block; color: var(--muted, #526c78); margin: 0 0 14px; overflow-wrap: anywhere; }
+.dispatch-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

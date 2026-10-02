@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-const WorkerRoot = "/opt/bits/native/0.4.0-alpha.5/worker"
+const WorkerRoot = "/opt/bits/native/0.4.0-alpha.6/worker"
 
 type LocalRun struct {
 	Batch        Batch               "json:\"batch\""
@@ -33,6 +33,10 @@ type Agent struct {
 	idleSince time.Time
 	lastLive  time.Time
 	livePhase string
+	DiscoverBMC func(context.Context) BMCDiscovery
+	bmcDiscovery *BMCDiscovery
+	bmcNextProbe time.Time
+	bmcNextSend time.Time
 	// Production always uses the installed, verified local worker. This seam
 	// permits isolated lifecycle tests without running hardware tools.
 	Worker func(context.Context, string, string, func()) error
@@ -48,6 +52,7 @@ func NewAgent(cfg NodeConfig, data string) (*Agent, error) {
 	}
 	a := &Agent{Config: cfg, Client: client, Data: data}
 	a.Worker = a.runWorker
+	a.DiscoverBMC = discoverBMC
 	return a, nil
 }
 func (a *Agent) lock() (*os.File, error) {
@@ -381,6 +386,8 @@ func (a *Agent) once(ctx context.Context) error {
 		return err
 	}
 	if pending.Batch == nil {
+		// Discover only while idle, never competing with stress telemetry.
+		a.reportBMC(ctx)
 		return nil
 	}
 	if err = ValidatePlan(&pending.Batch.Plan); err != nil {

@@ -36,7 +36,7 @@ class DataOnlyBoundary(unittest.TestCase):
 
 
 worker_spec = importlib.util.spec_from_file_location("bits_native_worker_for_test",
-    "/opt/bits/native/0.4.0-alpha.5/worker/worker.py")
+    "/opt/bits/native/0.4.0-alpha.6/worker/worker.py")
 worker = importlib.util.module_from_spec(worker_spec)
 worker_spec.loader.exec_module(worker)
 

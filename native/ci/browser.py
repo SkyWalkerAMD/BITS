@@ -462,13 +462,84 @@ with sync_playwright() as p:
         page.unroute("**/api/v1/dispatch/nodes", bmc_ui_states)
         page.unroute("**/api/v1/dispatch/bmc", bmc_ui_save)
         checks.append("BMC binding form clears secrets and separates OS connectivity from simulated powered-off BMC reachability")
+        # The same BMC result must appear on overview, node cards and details.
+        # All states below are explicitly browser fixtures, not physical IPMI.
+        power_case = "off"
+        def fleet_power_states(route):
+            response = route.fetch()
+            value = response.json()
+            stamp = datetime.now(timezone.utc)
+            checked = stamp + timedelta(seconds=120) if power_case == "future" else stamp - timedelta(seconds=120) if power_case == "stale" else stamp
+            node = {"id":"LAB-002", "last_seen":(stamp - timedelta(hours=1)).isoformat(),
+                "agent_version":"browser-fixture", "disabled":False,
+                "power":{"configured":True, "address":"192.168.50.21", "state":"off" if power_case in ("stale", "future", "off-newer", "heartbeat-newer") else power_case,
+                    "checked_at":checked.isoformat()}}
+            if power_case == "off-newer":
+                node["last_seen"] = (stamp - timedelta(seconds=2)).isoformat()
+            elif power_case == "heartbeat-newer":
+                node["last_seen"] = stamp.isoformat()
+                node["power"]["checked_at"] = (stamp - timedelta(seconds=2)).isoformat()
+            value.update(nodes=[node], batches=[])
+            route.fulfill(response=response, json=value)
+        page.route("**/api/v1/overview", fleet_power_states)
+        navigate("overview")
+        page.locator("#refresh").click()
+        expect(page.locator("#overview-node-list .badge")).to_have_text("已关机 · 可唤醒", timeout=15000)
+        expect(page.locator("#summary .stat").first).to_contain_text("系统在线 0 台 · 已关机可唤醒 1 台")
+        expect(page.locator("#summary .stat strong").first).to_have_text("1 / 1")
+        page.screenshot(path=str(out / "bmc-overview.png"), full_page=True)
+        navigate("nodes")
+        expect(page.locator("#node-list .badge")).to_have_text("已关机 · 可唤醒")
+        page.locator('#node-filters button[data-filter="wakeable"]').click()
+        expect(page.locator("#node-list .node-card")).to_have_count(1)
+        page.locator("#node-list").get_by_role("button", name="节点详情 ↗").click()
+        expect(page.locator("#node-detail")).to_contain_text("已关机 · 可唤醒")
+        expect(page.locator("#node-detail")).to_contain_text("BMC 192.168.50.21 · 电源关")
+        page.set_viewport_size({"width":390, "height":844})
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+        page.screenshot(path=str(out / "bmc-nodes-mobile.png"), full_page=True)
+        page.locator('#node-filters button[data-filter="all"]').click()
+        for power_case, label in (("on","已开机 · 等待系统"),("unknown","状态待确认"),
+                                  ("stale","状态待确认"),("future","状态待确认"),
+                                  ("off-newer","已关机 · 可唤醒"),("heartbeat-newer","空闲")):
+            page.locator("#refresh").click()
+            expect(page.locator("#node-list .badge")).to_have_text(label, timeout=15000)
+        page.unroute("**/api/v1/overview", fleet_power_states)
+        page.locator("#refresh").click()
+        checks.append("overview, node cards, details and mobile filters share BMC power state; stale/future state rejected and newer heartbeat wins")
+        # Credential template is saved via the real center API, without a
+        # discovery candidate: this cannot send remote IPMI commands.
+        navigate("dispatch")
+        page.locator("#bmc-profiles-open").click()
+        expect(page.locator("#bmc-profiles-dialog")).to_be_visible()
+        page.locator("#bmc-profile-name").fill("browser-fixture")
+        page.locator("#bmc-profile-networks").fill("192.168.50.0/24")
+        page.locator("#bmc-profile-prefix").fill("LAB-")
+        page.locator("#bmc-profile-user").fill("operator")
+        page.locator("#bmc-profile-password").fill("UI-TEMPLATE-SECRET")
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+        page.locator("#bmc-profiles-form button.primary").click()
+        expect(page.locator("#bmc-profiles-dialog")).not_to_be_visible()
+        expect(page.locator("#bmc-profile-password")).to_have_value("")
+        profiles = api("dispatch/bmc-profiles")
+        assert len(profiles) == 1 and "password" not in profiles[0]
+        assert profiles[0]["enabled"] and profiles[0]["node_prefix"] == "LAB-"
+        page.locator("#bmc-profiles-open").click()
+        page.locator("#bmc-profile-select").select_option("browser-fixture")
+        expect(page.locator("#bmc-profile-password")).to_have_value("")
+        page.locator("#bmc-profile-enabled").uncheck()
+        page.locator("#bmc-profiles-form button.primary").click()
+        expect(page.locator("#bmc-profiles-dialog")).not_to_be_visible()
+        assert not api("dispatch/bmc-profiles")[0]["enabled"]
+        checks.append("mobile credential template creation/edit/disable uses real admin API; blank edit retains password and GET never returns it")
+        page.set_viewport_size({"width":1440, "height":1080})
         page.locator("#logout").click()
         expect(page.locator("#login-dialog")).to_be_visible()
         assert not errors, errors
         checks.append("operator logout and no browser script errors")
     except BaseException:
         # Never screenshot an entered credential or connection-file contents.
-        if not page.locator("#login-dialog").is_visible() and not page.locator("#bmc-dialog").is_visible():
+        if not any(page.locator(selector).is_visible() for selector in ("#login-dialog", "#bmc-dialog", "#bmc-profiles-dialog")):
             page.screenshot(path=str(out / "browser-failure.png"), full_page=True)
         raise
     finally:
