@@ -736,7 +736,7 @@ with sync_playwright() as p:
         page.locator("#node-list").get_by_role("button", name="实时监控 ↗").click()
         expect(page.locator("#monitor-title")).to_have_text("LAB-002")
         page.get_by_role("button", name="唤醒机器", exact=True).click()
-        expect(page.locator("#confirm-description")).to_contain_text("不创建或执行压测")
+        expect(page.locator("#confirm-description")).to_contain_text("不执行压测")
         page.locator('#confirm-dialog button[data-close]').last.click()
         assert not wake_posts
         navigate("dispatch")
