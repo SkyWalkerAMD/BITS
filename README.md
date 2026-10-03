@@ -4,7 +4,7 @@
 
 ## 选择安装方式
 
-**BITS 0.4.3 正式版**提供网页批次编排、持续硬件监控、硬件信息查看、BMC 凭据模板、单台 / 批量唤醒，以及报告和已结束批次的单条 / 批量永久删除。RPM / DEB 自动处理安装升级，`uninstall --purge` 可确认后完整卸载本机角色及数据。新部署使用 0.4.3；0.3.0 的旧协议安装和 BITS-o 保留各自手册。
+**BITS 0.4.3 正式版**提供网页批次编排、持续硬件监控、硬件信息与系统 IP、SSH 终端 / SFTP、自定义登录模板、BMC 凭据模板、单台 / 批量唤醒，以及报告和已结束批次的单条 / 批量永久删除。RPM / DEB 自动处理安装升级，`uninstall --purge` 可确认后完整卸载本机角色及数据。新部署使用 0.4.3；0.3.0 的旧协议安装和 BITS-o 保留各自手册。
 
 | 场景 | 发布包 | 操作说明 |
 | --- | --- | --- |
@@ -34,9 +34,11 @@
 
 本版可独立唤醒机器进入日常监控，支持多选和逐台连接进度；手动唤醒后保持开机，下一次明确开始压测后恢复原任务关机策略。报告和已结束批次支持选择、确认后永久删除中心记录及全部证据文件，页面显示清理进度。[0.4.3 更新说明](docs/releases/0.4.3.md)。
 
-0.4 默认仅中心 HTTPS TCP 443 对节点开放，节点无需入站端口；使用本地 SQLite，不依赖 Redis / rsync。首次安装和系统服务操作仍在对应机器完成。从 0.4.0 / 0.4.1 / 0.4.2 升级直接使用 dnf / apt，安装包自动检查任务、停服、备份和恢复服务；首次安装后只需初始化中心或导入节点连接文件。中心将数据库升级至 schema 4，保留现有配置与数据；回退需升级前完整快照。0.3 / OCRUN 使用不同协议，本版不提供它们的原地迁移。BMC 开机需中心访问管理口 UDP 623。
+点击节点的 **系统终端 ↗**，选择系统 IP 和登录模板即可连接；特殊机器可临时输入账号密码。网页支持交互终端、复制粘贴、SFTP 上传下载，首次连接确认 SSH 主机指纹。中心与节点均升级后显示系统 IP；使用终端需节点已有 sshd，且中心能访问所选 SSH 端口。
 
-发布验证覆盖 12 个 Linux 容器环境、桌面 / 手机浏览器流程，以及 Rocky 8 RPM / Ubuntu 22 DEB 的 0.4.0 / 0.4.1 / 0.4.2 实包升级；结果随本版 VERIFICATION.json 提供。监控和 BMC 使用模拟数据 / 驱动，真实开机、硬件、各发行版原生内核、多天运行和 200 台物理节点需另行验收。[独立架构与 sckocp 权限边界](https://github.com/SkyWalkerAMD/BITS/blob/v0.4.3/docs/development/BITS-INDEPENDENT.md)。
+0.4 的监控和压测仅需节点访问中心 HTTPS TCP 443，使用本地 SQLite，不依赖 Redis / rsync。首次安装和系统服务操作仍在对应机器完成。从 0.4.0 / 0.4.1 / 0.4.2 升级直接使用 dnf / apt，安装包自动检查任务、停服、备份和恢复服务；首次安装后只需初始化中心或导入节点连接文件。中心将数据库升级至 schema 5，保留现有配置与数据；回退需升级前完整快照。0.3 / OCRUN 使用不同协议，本版不提供它们的原地迁移。BMC 开机需中心访问管理口 UDP 623。
+
+发布验证覆盖 12 个 Linux 容器环境、桌面 / 手机浏览器流程、真实 OpenSSH 终端和 SFTP，以及 Rocky 8 RPM / Ubuntu 22 DEB 的 0.4.0 / 0.4.1 / 0.4.2 实包升级；结果随本版 VERIFICATION.json 提供。监控和 BMC 使用模拟数据 / 驱动，真实开机、硬件、各发行版原生内核、多天运行和 200 台物理节点需另行验收。[独立架构与 sckocp 权限边界](https://github.com/SkyWalkerAMD/BITS/blob/v0.4.3/docs/development/BITS-INDEPENDENT.md)。
 
 <details>
 <summary>查看 0.4 实时工作台截图（云端模拟读数）</summary>
@@ -54,6 +56,8 @@
 [总览关机可唤醒状态](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.3/bmc-overview.png) · [手机节点状态](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.3/bmc-nodes-mobile.png)（BMC 状态模拟）
 
 [添加节点选择模板](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.3/node-template.png) · [手机添加节点](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.3/node-template-mobile.png)（示例配置）
+
+[网页 SSH / SFTP](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.3/system-terminal.png) · [手机终端](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.3/system-terminal-mobile.png)（真实 OpenSSH 测试账号）
 
 </details>
 

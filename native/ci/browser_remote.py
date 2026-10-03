@@ -53,6 +53,7 @@ def verify_remote(page, context, admin, out, checks):
         assert "REMOTE_SHELL_OK" in copied
         page.evaluate("text => navigator.clipboard.writeText(text)", "printf 'PASTED_VALUE\\n'\n")
         page.get_by_role("button", name="粘贴", exact=True).click()
+        page.wait_for_function("Array.from({length:remoteState.terminal.buffer.active.length},(_,i)=>remoteState.terminal.buffer.active.getLine(i).translateToString()).some(line=>line.includes(\"printf 'PASTED_VALUE\"))")
         page.locator(".xterm-helper-textarea").press("Enter")
         for _ in range(40):
             if page.evaluate("Array.from({length:remoteState.terminal.buffer.active.length},(_,i)=>remoteState.terminal.buffer.active.getLine(i).translateToString().trim()).includes('PASTED_VALUE')"):
