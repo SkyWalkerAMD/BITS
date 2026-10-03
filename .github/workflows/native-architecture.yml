@@ -52,7 +52,7 @@ jobs:
           mkdir -p /tmp/native-bin
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOAMD64=v1 go build -mod=readonly -trimpath -o /tmp/native-bin/bits-center ./cmd/bits-center
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOAMD64=v1 go build -mod=readonly -trimpath -o /tmp/native-bin/bits-node ./cmd/bits-node
-          python3 ci/licenses.py /tmp/native-bin/licenses
+          python3 "$GITHUB_WORKSPACE/native/ci/licenses.py" /tmp/native-bin/licenses
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with: {name: 'independent-binaries-${{ github.run_id }}', path: /tmp/native-bin/, retention-days: 14}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
