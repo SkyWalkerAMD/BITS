@@ -84,6 +84,35 @@ def live_sample(record, extra):
     return value
 
 
+def hardware_info(envelope, details):
+    """Project existing filtered info; never run a second hardware command."""
+    value = {"schema": "bits-hardware-info-v1", "observed_at": common.now(),
+             "status": "unavailable"}
+    part = (details or {}).get("parts", {}).get("info", {})
+    if envelope.get("status") != "ok" or part.get("status") != "ok":
+        return value
+    data = part["data"]
+    allowed = {"Platform", "CPU", "Turbo Ratio Limits", "Thermal", "Power Limits",
+               "Power Supplies", "Memory", "Memory Timings", "Cache", "Per-CCD Temperature", "SVI Rails"}
+    sections = [{"name": s["name"], "lines": list(s["lines"])}
+                for s in data["sections"] if s["name"] in allowed]
+    # The native adapter already drops these before retaining stdout. Retain the
+    # same boundary in this independent display protocol, including its title.
+    for section in sections:
+        if section["name"] == "Memory Timings":
+            from sckocp_api.provider import PRIMARY_LINE
+            section["lines"] = [line for line in section["lines"] if PRIMARY_LINE.fullmatch(line)]
+    cpu_fields = ("id", "model", "cores", "threads", "family", "model_id", "stepping", "microcode")
+    dimm_fields = {"DIMM", "Part Number", "Speed", "JEDEC", "VDDQ", "Size", "Temp"}
+    value.update({"status": "ok", "sections": sections,
+                  "cpus": [{key: c[key] for key in cpu_fields} for c in data.get("cpus", [])],
+                  "dimms": [{"slot": d["slot"], "fields": {k: v for k, v in d["fields"].items() if k in dimm_fields}}
+                            for d in data.get("dimms", [])]})
+    if len(json.dumps(value, ensure_ascii=False).encode("utf-8")) > 512 << 10:
+        raise ValueError("Hardware information exceeds display limit")
+    return value
+
+
 def live_hardware(data, extra):
     """Project the existing licensed sample; never invoke another command.
 
@@ -183,6 +212,7 @@ def preflight(directory, value):
         raise ValueError("Insufficient free space for this batch and report")
     import xlsxwriter
     sample = data_api.sample(include_details=True)
+    common.save(directory / "info.json", hardware_info(sample, sample.get("details")))
     if sample["status"] != "ok":
         raise ValueError("Licensed sckocp preflight is unavailable: " + sample["status"])
     common.save(directory / "preflight.json", {"checked_at": common.now(), "required_free_bytes": required,
@@ -220,6 +250,8 @@ class Sampling:
                 include_details = time.monotonic() >= next_details
                 envelope = data_api.sample(include_details=include_details)
                 supplemental = envelope.pop("details", None)
+                if include_details or envelope["status"] != "ok":
+                    common.save(self.directory.parent / "info.json", hardware_info(envelope, supplemental))
                 if envelope["status"] != "ok":
                     envelope["data"] = None
                     failures += 1
@@ -465,6 +497,8 @@ def monitor(directory):
             include_details = began >= next_details
             envelope = data_api.sample(include_details=include_details)
             details = envelope.pop("details", None)
+            if include_details or envelope["status"] != "ok":
+                common.save(directory / "info.json", hardware_info(envelope, details))
             if envelope["status"] != "ok":
                 extra = None
                 envelope["data"] = None
@@ -479,6 +513,7 @@ def monitor(directory):
             # Missing provider/failed reads do not keep earlier values live.
             extra = None
             sample = {"sequence": sequence, "observed_at": common.now(), "available": False}
+            common.save(directory / "info.json", hardware_info({}, None))
         if STOP:
             return
         common.save(directory / "live.json", sample)

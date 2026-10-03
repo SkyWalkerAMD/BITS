@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/style.css" />
     <script src="/dispatch.js" defer></script>
     <script src="/operations.js" defer></script>
+    <script src="/hardware-info.js" defer></script>
     <script src="/app.js" defer></script>
   </head>
   <body>
@@ -117,7 +118,6 @@
           <div>
             <p class="eyebrow" id="page-kicker">OPERATIONS OVERVIEW</p>
             <h1 id="page-title">运行总览</h1>
-            <p id="page-description">掌握节点实况，跟进每一批测试。</p>
           </div>
           <div class="actions">
             <button id="enroll"><span data-icon="plus"></span>添加节点</button
@@ -155,29 +155,6 @@
                 <a class="text-link" href="#batches">查看全部 ↗</a>
               </div>
               <div id="recent-batches"></div>
-            </section>
-            <section class="panel flow-panel">
-              <p class="eyebrow">FROM PLAN TO EVIDENCE</p>
-              <h2>完整的测试流程</h2>
-              <ol class="flow-list">
-                <li>
-                  <strong>接入节点</strong
-                  ><span>安装节点包，导入专属连接文件</span>
-                </li>
-                <li>
-                  <strong>编排与开始</strong
-                  ><span>确认节点、项目和时长，明确点击开始</span>
-                </li>
-                <li>
-                  <strong>追踪执行</strong
-                  ><span>实时查看步骤、进度和监控读数</span>
-                </li>
-                <li>
-                  <strong>核验与归档</strong
-                  ><span>自动生成报告，传输后核对文件哈希</span>
-                </li>
-              </ol>
-              <a class="text-link" href="#guide">打开部署与操作指引 ↗</a>
             </section>
           </div>
         </section>
@@ -257,6 +234,10 @@
           <button id="close-monitor" class="back-button">← 返回节点列表</button>
           <div id="monitor-body"></div>
         </section>
+        <section id="view-info" hidden>
+          <a class="back-button" href="#nodes">← 返回节点列表</a>
+          <div id="hardware-info-body"></div>
+        </section>
         <section id="view-detail" hidden>
           <button id="close-detail" class="back-button">← 返回批次列表</button>
           <section id="detail"><div id="detail-body"></div></section>
@@ -283,7 +264,6 @@
             <div>
               <p class="eyebrow">PLAN · WAKE · EXECUTE · VERIFY</p>
               <h2>一次编排，多台协同</h2>
-              <p>选择可达节点，共用任务计划。每台机器独立执行、独立交付。</p>
             </div>
             <div class="dispatch-actions">
               <button id="bmc-profiles-open">自动绑定设置</button
@@ -292,13 +272,11 @@
           </div>
           <div class="toolbar">
             <h2>分发记录</h2>
-            <span class="muted">保存草稿后，明确确认开始</span>
           </div>
           <div id="dispatch-list" class="report-grid"></div>
           <div id="dispatch-pagination" class="pagination"></div>
           <div class="section-title">
             <h2>节点可达状态</h2>
-            <span class="muted">系统心跳与 BMC 状态分开判断</span>
           </div>
           <label class="search"
             ><span data-icon="search"></span
@@ -319,10 +297,7 @@
           <div class="guide-intro">
             <span class="guide-symbol" data-icon="guide"></span>
             <div>
-              <h2>从第一台节点，到第一份报告</h2>
-              <p>
-                完成服务器与节点的首次安装后，日常编排、开始、取消、跟进和结果查看都在此工作台进行。
-              </p>
+              <h2>操作指引</h2>
             </div>
           </div>
           <div class="guide-grid">
@@ -330,14 +305,10 @@
               <span class="guide-number">01</span>
               <h3>准备中心</h3>
               <p>
-                新服务器安装 <code>bits-center</code> 的 RPM 或
-                DEB，选择已有内网地址和允许网段，启动中心服务。使用 HTTPS
-                访问本工作台。
+                安装 <code>bits-center</code>，配置地址与允许网段后启动服务。
               </p>
               <p class="muted">
-                只需允许指定网段访问中心 TCP
-                443；节点无需开放入站端口。安装与首次配置仍在服务器 root
-                终端完成。
+                允许节点访问中心 HTTPS 443 端口。
               </p>
             </article>
             <article class="panel guide-card">
@@ -359,54 +330,41 @@ systemctl enable --now bits-node.service</pre
                 以外完成。
               </p>
               <p>
-                账号统一或按机型统一时，在“任务分发 → 自动绑定设置”配置 BMC
-                凭据与管理网段。节点首次开机接入后自动发现管理口，中心核对身份后绑定；多个匹配或检查失败会显示原因，已有手工绑定保留。
+                BMC 模板在“任务分发 → 自动绑定设置”管理，节点接入后自动匹配。
               </p>
             </article>
             <article class="panel guide-card">
               <span class="guide-number">03</span>
-              <h3>安排一次明确的测试</h3>
+              <h3>创建压测</h3>
               <p>
-                选择节点，按顺序添加压测项目和时长。相同工具可重复添加；每一步独立计时。保存后是草稿，核对内容再点击“开始”。
+                选择节点、项目和时长，保存草稿后点击“开始”。
               </p>
               <button id="guide-create">新建批次</button>
               <p class="muted">
-                节点完成当前批次后等待明确开始指令，不自动运行其他草稿。离线节点的开始授权超过
-                5 分钟未接受会取消。
+                批量压测使用“任务分发 → 新建任务组”。
               </p>
               <p>
-                批量操作进入“任务分发”，选择系统在线或 BMC
-                可达的节点创建任务组，再明确点击开始。已关机节点会先开机，最多等待
-                10 分钟连接；需要中心至管理口 UDP 623
-                可达、节点服务随系统启动、到中心的路由在重启后仍有效。
+                唤醒需要 BMC 可达、节点服务自启动；开机后最多等待 10 分钟连接。
               </p>
             </article>
             <article class="panel guide-card">
               <span class="guide-number">04</span>
               <h3>查看实况与处理异常</h3>
               <p>
-                节点卡片展示当前项目、时长进度、CPU
-                温度和功耗。系统在线时即可点击“实时监控”，空闲时也可查看整机、插槽和逐核心读数。打开批次查看步骤与趋势。“取消”会请求节点停止当前批次，并保留已有证据。
+                点击节点的“实时监控”或“硬件信息”查看。单台唤醒在节点卡片操作，批量唤醒在“任务分发”勾选节点。
               </p>
               <p class="muted">
-                断线时数据标为过期。报告或上传失败由节点重试证据处理，不重跑压测。无法恢复时，确认节点进程已停止，再填写原因“关闭未完成”。
-              </p>
-              <p>
-                运行总览、测试节点与任务分发均区分系统连接和 BMC 状态。“已关机 ·
-                可唤醒”表示管理口仍可达；“状态待确认”需检查管理网络或绑定信息，不能仅据此判断机器没有接电。
+                无法恢复的批次，确认节点进程已停止后可“关闭未完成”。
               </p>
             </article>
             <article class="panel guide-card">
               <span class="guide-number">05</span>
               <h3>查看报告与下载证据</h3>
               <p>
-                压测后结束本批次证据采集，恢复日常监控，并生成 HTML / Excel
-                报告、上传并下载核对
-                SHA-256。通过“结果与报告”浏览报告，下载完成回执和原始文件。
+                在“结果与报告”查看 HTML、下载 Excel 或全部文件。可勾选多份报告后永久删除。
               </p>
               <p class="muted">
-                压测执行、数据质量、报告生成、文件交付分别记录。完成交付不代表硬件合格；sckocp
-                未提供的传感器有效性和读数年龄仍为未知。
+                永久删除包含中心的批次记录和全部报告文件，无法恢复。
               </p>
             </article>
             <article class="panel guide-card">
@@ -417,15 +375,13 @@ systemctl enable --now bits-node.service</pre
                 分钟空闲后关机；有登录用户、任务、未处理失败或断网时不自动关机。
               </p>
               <p class="muted">
-                如需全天待机，登记节点时勾选“完成后保持开机”。复制已有批次只创建新草稿。旧系统
-                BITS-o 的控制入口保持独立。
+                全天待机请勾选“完成后保持开机”。手动唤醒后保持开机，下一次压测开始时恢复原策略。
               </p>
             </article>
           </div>
         </section>
         <footer>
-          <span>BITS · 测试、观察、留证</span
-          ><span>读数为程序报告值；传感器有效性与读数年龄未知。</span>
+          <span>BITS</span>
         </footer>
       </main>
     </div>
@@ -529,7 +485,7 @@ systemctl enable --now bits-node.service</pre
         <div data-group-panel="2" hidden>
           <div id="group-review" class="batch-review"></div>
           <p class="form-note">
-            此步仅保存草稿。下一页会再次检查选定节点，并明确确认开机与压测。
+            保存草稿后，在任务组详情确认开始。
           </p>
         </div>
         <p id="group-error" class="error" role="alert"></p>
@@ -556,7 +512,7 @@ systemctl enable --now bits-node.service</pre
           </button>
         </div>
         <p class="form-note">
-          配置一次，节点接入后自动发现管理口并核对身份。只使用唯一匹配的模板；已有绑定保持不变，保存模板不会开机。
+          节点接入后自动匹配。修改模板不覆盖已有绑定。
         </p>
         <label
           >选择模板<select id="bmc-profile-select">
@@ -622,8 +578,7 @@ systemctl enable --now bits-node.service</pre
           />启用此模板自动绑定</label
         >
         <p class="form-note">
-          凭据仅保存在中心。节点需先开机接入一次；没有本机 IPMI
-          接口或身份不明时仍可手工绑定。多个模板或地址同时匹配时停止自动绑定，不轮流尝试密码。停用模板不删除已有绑定。
+          节点需先开机接入一次；匹配失败可手工绑定。
         </p>
         <p id="bmc-profile-error" class="error" role="alert"></p>
         <button class="primary">保存模板</button>
@@ -672,7 +627,7 @@ systemctl enable --now bits-node.service</pre
           </select></label
         >
         <p class="form-note">
-          请先核对节点与管理口的对应关系，使用具备电源控制权限的专用账户。凭据仅保存在中心，保存后只查询状态；确认手动唤醒或开始任务组时才会开机。
+          请核对管理口地址。保存后只检查状态，不会开机。
         </p>
         <p id="bmc-error" class="error" role="alert"></p>
         <button class="primary">保存绑定并检查状态</button>
@@ -736,7 +691,7 @@ systemctl enable --now bits-node.service</pre
         <div data-wizard-panel="2" hidden>
           <div id="batch-review"></div>
           <div class="info-note">
-            本次只保存草稿。确认就绪后，再在批次详情点击“开始压测”。
+            保存草稿后，在批次详情点击“开始压测”。
           </div>
         </div>
         <p id="batch-error" class="error" role="alert"></p>
@@ -812,8 +767,7 @@ systemctl enable --now bits-node.service</pre
             刷新模板列表
           </button>
           <p class="field-help">
-            接入后自动发现管理口并核对身份。凭据保存在中心，连接文件不含 BMC
-            密码。
+            节点接入后自动绑定 BMC。
           </p>
         </section>
         <label class="checkbox"

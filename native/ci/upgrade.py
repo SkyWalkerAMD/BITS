@@ -110,6 +110,8 @@ def main():
         assert previous.execute("SELECT value FROM metadata WHERE key='schema'").fetchone()[0] == "3"
     assert a.api("dispatch/wakes") == []
     a.wait_monitor()
+    info = a.api("nodes/BITS-CLOUD/hardware-info")
+    assert info["status"] == "ok" and info["snapshot"]["sections"]
     assert len(a.api("overview")["batches"]) == 1, "Monitoring must not create a batch"
     second = a.new_batch("UPGRADE-AFTER", [("stress", 4)])
     a.api("batches/" + second["id"] + "/start", {})
@@ -127,7 +129,7 @@ def main():
         "checks": ["active-service upgrade refused", "real package-manager upgrade",
                    "services remain stopped; enablement preserved", "node identity and TLS credentials preserved",
                    "BMC template credentials and enrollment selection preserved", "sealed report and receipt hashes unchanged",
-                   "schema 3 backup and schema 4 operations migration", "idle monitoring after upgrade", "explicit new batch delivered", "monitoring resumes without a new batch", "permanent deletion preserves unselected old evidence"],
+                   "schema 3 backup and schema 4 operations migration", "idle monitoring and hardware info after upgrade", "explicit new batch delivered", "monitoring resumes without a new batch", "permanent deletion preserves unselected old evidence"],
         "hardware_readings": "synthetic; no physical BMC or sensor validation"}
     Path("/results/upgrade.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result))

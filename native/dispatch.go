@@ -421,7 +421,7 @@ func (s *Store) GroupAction(id, kind string, in GroupAction, power map[string]Po
 				b.Power = &PowerAttempt{RequestedAt: UTC(), Deadline: time.Now().UTC().Add(10 * time.Minute).Format(time.RFC3339Nano), Stage: "pending", Binding: a.Power.Binding}
 			}
 		} else {
-			if IsTerminal(b.State) {
+			if IsTerminal(b.State) || b.State=="deleting" {
 				return DispatchOperation{}, fmt.Errorf("%s 已结束；请更新选择", b.Plan.Node)
 			}
 			b.Cancel = true

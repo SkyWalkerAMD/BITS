@@ -530,7 +530,7 @@ function renderGroup() {
     );
   }
   if (!d.operations.length)
-    events.append(el("p", "仅保存草稿，尚未授权开机或压测。", "muted"));
+    events.append(el("p", "尚未开始", "muted"));
   replace(
     $("group-body"),
     head,
@@ -538,11 +538,6 @@ function renderGroup() {
     plan,
     select,
     wrapper,
-    el(
-      "p",
-      "一台节点失败不会停止其他节点。每台执行前仍检查工具、sckocp 采集和报告条件；文件交付与硬件是否合格分别记录。",
-      "form-note",
-    ),
     events,
   );
 }

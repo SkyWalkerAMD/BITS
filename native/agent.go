@@ -32,6 +32,7 @@ type Agent struct {
 	Data           string
 	idleSince      time.Time
 	wakeHold       string
+	infoDigest     string
 	lastLive       time.Time
 	livePhase      string
 	monitorEnabled bool
@@ -126,6 +127,7 @@ func (a *Agent) runWorker(ctx context.Context, action, dir string, tick func()) 
 	for {
 		select {
 		case err := <-done:
+			a.publishHardwareInfo(ctx,dir)
 			return err
 		case <-ticker.C:
 			tick()

@@ -172,7 +172,11 @@ def main():
     assert not api("overview")["batches"]
     assert not list(Path("/var/lib/bits/node/runs").iterdir())
     monitor_dir = Path("/var/lib/bits/node/monitor")
-    assert {p.name for p in monitor_dir.iterdir()} == {"live.json"}
+    assert {p.name for p in monitor_dir.iterdir()} == {"live.json", "info.json"}
+    info = api("nodes/BITS-CLOUD/hardware-info")
+    assert info["status"] == "ok" and info["snapshot"]["cpus"][0]["cores"] == 24, info
+    assert len(info["snapshot"]["dimms"]) == 4
+    assert "tRFC" not in json.dumps(info) and "Secondary" not in json.dumps(info)
     assert all("hardware" not in f.get("sample", {}) for f in api("live")["monitors"])
     first = new_batch("CLOUD-NORMAL", [("stress", 4), ("stress-ng", 4), ("stress", 3)])
     time.sleep(6)

@@ -51,6 +51,7 @@ func migrateNodeOperations(db *sql.DB, path string) error {
 		"CREATE UNIQUE INDEX one_active_wake ON wake_members(node) WHERE state IN ('pending','command_requested','waiting_agent')",
 		"CREATE TABLE wake_holds(node TEXT PRIMARY KEY REFERENCES nodes(id), operation TEXT NOT NULL REFERENCES wake_operations(id))",
 		"CREATE TABLE deletion_operations(id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, body TEXT NOT NULL)",
+		"CREATE TABLE node_hardware_info(node TEXT PRIMARY KEY REFERENCES nodes(id), body TEXT NOT NULL)",
 		"CREATE TABLE deleted_batches(id TEXT PRIMARY KEY, node TEXT NOT NULL REFERENCES nodes(id), operation TEXT NOT NULL REFERENCES deletion_operations(id), state TEXT NOT NULL, deleted_at TEXT NOT NULL)",
 		"UPDATE metadata SET value='4' WHERE key='schema'",
 	} {

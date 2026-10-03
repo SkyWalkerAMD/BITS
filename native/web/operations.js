@@ -64,7 +64,7 @@ function confirmWake(ids) {
   const req = actionRequest("wake", ids);
   confirmAction(
     "确认唤醒",
-    `唤醒 ${ids.length} 台机器：\n${ids.join("、")}\n\n仅开机并等待系统连接，不创建或执行压测。已在线机器自动跳过。新版节点本次保持开机，下一次开始压测后恢复原任务关机策略。`,
+    `唤醒 ${ids.length} 台机器：\n${ids.join("、")}\n\n开机后保持待机，不执行压测。已在线机器跳过。`,
     false,
     async () => {
       const op = await api("dispatch/wakes", "POST", {
@@ -77,7 +77,7 @@ function confirmWake(ids) {
         const n = snapshot.nodes.find((n) => n.id === m.node);
         if (n) n.wake = m;
       }
-      return "唤醒已提交，可在任务分发查看每台机器的连接进度。";
+      return "唤醒已提交";
     },
   );
 }
@@ -240,7 +240,7 @@ function confirmDelete(ids) {
         detailFrame = null;
         location.hash = "reports";
       }
-      return "永久删除已提交，清理进度显示在列表下方。";
+      return "正在永久删除";
     },
     true,
   );

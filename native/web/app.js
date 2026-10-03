@@ -33,39 +33,16 @@ const labels = {
   terminated: "已停止",
 };
 const pageInfo = {
-  dispatch: [
-    "任务分发",
-    "DISPATCH WORKSPACE",
-    "统一编排，按需开机，逐台跟进结果。",
-  ],
-  group: [
-    "任务组详情",
-    "GROUP WORKSPACE",
-    "每台节点独立执行，所有结果集中跟进。",
-  ],
-  overview: [
-    "运行总览",
-    "OPERATIONS OVERVIEW",
-    "掌握节点实况，跟进每一批测试。",
-  ],
-  nodes: ["测试节点", "NODE FLEET", "查看每台节点的连接、负载与当前进度。"],
-  batches: ["压测批次", "TEST BATCHES", "编排有序步骤，明确开始，完整记录。"],
-  reports: [
-    "结果与报告",
-    "RESULTS & EVIDENCE",
-    "从执行过程，到经过核验的结果文件。",
-  ],
-  guide: [
-    "部署与操作",
-    "GETTING STARTED",
-    "把接入、测试与交付，整理成清晰的流程。",
-  ],
-  detail: ["批次详情", "BATCH WORKSPACE", "追踪运行实况、处理过程与结果交付。"],
-  monitor: [
-    "硬件实时监控",
-    "LIVE HARDWARE MONITOR",
-    "节点系统在线即可查看整机、插槽与逐核心读数。",
-  ],
+  info: ["硬件信息", "HARDWARE PROFILE"],
+  dispatch: ["任务分发", "DISPATCH WORKSPACE"],
+  group: ["任务组详情", "GROUP WORKSPACE"],
+  overview: ["运行总览", "OPERATIONS OVERVIEW"],
+  nodes: ["测试节点", "NODE FLEET"],
+  batches: ["压测批次", "TEST BATCHES"],
+  reports: ["结果与报告", "RESULTS & EVIDENCE"],
+  guide: ["部署与操作", "GETTING STARTED"],
+  detail: ["批次详情", "BATCH WORKSPACE"],
+  monitor: ["硬件实时监控", "LIVE HARDWARE MONITOR"],
 };
 const iconPaths = {
   overview: ["M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"],
@@ -744,6 +721,7 @@ function nodeCard(n) {
       ),
     );
   foot.append(
+    button("硬件信息 ↗",()=>openHardwareInfo(n.id),"quiet","info-"+n.id),
     button(
       b ? "查看批次 ↗" : "节点详情 ↗",
       () => (b ? openBatch(b.id) : inspectNode(n.id)),
@@ -782,7 +760,7 @@ function renderOverview() {
         "进行中批次",
         running,
         null,
-        "仅执行已明确开始的批次",
+        "正在执行",
         "activity",
         "accent",
       ],
@@ -935,6 +913,7 @@ function renderNodeDetail() {
     items.push(el("p", "接入时选择的 BMC 模板：" + n.bmc_profile, "muted"));
   const wake = wakeButton(n);
   if (wake) items.push(wake);
+  items.push(button("硬件信息 ↗",()=>openHardwareInfo(n.id),"","node-info"));
   if (wakeNote(n)) items.push(el("p", wakeNote(n), "muted"));
   for (const b of list.slice(0, 8)) {
     const row = el("div", undefined, "file-row");
@@ -1160,7 +1139,7 @@ function renderReports() {
         el("h3", b.plan.label),
         el("p", b.plan.node + " · " + dateText(b.created_at)),
         badge(b.result.execution),
-        el("p", "传感器有效性未知 · 硬件合格性未判定"),
+        el("p", "硬件合格性未判定"),
         ops,
       );
       return d;
@@ -1369,13 +1348,13 @@ function renderDetail() {
       "p",
       !frame?.sample
         ? ended
-          ? "实时缓存已释放或本批次未采集。完整数据与统计请查看报告。"
-          : "等待采集。趋势只保留最近 180 个样本，完整数据见报告。"
+          ? "暂无缓存，完整数据见报告。"
+          : "等待采集"
         : running
           ? freshSample(frame)
             ? "采样接收 " + ago(frame.sample_received_at)
             : "数据已过期 / 不可用 · 最后接收 " + ago(frame.sample_received_at)
-          : "采集已结束或已停止。此处是最后收到的读数，完整统计见报告。",
+          : "采集已结束 · 最后读数",
       "freshness" + (running && !freshSample(frame) ? " stale" : ""),
     ),
   );
@@ -1386,17 +1365,12 @@ function renderDetail() {
         ? "补充读数已过期 / 尚未提供："
         : "补充读数采集：") +
         dateText(data.extra_observed_at) +
-        "（约 30 秒更新；非实时 2 秒读数）",
+        " · 约 30 秒更新",
       "field-help",
     ),
     el(
       "p",
-      "所有值均为 sckocp 报告值；有效性与传感器读数年龄未知。缺失项显示 —。",
-      "field-help",
-    ),
-    el(
-      "p",
-      "多插槽汇总：温度、VCCIN、VID 取最高，TjMax 取最低；Pkg / DRAM 功耗求和，PSU 采用程序报告的整机输入。",
+      "— 未提供 · 读数有效性未验证",
       "field-help",
     ),
   );
@@ -1529,6 +1503,7 @@ function renderMonitor() {
   );
   const action = el("div", undefined, "monitor-hero-actions");
   action.append(state);
+  action.append(button("硬件信息 ↗",()=>openHardwareInfo(nodeID),"","monitor-info"));
   const wake = wakeButton(node);
   if (wake) action.append(wake);
   if (wakeNote(node)) title.append(el("p", wakeNote(node), "monitor-subtitle"));
@@ -1926,7 +1901,7 @@ function renderMonitor() {
     trends,
     el(
       "p",
-      "所有数值均为 sckocp 报告值，有效性与传感器内部读数年龄未知；— 表示未提供。主采样约 2 秒，补充读数约 30 秒，网页只显示已有采样。实时缓存不替代最终报告。",
+      "— 未提供 · 读数有效性未验证",
       "monitor-quality",
     ),
   );
@@ -1946,6 +1921,7 @@ function render() {
   if (page === "reports") renderReports();
   if (page === "detail") renderDetail();
   if (page === "monitor") renderMonitor();
+  if (page === "info") renderHardwareInfo();
   if (page === "dispatch" || page === "group") renderDispatch();
   if (
     restorePosition !== null &&
@@ -1961,8 +1937,10 @@ function route() {
   notice("");
   const hash = location.hash.slice(1),
     detail = hash.match(/^(batch|monitor|group)\/([a-f0-9]{32})$/),
-    nodeRoute = hash.match(/^monitor-node\/([A-Za-z0-9][A-Za-z0-9_.-]{0,95})$/);
-  page = detail
+    nodeRoute = hash.match(/^monitor-node\/([A-Za-z0-9][A-Za-z0-9_.-]{0,95})$/),
+    infoRoute = hash.match(/^hardware-info\/([A-Za-z0-9][A-Za-z0-9_.-]{0,95})$/);
+  hardwareInfoRoute(infoRoute?infoRoute[1]:null);
+  page = infoRoute ? "info" : detail
     ? detail[1] === "group"
       ? "group"
       : detail[1] === "monitor"
@@ -1971,10 +1949,10 @@ function route() {
     : nodeRoute
       ? "monitor"
       : Object.hasOwn(pageInfo, hash) &&
-          !["detail", "monitor", "group"].includes(hash)
+          !["detail", "monitor", "group", "info"].includes(hash)
         ? hash
         : "overview";
-  const nextRouteKey = detail ? detail[0] : nodeRoute ? nodeRoute[0] : page;
+  const nextRouteKey = infoRoute ? infoRoute[0] : detail ? detail[0] : nodeRoute ? nodeRoute[0] : page;
   if (routeKey !== nextRouteKey) {
     if (routeKey) routePositions.set(routeKey, window.scrollY);
     // Retain useful back-navigation positions without an unbounded session cache.
@@ -2014,7 +1992,6 @@ function route() {
   $("page-title").textContent = info[0];
   $("crumb").textContent = info[0];
   $("page-kicker").textContent = info[1];
-  $("page-description").textContent = info[2];
   document.title = "BITS · " + info[0];
   document.querySelectorAll("[data-nav]").forEach((a) => {
     const match =
@@ -2023,7 +2000,7 @@ function route() {
         ? "dispatch"
         : page === "detail"
           ? "batches"
-          : page === "monitor"
+          : ["monitor","info"].includes(page)
             ? "nodes"
             : page);
     a.classList.toggle("selected", match);
@@ -2097,6 +2074,7 @@ async function sync(force = false) {
       );
       if (monitorNode === requestedNode) nodeMonitorData = monitored;
     }
+    await syncHardwareInfo(force);
     render();
   } catch (e) {
     connected = false;
@@ -2345,7 +2323,7 @@ function renderNodeBMCProfile() {
     facts,
     el(
       "p",
-      "仅使用此模板，仍需符合以上条件。以后修改模板不会覆盖已经完成的 BMC 绑定。",
+      "修改模板不覆盖已有绑定。",
     ),
   );
 }

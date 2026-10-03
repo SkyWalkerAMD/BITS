@@ -58,6 +58,8 @@ class LiveProjection(unittest.TestCase):
 
         def save(path, value):
             original_save(path, value)
+            if path.name != "live.json":
+                return
             snapshots.append(value)
             clock[0] += 31  # Advance past the supplemental interval without sleeping.
             if len(snapshots) == 4:
@@ -71,7 +73,7 @@ class LiveProjection(unittest.TestCase):
                  patch.object(worker.collector, "os_context", return_value={"load1": 0}), \
                  patch.object(worker.common, "save", side_effect=save):
                 worker.monitor(directory)
-            self.assertEqual(["live.json"], [p.name for p in directory.iterdir()])
+            self.assertEqual({"live.json", "info.json"}, {p.name for p in directory.iterdir()})
             self.assertEqual(snapshots[-1], json.loads((directory / "live.json").read_text()))
         self.assertEqual([1, 2, 3, 4], [v["sequence"] for v in snapshots])
         self.assertEqual([True, False, False, True], [v["available"] for v in snapshots])
@@ -79,6 +81,27 @@ class LiveProjection(unittest.TestCase):
         for denied in snapshots[1:3]:
             self.assertEqual({"sequence", "observed_at", "available"}, set(denied))
         self.assertEqual(108, snapshots[-1]["package_w"])
+
+    def test_info_projection_uses_filtered_sections_and_invalidates_gate_failure(self):
+        from sckocp_detail_fixture import INFO
+        from sckocp_api.provider import parse_console
+        data = parse_console(INFO.encode(), "info")
+        data["cpus"][0]["license"] = "FORBIDDEN"
+        data["dimms"][0]["fields"]["password"] = "FORBIDDEN"
+        details = {"parts": {"info": {"status": "ok", "data": data}}}
+        value = worker.hardware_info({"status": "ok"}, details)
+        self.assertEqual("ok", value["status"])
+        self.assertEqual(24, value["cpus"][0]["cores"])
+        self.assertIn("Part Number", value["dimms"][0]["fields"])
+        self.assertEqual(len(data["sections"]), len(value["sections"]))
+        encoded = json.dumps(value)
+        for prohibited in ("FORBIDDEN", "Refresh", "Secondary", "tRFC", "raw_info"):
+            self.assertNotIn(prohibited, encoded)
+        self.assertNotIn("title", value["sections"][0])
+        denied = worker.hardware_info({"status": "license_required"}, details)
+        self.assertEqual({"schema", "observed_at", "status"}, set(denied))
+        self.assertEqual("unavailable", denied["status"])
+        self.assertEqual("unavailable", worker.hardware_info({"status": "ok"}, None)["status"])
 
     def test_hardware_whitelist_and_numeric_core_order(self):
         from sckocp_detail_fixture import OVERVIEW
