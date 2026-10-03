@@ -112,6 +112,7 @@ jobs:
           python3 native/ci/browser.py
       - name: Confirmed purge, failure recovery and role isolation
         run: |
+          set -o pipefail
           docker exec -e GITHUB_ACTIONS=true bits-independent-test python3 -I -B /src/native/ci/uninstall.py 2>&1 | tee .independent-results/uninstall-test.txt
       - name: Capture diagnostics
         if: always()

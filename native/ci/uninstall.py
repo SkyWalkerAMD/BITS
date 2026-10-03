@@ -221,7 +221,7 @@ def main():
     checks.append("last-role purge removes payload, data, backups, service links, standard account and recovery state; independent files retained")
     # A package installed for an image but never initialized is also removable.
     for role in ("center", "node"):
-        package = next(p for p in Path("/packages").glob("bits-" + role + "*." + kind))
+        package = next(p for p in Path("/src/native-dist").glob("bits-" + role + "*." + kind))
         install = ["dnf", "install", "-y"] if kind == "rpm" else ["apt-get", "install", "-y"]
         a.run(*(install + [str(package)]))
         assert not active(role)
