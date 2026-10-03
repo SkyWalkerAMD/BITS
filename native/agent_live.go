@@ -53,10 +53,16 @@ func (a *Agent) publishLive(ctx context.Context, dir string, run *LocalRun) {
 func (a *Agent) heartbeat(ctx context.Context) {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
+	var lastNetwork time.Time
 	for {
 		callCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		a.Client.JSON(callCtx, "GET", "/node/v1/heartbeat", "", nil, nil)
 		cancel()
+		if time.Since(lastNetwork) >= 30*time.Second {
+			callCtx, cancel = context.WithTimeout(ctx, 3*time.Second)
+			if a.Client.JSON(callCtx, "POST", "/node/v1/network", "", collectSystemNetwork(a.Config.URL), nil) == nil { lastNetwork = time.Now() }
+			cancel()
+		}
 		select {
 		case <-ctx.Done():
 			return

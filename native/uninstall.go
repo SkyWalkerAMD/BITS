@@ -10,6 +10,7 @@ import (
 
 // The interpreter keeps the remover in memory after the package deletes its
 // own binary. A private resume copy is retained only after an interrupted purge.
+//
 //go:embed package_lifecycle.py
 var packageLifecycle string
 

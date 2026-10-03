@@ -37,11 +37,14 @@ def installed(role, kind=None):
     name = "bits-" + role
     found = []
     if kind in (None, "rpm") and shutil.which("rpm"):
-        result = subprocess.run(["rpm", "-q", "--qf", "%{VERSION}-%{RELEASE}", name],
+        result = subprocess.run(["rpm", "-qa", "--qf", "%{NAME}\t%{VERSION}-%{RELEASE}\n"],
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
         if result.returncode == 0:
-            found.append(("rpm", result.stdout.decode().strip()))
-        elif result.returncode != 1:
+            for line in result.stdout.decode().splitlines():
+                package_name, package_version = line.split("\t", 1)
+                if package_name == name:
+                    found.append(("rpm", package_version))
+        else:
             raise RuntimeError("cannot read RPM package database")
     if kind in (None, "deb") and shutil.which("dpkg-query"):
         result = subprocess.run(["dpkg-query", "-W", "-f=${db:Status-Status}\t${Version}", name],
@@ -53,7 +56,7 @@ def installed(role, kind=None):
         elif result.returncode != 1:
             raise RuntimeError("cannot read DEB package database")
     if len(found) > 1:
-        raise RuntimeError("BITS role is registered in both package databases")
+        raise RuntimeError("ambiguous BITS package registration")
     return found[0] if found else None
 
 
@@ -200,7 +203,8 @@ def plan(life, includes):
         if str(data) != "/var/lib/bits/center" and data.exists():
             known = {"center.sqlite", "center.sqlite-wal", "center.sqlite-shm", "artifacts",
                      "bmc.json", "bmc-auto.json", "center.sqlite.before-dispatch-v1",
-                     "center.sqlite.before-bmc-enrollment-v2", "center.sqlite.before-node-operations-v3"}
+                     "center.sqlite.before-bmc-enrollment-v2", "center.sqlite.before-node-operations-v3",
+                     "center.sqlite.before-system-access-v4", "ssh.json", "ssh-key.json"}
             if not (data / "center.sqlite").is_file() or any(p.name not in known for p in data.iterdir()):
                 raise RuntimeError("custom data directory is not exclusively a BITS store; retained: " + str(data))
     for extra in includes:
@@ -278,6 +282,12 @@ def save_helper(directory, role, version):
             output.write(source)
             output.flush()
             os.fsync(output.fileno())
+    for parent in (directory, ROOT, ROOT.parent):
+        fd = os.open(str(parent), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
 
 
 def restore_service(life, value):
@@ -342,6 +352,9 @@ def execute(life, value, directory):
             raise
     if installed(life.role, value["package"][0]):
         raise RuntimeError("package removal is incomplete; data retained")
+    if Path(life.binary).exists():
+        raise RuntimeError("BITS binary still exists after package removal; data retained")
+    no_manual_process(life)
     value["phase"] = "purging-data"
     write_json(state_path, value)
     for item in value["paths"]:

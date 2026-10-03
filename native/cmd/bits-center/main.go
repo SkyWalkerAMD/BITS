@@ -94,6 +94,7 @@ func run() error {
 		}
 		defer store.Close()
 		handler := bits.NewServer(store, cfg)
+		defer handler.CloseRemote()
 		if e = handler.LoadPower(); e != nil {
 			return e
 		}

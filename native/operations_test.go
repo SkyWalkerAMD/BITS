@@ -467,7 +467,7 @@ func TestDeletionRemovesEmptyGroupAndUnblocksLateAgent(t *testing.T) {
 
 func dropNodeOperations(t *testing.T, s *Store) {
 	t.Helper()
-	for _, table := range []string{"wake_holds", "wake_members", "wake_operations", "deleted_batches", "deletion_operations", "node_hardware_info"} {
+	for _, table := range []string{"node_network", "wake_holds", "wake_members", "wake_operations", "deleted_batches", "deletion_operations", "node_hardware_info"} {
 		if _, err := s.db.Exec("DROP TABLE " + table); err != nil {
 			t.Fatal(err)
 		}

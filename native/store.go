@@ -41,7 +41,7 @@ func OpenStore(dir string) (*Store, error) {
 	}
 	if tables > 0 {
 		var version string
-		if err = db.QueryRow("SELECT value FROM metadata WHERE key='schema'").Scan(&version); err != nil || (version != "1" && version != "2" && version != "3" && version != "4") {
+		if err = db.QueryRow("SELECT value FROM metadata WHERE key='schema'").Scan(&version); err != nil || (version != "1" && version != "2" && version != "3" && version != "4" && version != "5") {
 			db.Close()
 			return nil, errors.New("unsupported existing database; no schema changes were made")
 		}
@@ -62,7 +62,7 @@ func OpenStore(dir string) (*Store, error) {
 	}
 	var schema string
 	err = db.QueryRow("SELECT value FROM metadata WHERE key='schema'").Scan(&schema)
-	if err != nil || (schema != "1" && schema != "2" && schema != "3" && schema != "4") {
+	if err != nil || (schema != "1" && schema != "2" && schema != "3" && schema != "4" && schema != "5") {
 		db.Close()
 		return nil, errors.New("unsupported database schema; retain database and use its matching binary")
 	}
@@ -82,7 +82,11 @@ func OpenStore(dir string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
-	return &Store{db: db}, nil
+	if err = migrateSystemAccess(db, dbpath); err != nil {
+        db.Close()
+        return nil, err
+    }
+    return &Store{db: db}, nil
 }
 func (s *Store) Close() error { return s.db.Close() }
 func (s *Store) AddNode(id, token string) error {

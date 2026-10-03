@@ -93,7 +93,7 @@ function filteredDispatchNodes(query) {
   return [...dispatchState.nodes]
     .sort((a, b) => collator.compare(a.node, b.node))
     .filter((n) =>
-      (n.node + " " + (n.power?.address || "")).toLowerCase().includes(query),
+      (n.node + " " + (n.power?.address || "") + " " + (snapshot.nodes.find(v => v.id === n.node)?.network?.addresses || []).map(a => a.address).join(" ")).toLowerCase().includes(query),
     );
 }
 function renderDispatch() {
@@ -154,6 +154,7 @@ function renderDispatch() {
         identity = el("div"),
         status = el("div");
       identity.append(wakeCheckbox(n), el("small", powerText(n.power)));
+      identity.append(el("small",systemIPText(snapshot.nodes.find(v => v.id === n.node))));
       const found = dispatchState.discoveries[n.node];
       if (found?.profile)
         identity.append(el("small", "接入模板：" + found.profile));
@@ -183,6 +184,7 @@ function renderDispatch() {
       const wake = wakeButton(snapshot.nodes.find((v) => v.id === n.node));
       if (wake) actions.append(wake);
       actions.append(configure);
+      actions.append(button("系统终端", () => openSystem(n.node)));
       if (
         !n.active_batch &&
         !n.power?.configured &&

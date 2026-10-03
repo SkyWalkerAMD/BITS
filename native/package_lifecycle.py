@@ -163,11 +163,11 @@ class Lifecycle:
             # Reserve writes before checking. New dispatch/claims cannot race the stop.
             db.execute("BEGIN IMMEDIATE")
             schema = db.execute("SELECT value FROM metadata WHERE key='schema'").fetchone()[0]
-            if schema not in ("1", "2", "3", "4"):
+            if schema not in ("1", "2", "3", "4", "5"):
                 raise RuntimeError("unsupported center schema; keep the installed package")
             busy = db.execute("SELECT count(*) FROM batches WHERE state NOT IN "
                               "('draft','delivered','cancelled','closed_incomplete','deleting')").fetchone()[0]
-            if schema == "4":
+            if schema in ("4", "5"):
                 busy += db.execute("SELECT count(*) FROM wake_members WHERE state IN "
                                    "('pending','command_requested','waiting_agent')").fetchone()[0]
                 busy += db.execute("SELECT count(*) FROM deleted_batches WHERE state != 'done'").fetchone()[0]

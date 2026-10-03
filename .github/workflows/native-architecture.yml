@@ -25,13 +25,14 @@ jobs:
       - name: Verify locked dependencies and format review copy
         working-directory: native
         run: |
+          go mod tidy
           go mod download
           go mod verify
           gofmt -w .
           git diff -- . > /tmp/native-format.patch
       - name: Format browser sources for review
         run: |
-          npm exec --yes --package=prettier@3.6.2 -- prettier --write native/web/app.js native/web/dispatch.js native/web/operations.js native/web/hardware-info.js native/web/style.css native/web/index.html
+          npm exec --yes --package=prettier@3.6.2 -- prettier --write native/web/app.js native/web/dispatch.js native/web/operations.js native/web/hardware-info.js native/web/remote.js native/web/style.css native/web/index.html
           git diff -- native/ > /tmp/native-format.patch
       - name: Check the explicit public source export
         run: |

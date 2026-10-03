@@ -30,3 +30,5 @@ while raw.strip():
 (destination / "DEPENDENCIES.json").write_text(json.dumps(modules, indent=2))
 goroot = Path(subprocess.check_output(["go", "env", "GOROOT"]).decode().strip())
 (destination / "GO-LICENSE").write_bytes((goroot / "LICENSE").read_bytes())
+for source in (Path(__file__).resolve().parents[1] / "licenses").iterdir():
+    (destination / source.name).write_bytes(source.read_bytes())

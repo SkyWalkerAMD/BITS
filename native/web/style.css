@@ -2950,3 +2950,34 @@ dialog h2 {
     gap: 20px;
   }
 }
+/* System terminal and file browser */
+.remote-heading { margin: 20px 0; }
+.remote-login { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 20px; padding: 26px; background: white; border: 1px solid var(--line,#dce6e9); border-radius: 14px; }
+.remote-login label,.remote-profile-dialog label { display: flex; flex-direction: column; gap: 8px; font-weight: 600; }
+.remote-login input,.remote-login select,.remote-profile-dialog input,.remote-path-form input { padding: 12px; border: 1px solid #ccdde3; border-radius: 8px; min-width: 0; width: 100%; background: white; color: #183944; }
+.remote-login label:has(input[type="checkbox"]) { flex-direction: row; align-items: center; }
+.remote-login input[type="checkbox"] { width: auto; }
+.remote-login-actions { grid-column: 1 / -1; display:flex; gap:12px; flex-wrap:wrap; justify-content:flex-end; }
+.remote-message { min-height: 24px; margin: 14px 0; overflow-wrap: anywhere; }
+.remote-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap:12px; margin-bottom: 14px; }
+.remote-toolbar strong { margin-right:auto; overflow-wrap:anywhere; }
+.remote-terminal { height: 520px; padding: 16px; background: #112b36; border-radius: 12px; overflow:hidden; }
+.remote-terminal .xterm { height:100%; }
+.remote-files { margin-top:24px; padding:24px; background:white; border:1px solid #dce6e9; border-radius:12px; }
+.remote-path-form { display:flex; gap:10px; margin:14px 0; }
+.remote-path-form input { flex:1; }
+.remote-files > small { display:block; margin:8px 0; }
+.remote-files progress { width:100%; }
+.remote-file-list { max-height:480px; overflow:auto; }
+.remote-file-row { display:grid; grid-template-columns:50px minmax(0,1fr) 90px 110px; align-items:center; gap:12px; border-top:1px solid #edf2f4; padding:10px 0; }
+.remote-file-row button { text-align:left; overflow-wrap:anywhere; white-space:normal; justify-self:start; }
+.remote-profile-dialog { width:min(500px,94vw); }
+.remote-profile-dialog form { display:grid; gap:18px; }
+.node-power-note { overflow-wrap:anywhere; }
+@media(max-width:830px) {
+ .remote-login { grid-template-columns:minmax(0,1fr);padding:18px; }
+ .remote-terminal { height:420px;padding:8px; }
+ .remote-files { padding:16px; }
+ .remote-file-row { grid-template-columns:40px minmax(0,1fr) 70px; gap:8px; }
+ .remote-file-row small { display:none; }
+}

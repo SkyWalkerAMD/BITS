@@ -73,7 +73,7 @@ func migrateBMCEnrollment(db *sql.DB, path string) error {
 	if err := db.QueryRow("SELECT value FROM metadata WHERE key='schema'").Scan(&schema); err != nil {
 		return err
 	}
-	if schema == "3" || schema == "4" {
+	if schema == "3" || schema == "4" || schema == "5" {
 		return nil
 	}
 	if schema != "2" {

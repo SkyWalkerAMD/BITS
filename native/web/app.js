@@ -33,6 +33,7 @@ const labels = {
   terminated: "已停止",
 };
 const pageInfo = {
+  remote: ["系统终端", "SYSTEM ACCESS"],
   info: ["硬件信息", "HARDWARE PROFILE"],
   dispatch: ["任务分发", "DISPATCH WORKSPACE"],
   group: ["任务组详情", "GROUP WORKSPACE"],
@@ -350,7 +351,7 @@ async function api(path, method = "GET", data) {
     throw new Error("此操作正在提交，请等待结果。");
   if (method !== "GET") inFlightActions.add(actionKey);
   const controller = new AbortController(),
-    timer = setTimeout(() => controller.abort(), 10000);
+    timer = setTimeout(() => controller.abort(), path === "remote/connect" ? 30000 : 10000);
   try {
     const r = await fetch("/api/v1/" + path, {
       method,
@@ -709,6 +710,7 @@ function nodeCard(n) {
             ? "系统最后联系 " + ago(n.last_seen)
             : "系统尚未连接";
   card.append(el("small", nodePowerText(n), "node-power-note"));
+  card.append(el("small", systemIPText(n), "node-power-note"));
   if (wakeNote(n)) card.append(el("small", wakeNote(n), "node-power-note"));
   foot.append(el("span", info));
   if (!n.disabled)
@@ -721,6 +723,7 @@ function nodeCard(n) {
       ),
     );
   foot.append(
+    button("系统终端 ↗", () => openSystem(n.id), "quiet", "system-" + n.id),
     button(
       "硬件信息 ↗",
       () => openHardwareInfo(n.id),
@@ -838,7 +841,7 @@ function renderNodes() {
       .filter(
         (n) =>
           (nodeFilter === "all" || nodeKind(n) === nodeFilter) &&
-          n.id.toLowerCase().includes(query),
+          (n.id + " " + (n.network?.addresses || []).map(a => a.address).join(" ")).toLowerCase().includes(query),
       )
       .sort((a, b) => collator.compare(a.id, b.id)),
     count = 24;
@@ -912,6 +915,8 @@ function renderNodeDetail() {
   const wake = wakeButton(n);
   if (wake) items.push(wake);
   items.push(
+    el("p", systemIPText(n), "node-power-note"),
+    button("系统终端 ↗", () => openSystem(n.id), "", "node-system"),
     button("硬件信息 ↗", () => openHardwareInfo(n.id), "", "node-info"),
   );
   if (wakeNote(n)) items.push(el("p", wakeNote(n), "muted"));
@@ -1909,6 +1914,7 @@ function render() {
   if (page === "detail") renderDetail();
   if (page === "monitor") renderMonitor();
   if (page === "info") renderHardwareInfo();
+  if (page === "remote") renderRemote();
   if (page === "dispatch" || page === "group") renderDispatch();
   if (
     restorePosition !== null &&
@@ -1923,13 +1929,15 @@ function render() {
 function route() {
   notice("");
   const hash = location.hash.slice(1),
+    systemRoute = hash.match(/^system\/([A-Za-z0-9][A-Za-z0-9_.-]{0,95})$/),
     detail = hash.match(/^(batch|monitor|group)\/([a-f0-9]{32})$/),
     nodeRoute = hash.match(/^monitor-node\/([A-Za-z0-9][A-Za-z0-9_.-]{0,95})$/),
     infoRoute = hash.match(
       /^hardware-info\/([A-Za-z0-9][A-Za-z0-9_.-]{0,95})$/,
     );
   hardwareInfoRoute(infoRoute ? infoRoute[1] : null);
-  page = infoRoute
+  remoteRoute(systemRoute ? systemRoute[1] : null);
+  page = systemRoute ? "remote" : infoRoute
     ? "info"
     : detail
       ? detail[1] === "group"
@@ -1940,10 +1948,10 @@ function route() {
       : nodeRoute
         ? "monitor"
         : Object.hasOwn(pageInfo, hash) &&
-            !["detail", "monitor", "group", "info"].includes(hash)
+            !["detail", "monitor", "group", "info", "remote"].includes(hash)
           ? hash
           : "overview";
-  const nextRouteKey = infoRoute
+  const nextRouteKey = systemRoute ? systemRoute[0] : infoRoute
     ? infoRoute[0]
     : detail
       ? detail[0]
@@ -1997,7 +2005,7 @@ function route() {
         ? "dispatch"
         : page === "detail"
           ? "batches"
-          : ["monitor", "info"].includes(page)
+          : ["monitor", "info", "remote"].includes(page)
             ? "nodes"
             : page);
     a.classList.toggle("selected", match);
@@ -2426,6 +2434,7 @@ $("login-form").onsubmit = async (e) => {
   }
 };
 $("logout").onclick = async () => {
+  remoteDisconnect();
   try {
     await api("logout", "POST", {});
     location.reload();

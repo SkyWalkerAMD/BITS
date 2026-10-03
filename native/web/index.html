@@ -6,6 +6,10 @@
     <meta name="color-scheme" content="light" />
     <title>BITS · 压测工作台</title>
     <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="/xterm.css" />
+    <script src="/xterm.js" defer></script>
+    <script src="/xterm-fit.js" defer></script>
+    <script src="/remote.js" defer></script>
     <script src="/dispatch.js" defer></script>
     <script src="/operations.js" defer></script>
     <script src="/hardware-info.js" defer></script>
@@ -237,6 +241,10 @@
         <section id="view-info" hidden>
           <a class="back-button" href="#nodes">← 返回节点列表</a>
           <div id="hardware-info-body"></div>
+        </section>
+        <section id="view-remote" hidden>
+          <a class="back-button" href="#nodes">← 返回节点列表</a>
+          <div id="remote-body"></div>
         </section>
         <section id="view-detail" hidden>
           <button id="close-detail" class="back-button">← 返回批次列表</button>

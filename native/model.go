@@ -62,6 +62,7 @@ type Batch struct {
 	GroupID    string              `json:"group_id,omitempty"`
 }
 type Node struct {
+	Network    *NodeNetwork `json:"network,omitempty"`
 	ID         string       "json:\"id\""
 	LastSeen   string       "json:\"last_seen,omitempty\""
 	Agent      string       "json:\"agent_version,omitempty\""

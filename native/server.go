@@ -59,11 +59,13 @@ type Server struct {
 	live     *LiveCache
 	power    *PowerManager
 	autoBMC  *AutoBMC
+	remote   *RemoteManager
 }
 
 func NewServer(store *Store, cfg CenterConfig) *Server {
-	return &Server{Store: store, Config: cfg, sessions: map[string]time.Time{}, logins: map[string][]time.Time{}, slots: make(chan struct{}, 64), live: NewLiveCache(), power: newPowerManager(cfg.Data), autoBMC: newAutoBMC(cfg.Data)}
+	return &Server{Store: store, Config: cfg, sessions: map[string]time.Time{}, logins: map[string][]time.Time{}, slots: make(chan struct{}, 64), live: NewLiveCache(), power: newPowerManager(cfg.Data), autoBMC: newAutoBMC(cfg.Data), remote: newRemoteManager(cfg.Data)}
 }
+func (s *Server) CloseRemote() { s.remote.Close() }
 func respond(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(v)
@@ -170,7 +172,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "no-referrer")
-	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
+	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
 	if !s.allowed(r) {
 		http.Error(w, "source network is not allowed", http.StatusForbidden)
 		return
@@ -209,7 +211,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		err = s.node(w, r, node)
-	} else if r.Method == "GET" && (r.URL.Path == "/" || r.URL.Path == "/app.js" || r.URL.Path == "/dispatch.js" || r.URL.Path == "/operations.js" || r.URL.Path == "/hardware-info.js" || r.URL.Path == "/style.css") {
+	} else if r.Method == "GET" && (r.URL.Path == "/" || r.URL.Path == "/app.js" || r.URL.Path == "/dispatch.js" || r.URL.Path == "/operations.js" || r.URL.Path == "/hardware-info.js" || r.URL.Path == "/style.css" || r.URL.Path == "/remote.js" || r.URL.Path == "/xterm.js" || r.URL.Path == "/xterm-fit.js" || r.URL.Path == "/xterm.css") {
 		sub, _ := fs.Sub(webFiles, "web")
 		http.FileServer(http.FS(sub)).ServeHTTP(w, r)
 		return
@@ -225,6 +227,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 	path := strings.TrimPrefix(r.URL.Path, "/api/v1/")
+	if strings.HasPrefix(path, "remote/") { return s.remoteAPI(w, r, strings.TrimPrefix(path,"remote/")) }
 	if path == "deletions" && r.Method == "POST" {
 		var in DeleteRequest
 		if err := decodeBounded(r, &in, 16384); err != nil {
@@ -244,6 +247,7 @@ func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 	if path == "logout" && r.Method == "POST" {
+		s.remote.closeOwner(remoteOwner(r), "退出登录")
 		if c, e := r.Cookie("bits_session"); e == nil {
 			s.mu.Lock()
 			delete(s.sessions, Digest([]byte(c.Value)))
@@ -264,6 +268,7 @@ func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 		for i := range nodes {
+			nodes[i].Network, _ = s.Store.SystemNetwork(nodes[i].ID)
 			p := power[nodes[i].ID]
 			nodes[i].Power = &p
 			if m, ok := wakes[nodes[i].ID]; ok {
@@ -413,6 +418,13 @@ func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 }
 func (s *Server) node(w http.ResponseWriter, r *http.Request, node string) error {
 	path := strings.TrimPrefix(r.URL.Path, "/node/v1/")
+	if path == "network" && r.Method == "POST" {
+		var in NodeNetwork
+		if err := decodeBounded(r,&in,16384); err != nil { return err }
+		if err := s.Store.SaveNetwork(node,in); err != nil { return err }
+		respond(w,map[string]bool{"ok":true})
+		return nil
+	}
 	if path == "hardware-info" && r.Method == "POST" {
 		var in HardwareInfo
 		if err := decodeBounded(r, &in, 512<<10); err != nil {
