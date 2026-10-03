@@ -159,7 +159,8 @@ function remoteCreateFiles(connection) {
       if (event.dataTransfer.types.includes("application/x-bits-local-files")) {
         if (
           pane === remote &&
-          event.dataTransfer.getData("application/x-bits-local-files") === state.id
+          event.dataTransfer.getData("application/x-bits-local-files") ===
+            state.id
         )
           fileUploadSelected();
         return;
@@ -267,15 +268,13 @@ function fileSetLocal(files) {
   state.localVersion++;
   state.stack = [];
   state.fallback = null;
-  state.local = files
-    .slice(0, 2000)
-    .map((file, index) => ({
-      key: String(index),
-      name: file.name,
-      file,
-      bytes: file.size,
-      modified: file.lastModified,
-    }));
+  state.local = files.slice(0, 2000).map((file, index) => ({
+    key: String(index),
+    name: file.name,
+    file,
+    bytes: file.size,
+    modified: file.lastModified,
+  }));
   state.localSelected = new Set(state.local.map((file) => file.key));
   $("local-path").value = "已选择的文件";
   fileRenderLocal();
@@ -488,7 +487,8 @@ async function fileReadRemote(state, directory) {
           encodeURIComponent(directory),
       );
     } catch (error) {
-      if (attempt >= 3 || !error.message.includes("文件操作进行中")) throw error;
+      if (attempt >= 3 || !error.message.includes("文件操作进行中"))
+        throw error;
       await new Promise((resolve) => setTimeout(resolve, 350));
     }
   }
