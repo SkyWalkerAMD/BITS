@@ -2951,6 +2951,10 @@ dialog h2 {
   }
 }
 /* System terminal and file browser */
+.monitor-system-address {
+  color: #b4cfd1;
+  overflow-wrap: anywhere;
+}
 .remote-heading {
   margin: 20px 0;
 }

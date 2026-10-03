@@ -4,7 +4,6 @@ import (
 	"errors"
 	"io"
 	"mime"
-
 	"net"
 	"net/http"
 	"os"
@@ -65,7 +64,7 @@ func (s *Server) remoteAPI(w http.ResponseWriter, req *http.Request, route strin
 		}
 		expires := time.Now().Add(8 * time.Hour)
 		s.mu.Lock()
-		if t, ok := s.sessions[strings.TrimPrefix(owner,"session:")]; ok {
+		if t, ok := s.sessions[strings.TrimPrefix(owner, "session:")]; ok {
 			expires = t
 		}
 		s.mu.Unlock()
@@ -234,7 +233,7 @@ func (s *Server) remoteAPI(w http.ResponseWriter, req *http.Request, route strin
 		}
 		defer f.Close()
 		stat, e := f.Stat()
-		if e != nil || !stat.Mode().IsRegular() || stat.Size() > remoteFileLimit {
+		if e != nil || !stat.Mode().IsRegular() || stat.Size() < 0 || stat.Size() > remoteFileLimit {
 			return errors.New("仅支持下载 1 GiB 以内的普通文件")
 		}
 		w.Header().Set("Content-Type", "application/octet-stream")

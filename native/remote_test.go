@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"io"
 	"net"
@@ -193,9 +194,17 @@ func TestSSHPrivateTemplatesRotationAndSessionOnlyCredentials(t *testing.T) {
 	}
 	var config map[string]any
 	admin.JSON(ctx, "GET", "/api/v1/remote/config", "", nil, &config)
-	raw = []byte(strings.TrimSpace(string(raw)))
-	if strings.Contains(string(raw), "replacement") {
+	raw, _ = json.Marshal(config)
+	if strings.Contains(string(raw), "replacement") || strings.Contains(string(raw), "secret") || strings.Contains(string(raw), "password") {
 		t.Fatal("password leaked")
+	}
+	v, e = reloaded.config()
+	if e != nil {
+		t.Fatal(e)
+	}
+	password, e = reloaded.decrypt(v.Profiles[saved.ID])
+	if e != nil || password != "replacement" {
+		t.Fatal("password rotation was not retained", e)
 	}
 	if e = admin.JSON(ctx, "DELETE", "/api/v1/remote/profiles/"+rotated.ID, "", map[string]string{"revision": rotated.Revision}, nil); e != nil {
 		t.Fatal(e)
@@ -261,6 +270,40 @@ func TestSSHHostTrustBeforePasswordAndPTYSessionOwnership(t *testing.T) {
 		t.Fatal("logout retained shell")
 	}
 }
+func TestSSHLogoutFencesPendingConnections(t *testing.T) {
+	s, _, _, in, fp, _ := remoteFixture(t)
+	in.Trust = fp
+	expires := time.Now().Add(time.Hour)
+	s.sessions["pending-owner"] = expires
+	dial := s.remote.dial
+	entered, release := make(chan struct{}), make(chan struct{})
+	s.remote.dial = func(ctx context.Context, network, address string) (net.Conn, error) {
+		close(entered)
+		<-release
+		return dial(ctx, network, address)
+	}
+	done := make(chan error, 1)
+	go func() {
+		_, _, err := s.connectRemote(context.Background(), "session:pending-owner", expires, in)
+		done <- err
+	}()
+	<-entered
+	s.mu.Lock()
+	delete(s.sessions, "pending-owner")
+	s.mu.Unlock()
+	s.remote.closeOwner("session:pending-owner", "logout")
+	close(release)
+	if err := <-done; err == nil {
+		t.Fatal("connection survived concurrent logout")
+	}
+	s.remote.mu.Lock()
+	count := len(s.remote.sessions)
+	s.remote.mu.Unlock()
+	if count != 0 {
+		t.Fatal("retained shell after logout")
+	}
+}
+
 func TestSFTPUploadDownloadNoClobberAndDirectoryPermissions(t *testing.T) {
 	s, admin, _, in, fp, _ := remoteFixture(t)
 	ctx := context.Background()

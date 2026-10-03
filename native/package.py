@@ -176,7 +176,7 @@ def package(role, kind, binaries, baseline, output):
                 requirements += ", python3 >= 3.6, numactl-libs, gmp, libatomic, libstdc++, perl"
             spec.write_text("Name: " + name + "\nVersion: " + VERSION + "\nRelease: 1.el8\n"
                 "Summary: BITS " + role + " for test execution and hardware monitoring\n"
-                "License: GPLv2+ and GPLv3+ and BSD and GIMPS and LicenseRef-Intel-Limited-Tools\n"
+                "License: GPLv2+ and GPLv3+ and BSD and MIT and GIMPS and LicenseRef-Intel-Limited-Tools\n"
                 "BuildArch: x86_64\nRequires: " + requirements +
                 "\nRequires(pre,post,posttrans): python3 >= 3.6, systemd, tar\nRequires(preun): systemd" +
                 "\nConflicts: ocrun-node, ocrun-center, bits-o-node, bits-o-control, bits-o-workloads, ocrun-workloads\n"

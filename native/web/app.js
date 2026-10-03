@@ -1515,7 +1515,9 @@ function renderMonitor() {
   action.append(state);
   action.append(
     button("硬件信息 ↗", () => openHardwareInfo(nodeID), "", "monitor-info"),
+    button("系统终端 ↗", () => openSystem(nodeID), "", "monitor-system"),
   );
+  title.append(el("p", systemIPText(node), "monitor-system-address"));
   const wake = wakeButton(node);
   if (wake) action.append(wake);
   if (wakeNote(node)) title.append(el("p", wakeNote(node), "monitor-subtitle"));

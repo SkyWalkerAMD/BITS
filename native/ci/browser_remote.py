@@ -11,6 +11,8 @@ def verify_remote(page, context, admin, out, checks):
     login = json.loads(subprocess.check_output(["docker", "exec", "bits-independent-test",
                                               "cat", "/root/.bits/ssh-fixture.json"]))
     page.goto(admin["url"] + "/#nodes")
+    page.locator("#node-search").fill("")
+    page.locator('#node-filters button[data-filter="all"]').click()
     card = page.locator("#node-list .node-card").filter(has_text="BITS-CLOUD")
     expect(card).to_contain_text("系统 IP")
     card.get_by_role("button", name="系统终端 ↗").click()
@@ -44,9 +46,20 @@ def verify_remote(page, context, admin, out, checks):
             page.wait_for_timeout(250)
         else:
             raise AssertionError("real shell did not execute input")
-        # Paste exercises xterm bracketed-paste and preserves a multiline payload.
-        page.evaluate("text => remoteState.terminal.paste(text)", "printf 'PASTED_VALUE\\n'\n")
-        page.wait_for_timeout(500)
+        context.grant_permissions(["clipboard-read", "clipboard-write"], origin=admin["url"])
+        page.evaluate("remoteState.terminal.selectAll()")
+        page.get_by_role("button", name="复制", exact=True).click()
+        copied = page.evaluate("navigator.clipboard.readText()")
+        assert "REMOTE_SHELL_OK" in copied
+        page.evaluate("text => navigator.clipboard.writeText(text)", "printf 'PASTED_VALUE\\n'\n")
+        page.get_by_role("button", name="粘贴", exact=True).click()
+        page.locator(".xterm-helper-textarea").press("Enter")
+        for _ in range(40):
+            if page.evaluate("Array.from({length:remoteState.terminal.buffer.active.length},(_,i)=>remoteState.terminal.buffer.active.getLine(i).translateToString().trim()).includes('PASTED_VALUE')"):
+                break
+            page.wait_for_timeout(250)
+        else:
+            raise AssertionError("clipboard paste did not reach the shell")
         expect(page.locator("#remote-files")).to_be_visible()
         expect(page.locator("#remote-path")).to_have_value("/home/" + login["username"])
         body = b"BITS SFTP UTF-8 \xe6\xb5\x8b\xe8\xaf\x95\n" * 1000
@@ -64,6 +77,12 @@ def verify_remote(page, context, admin, out, checks):
         expect(page.locator("#remote-file-status")).to_contain_text("同名文件已存在")
         actual = subprocess.check_output(["docker", "exec", "bits-independent-test", "cat", "/home/" + login["username"] + "/upload-check.txt"])
         assert actual == body
+        page.locator("#remote-path").fill("/root")
+        page.locator(".remote-path-form").get_by_role("button", name="进入").click()
+        expect(page.locator("#remote-file-status")).to_contain_text("无法读取目录")
+        page.locator("#remote-path").fill("/home/" + login["username"])
+        page.locator(".remote-path-form").get_by_role("button", name="进入").click()
+        expect(file).to_be_visible()
         page.screenshot(path=str(out / "system-terminal.png"), full_page=True)
         page.set_viewport_size({"width": 430, "height": 932})
         page.wait_for_timeout(300)

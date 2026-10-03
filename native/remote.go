@@ -16,13 +16,13 @@ import (
 )
 
 type RemoteManager struct {
-	mu       sync.Mutex
-	dir      string
-	sessions map[string]*RemoteSession
-	pending  int
+	mu            sync.Mutex
+	dir           string
+	sessions      map[string]*RemoteSession
+	pending       int
 	pendingOwners map[string]int
-	attempts map[string][]time.Time
-	dial     func(context.Context, string, string) (net.Conn, error)
+	attempts      map[string][]time.Time
+	dial          func(context.Context, string, string) (net.Conn, error)
 }
 type RemoteSession struct {
 	mu                                 sync.Mutex
@@ -66,7 +66,7 @@ func newRemoteManager(dir string) *RemoteManager {
 }
 func remoteOwner(r *http.Request) string {
 	if token := r.Header.Get("Authorization"); token != "" {
-		return "token:" + Digest([]byte(strings.TrimPrefix(token,"Bearer ")))
+		return "token:" + Digest([]byte(strings.TrimPrefix(token, "Bearer ")))
 	}
 	if c, e := r.Cookie("bits_session"); e == nil {
 		return "session:" + Digest([]byte(c.Value))
@@ -74,10 +74,13 @@ func remoteOwner(r *http.Request) string {
 	return ""
 }
 func (s *Server) remoteOwnerActive(owner string) bool {
-	if strings.HasPrefix(owner,"token:") { return strings.TrimPrefix(owner,"token:") == s.Config.AdminSHA }
-	s.mu.Lock(); defer s.mu.Unlock()
-	expires,ok := s.sessions[strings.TrimPrefix(owner,"session:")]
-	return strings.HasPrefix(owner,"session:") && ok && time.Now().Before(expires)
+	if strings.HasPrefix(owner, "token:") {
+		return strings.TrimPrefix(owner, "token:") == s.Config.AdminSHA
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	expires, ok := s.sessions[strings.TrimPrefix(owner, "session:")]
+	return strings.HasPrefix(owner, "session:") && ok && time.Now().Before(expires)
 }
 func (s *Server) remoteTarget(node, address string) error {
 	if !ValidName(node) || !systemIP(address) {
@@ -148,7 +151,9 @@ func validTerminalSize(cols, rows int) bool {
 	return cols >= 20 && cols <= 400 && rows >= 5 && rows <= 150
 }
 func (s *Server) connectRemote(ctx context.Context, owner string, expires time.Time, in RemoteConnect) (*RemoteSession, *remoteTrust, error) {
-	if !s.remoteOwnerActive(owner) { return nil,nil,errors.New("登录已失效，请重新登录") }
+	if !s.remoteOwnerActive(owner) {
+		return nil, nil, errors.New("登录已失效，请重新登录")
+	}
 	if e := s.remoteTarget(in.Node, in.Address); e != nil {
 		return nil, nil, e
 	}
@@ -159,7 +164,15 @@ func (s *Server) connectRemote(ctx context.Context, owner string, expires time.T
 	if e := m.reserve(owner); e != nil {
 		return nil, nil, e
 	}
-	defer func() { m.mu.Lock(); m.pending--; m.pendingOwners[owner]--; if m.pendingOwners[owner] == 0 { delete(m.pendingOwners,owner) }; m.mu.Unlock() }()
+	defer func() {
+		m.mu.Lock()
+		m.pending--
+		m.pendingOwners[owner]--
+		if m.pendingOwners[owner] == 0 {
+			delete(m.pendingOwners, owner)
+		}
+		m.mu.Unlock()
+	}()
 	m.mu.Lock()
 	v, err := m.config()
 	profileRevision := ""
@@ -250,8 +263,12 @@ func (s *Server) connectRemote(ctx context.Context, owner string, expires time.T
 	}
 	m.mu.Lock()
 	v, err = m.config()
-	if !s.remoteOwnerActive(owner) { err = errors.New("登录已失效，请重新登录") }
-	if err == nil && in.Profile != "" && v.Profiles[in.Profile].Revision != profileRevision { err = errors.New("SSH 模板已变更，请重新连接") }
+	if !s.remoteOwnerActive(owner) {
+		err = errors.New("登录已失效，请重新登录")
+	}
+	if err == nil && in.Profile != "" && v.Profiles[in.Profile].Revision != profileRevision {
+		err = errors.New("SSH 模板已变更，请重新连接")
+	}
 	if err == nil {
 		if current := v.Hosts[key]; current != "" && current != verified {
 			err = errors.New("主机指纹已变更，请重新连接")

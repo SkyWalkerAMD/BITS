@@ -218,6 +218,7 @@ function renderHardwareInfo() {
     s.query,
     node?.wake,
     node?.power?.state,
+    node?.network?.primary,
   ]);
   if (root.dataset.renderKey === renderKey) return;
   root.dataset.renderKey = renderKey;
@@ -227,6 +228,7 @@ function renderHardwareInfo() {
   const h = el("h2", s.node);
   h.id = "hardware-info-title";
   title.append(el("p", "HARDWARE PROFILE", "eyebrow"), h);
+  title.append(el("p", systemIPText(node), "monitor-system-address"));
   if (v)
     title.append(
       el("p", "采集于 " + dateText(v.observed_at), "monitor-subtitle"),
@@ -240,6 +242,7 @@ function renderHardwareInfo() {
   actions.append(
     badge,
     button("实时监控 ↗", () => openNodeMonitor(s.node), "", "info-monitor"),
+    button("系统终端 ↗", () => openSystem(s.node), "", "info-system"),
   );
   const wake = wakeButton(node);
   if (wake) actions.append(wake);
