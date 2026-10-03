@@ -350,10 +350,13 @@ with sync_playwright() as p:
         expect(page.locator("#batch-list tr")).to_have_count(25, timeout=15000)
         page.locator("#batch-pagination").get_by_role("button", name="下一页 →").click()
         expect(page.locator("#batch-list tr").first).to_contain_text("ARCHIVE-025")
+        page.get_by_role("checkbox", name="选择批次 ARCHIVE-025", exact=True).check()
         page.wait_for_timeout(2500)
         expect(page.locator("#batch-list tr").first).to_contain_text("ARCHIVE-025")
         page.locator("#batch-search").fill("ARCHIVE-060")
         expect(page.locator("#batch-list tr")).to_have_count(1)
+        expect(page.locator("#batches-delete-toolbar")).to_contain_text("已选 1 项（其他页 1 项）")
+        page.locator("#batches-delete-toolbar").get_by_role("button", name="清空选择").click()
         navigate("reports")
         page.locator("#report-search").fill("")
         expect(page.locator("#report-list .report-card")).to_have_count(18)
@@ -647,6 +650,115 @@ with sync_playwright() as p:
         expect(page.locator("#node-submit")).to_be_enabled()
         page.locator('#node-dialog button[data-close="node-dialog"]').last.click()
         checks.append("template list failure retry and concurrent template disable preserve explicit selection and prevent partial enrollment")
+        # Standalone wake UI uses an explicit two-node BMC simulation. No physical
+        # power command is sent; Go tests exercise the real scheduler with a driver.
+        page.set_viewport_size({"width":1440, "height":1080})
+        wake_posts, wake_records = [], []
+        def wake_overview(route):
+            response = route.fetch()
+            value = response.json()
+            for n in value["nodes"]:
+                if n["id"] in ("LAB-002", "LAB-010"):
+                    n.update(last_seen="2020-01-01T00:00:00Z", agent_version="0.4.1", disabled=False,
+                        power={"configured":True, "address":"192.168.50.21" if n["id"] == "LAB-002" else "192.168.50.22",
+                               "state":"off", "checked_at":datetime.now(timezone.utc).isoformat()})
+                    if wake_records:
+                        n["wake"] = next(m for m in wake_records[0]["members"] if m["node"] == n["id"])
+            route.fulfill(response=response, json=value)
+        def wake_fleet(route):
+            response = route.fetch()
+            value = response.json()
+            for n in value["nodes"]:
+                if n["node"] in ("LAB-002", "LAB-010"):
+                    n.update(state="waking" if wake_records else "wakeable", waking=bool(wake_records),
+                        can_select=not wake_records, agent_online=False, reason="浏览器模拟 · 等待系统连接", active_batch="",
+                        power={"configured":True, "address":"192.168.50.21", "state":"off",
+                               "checked_at":datetime.now(timezone.utc).isoformat()})
+            route.fulfill(response=response, json=value)
+        def wake_requests(route):
+            if route.request.method == "GET":
+                route.fulfill(status=200, json=wake_records)
+                return
+            value = route.request.post_data_json
+            assert sorted(value["nodes"]) == ["LAB-002", "LAB-010"]
+            assert len(value["request_id"]) == 32
+            wake_posts.append(value)
+            stamp = datetime.now(timezone.utc).isoformat()
+            wake_records.append({"id":value["request_id"], "created_at":stamp,
+                "counts":{"waiting_agent":2}, "members":[{"node":n,"state":"waiting_agent","requested_at":stamp,
+                    "deadline":(datetime.now(timezone.utc)+timedelta(minutes=10)).isoformat()} for n in value["nodes"]]})
+            route.fulfill(status=200, json=wake_records[0])
+        page.route("**/api/v1/overview", wake_overview)
+        page.route("**/api/v1/dispatch/nodes", wake_fleet)
+        page.route("**/api/v1/dispatch/wakes**", wake_requests)
+        navigate("nodes")
+        page.locator("#node-search").fill("LAB-002")
+        page.locator("#refresh").click()
+        page.locator("#node-list").get_by_role("button", name="实时监控 ↗").click()
+        expect(page.locator("#monitor-title")).to_have_text("LAB-002")
+        page.get_by_role("button", name="唤醒机器", exact=True).click()
+        expect(page.locator("#confirm-description")).to_contain_text("不创建或执行压测")
+        page.locator('#confirm-dialog button[data-close]').last.click()
+        assert not wake_posts
+        navigate("dispatch")
+        page.get_by_role("checkbox", name="选择唤醒 LAB-002", exact=True).check()
+        page.get_by_role("checkbox", name="选择唤醒 LAB-010", exact=True).check()
+        page.locator("#refresh").click()
+        expect(page.get_by_role("checkbox", name="选择唤醒 LAB-002", exact=True)).to_be_checked()
+        page.locator("#wake-toolbar").get_by_role("button", name="唤醒所选机器").click()
+        expect(page.locator("#confirm-description")).to_contain_text("唤醒 2 台机器")
+        page.screenshot(path=str(out / "wake-confirm.png"), full_page=True)
+        page.locator("#confirm-submit").click()
+        expect(page.locator("#confirm-dialog")).not_to_be_visible()
+        expect(page.locator("#wake-history .operation-result")).to_have_count(2)
+        assert len(wake_posts) == 1
+        page.screenshot(path=str(out / "wake-progress.png"), full_page=True)
+        page.set_viewport_size({"width":390,"height":844})
+        page.locator("#wake-history").scroll_into_view_if_needed()
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+        page.screenshot(path=str(out / "wake-mobile.png"), full_page=True)
+        page.unroute("**/api/v1/overview", wake_overview)
+        page.unroute("**/api/v1/dispatch/nodes", wake_fleet)
+        page.unroute("**/api/v1/dispatch/wakes**", wake_requests)
+        checks.append("standalone monitor wake confirmation cancels without POST; bulk wake retains choices across polling and displays independent progress on desktop/mobile (simulated BMC)")
+        # Permanently delete only the isolated completed browser reports. This
+        # exercises real authenticated API, background cleanup and removed files.
+        page.set_viewport_size({"width":1440,"height":1080})
+        navigate("reports")
+        page.locator("#report-search").fill("")
+        page.locator("#refresh").click()
+        completed = [b for b in api("overview")["batches"] if b["state"] == "delivered"]
+        before_delete_ids = {b["id"] for b in api("overview")["batches"]}
+        assert len(completed) >= 2
+        first = next(b for b in completed if b["id"] == batch_id)
+        card = page.locator("#report-list .report-card").filter(has_text=first["plan"]["label"])
+        card.get_by_role("button", name="删除", exact=True).click()
+        expect(page.locator("#confirm-description")).to_contain_text("无法恢复")
+        expect(page.locator("#confirm-description")).to_contain_text(first["plan"]["label"])
+        page.locator('#confirm-dialog button[data-close]').last.click()
+        assert api("batches/" + first["id"])["state"] == "delivered"
+        card.get_by_role("checkbox").check()
+        second = next(b for b in completed if b["id"] != first["id"])
+        page.locator("#report-list .report-card").filter(has_text=second["plan"]["label"]).get_by_role("checkbox").check()
+        page.locator("#refresh").click()
+        expect(page.locator("#reports-delete-toolbar")).to_contain_text("已选 2 项")
+        page.locator("#reports-delete-toolbar").get_by_role("button", name="删除所选").click()
+        expect(page.locator("#confirm-description")).to_contain_text(first["plan"]["label"])
+        expect(page.locator("#confirm-description")).to_contain_text(second["plan"]["label"])
+        page.screenshot(path=str(out / "delete-confirm.png"), full_page=True)
+        page.set_viewport_size({"width":390,"height":844})
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+        page.screenshot(path=str(out / "delete-mobile.png"), full_page=True)
+        page.locator("#confirm-submit").click()
+        expect(page.locator("#confirm-dialog")).not_to_be_visible()
+        expect(page.locator("#reports-deletion-history")).to_contain_text("已删除 2 / 2 项", timeout=20000)
+        for b in (first,second):
+            assert not context.request.get(admin["url"]+"/api/v1/batches/"+b["id"]+"/files/report.html").ok
+            assert subprocess.call(["docker","exec","bits-independent-test","test","!","-e","/var/lib/bits/center/artifacts/"+b["id"]]) == 0
+        remaining = api("overview")["batches"]
+        assert {b["id"] for b in remaining} == before_delete_ids - {first["id"],second["id"]}
+        assert all(b["id"] not in (first["id"],second["id"]) for b in remaining)
+        checks.append("single report delete confirmation lists target and cancels without change; two selected reports permanently deleted through real API with center files and download access removed; cross-page batch selection and mobile confirmation")
         page.set_viewport_size({"width":1440, "height":1080})
         page.locator("#logout").click()
         expect(page.locator("#login-dialog")).to_be_visible()

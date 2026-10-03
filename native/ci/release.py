@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from distribution.source_export import export_sources
 
-version = "0.4.0"
+version = "0.4.1"
 run = os.environ["GITHUB_RUN_ID"]
 commit = os.environ["GITHUB_SHA"]
 inputs = Path("native-evidence")
@@ -53,13 +53,13 @@ upgrades = {}
 for label, kind in (("rocky8", "rpm"), ("ubuntu22", "deb")):
     evidence = inputs / ("independent-upgrade-" + label + "-" + run)
     summary = json.loads((evidence / "upgrade.json").read_text())
-    if (summary["status"], summary["from"], summary["to"], summary["format"]) != ("passed", "0.4.0-alpha.7", version, kind):
+    if (summary["status"], summary["from"], summary["to"], summary["format"]) != ("passed", "0.4.0", version, kind):
         raise ValueError("Package upgrade verification failed: " + label)
     summary["image"] = (evidence / "image.txt").read_text().strip()
     upgrades[label] = summary
 for kind in ("rpm", "deb"):
     packages = sorted((inputs / ("independent-packages-" + kind + "-" + run)).glob("*." + kind))
-    expected = {"bits-" + role + ("-0.4.0-1.el8.x86_64.rpm" if kind == "rpm" else "_0.4.0-1_amd64.deb") for role in ("center", "node")}
+    expected = {"bits-" + role + ("-0.4.1-1.el8.x86_64.rpm" if kind == "rpm" else "_0.4.1-1_amd64.deb") for role in ("center", "node")}
     if {p.name for p in packages} != expected:
         raise ValueError("Exactly one center and one node package are required per format")
     for source in packages:
@@ -69,11 +69,12 @@ for filename in ("dashboard.png", "dashboard-mobile.png", "batch-running.png", "
                  "hardware-scrolled.png", "workspace-compact.png", "navigation-mobile.png",
                  "dispatch-workspace.png", "dispatch-group.png", "dispatch-mobile.png",
                  "bmc-overview.png", "bmc-nodes-mobile.png", "node-template.png", "node-template-mobile.png",
-                 "hardware-idle.png", "hardware-idle-mobile.png"):
+                 "hardware-idle.png", "hardware-idle-mobile.png",
+                 "wake-confirm.png", "wake-progress.png", "wake-mobile.png", "delete-confirm.png", "delete-mobile.png"):
     shutil.copyfile(str(browser_dir / filename), str(out / filename))
 for source, target in (("docs/development/BITS-INDEPENDENT.md", "ARCHITECTURE.md"),
                        ("docs/deployment/BITS-INDEPENDENT.md", "OPERATIONS.md"),
-                       ("docs/releases/0.4.0.md", "RELEASE-NOTES.md")):
+                       ("docs/releases/0.4.1.md", "RELEASE-NOTES.md")):
     shutil.copyfile(str(ROOT / source), str(out / target))
 sources = export_sources(out / ("bits-source-" + version + ".tar.gz"), commit)
 verification = {

@@ -209,7 +209,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		err = s.node(w, r, node)
-	} else if r.Method == "GET" && (r.URL.Path == "/" || r.URL.Path == "/app.js" || r.URL.Path == "/dispatch.js" || r.URL.Path == "/style.css") {
+	} else if r.Method == "GET" && (r.URL.Path == "/" || r.URL.Path == "/app.js" || r.URL.Path == "/dispatch.js" || r.URL.Path == "/operations.js" || r.URL.Path == "/style.css") {
 		sub, _ := fs.Sub(webFiles, "web")
 		http.FileServer(http.FS(sub)).ServeHTTP(w, r)
 		return
@@ -225,6 +225,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 	path := strings.TrimPrefix(r.URL.Path, "/api/v1/")
+	if path == "deletions" && r.Method == "POST" {
+		var in DeleteRequest
+		if err := decodeBounded(r, &in, 16384); err != nil { return err }
+		v, err := s.Store.BeginDelete(in)
+		if err == nil { respond(w, v) }
+		return err
+	}
 	if strings.HasPrefix(path, "dispatch/") {
 		return s.dispatchAPI(w, r, strings.TrimPrefix(path, "dispatch/"))
 	}
@@ -248,9 +255,15 @@ func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 		power := s.power.Snapshot()
+		wakes, err := s.Store.latestWakes()
+		if err != nil { return err }
 		for i := range nodes {
 			p := power[nodes[i].ID]
 			nodes[i].Power = &p
+			if m, ok := wakes[nodes[i].ID]; ok { nodes[i].Wake = &m }
+			hold, e := s.Store.wakeHold(nodes[i].ID)
+			if e != nil { return e }
+			nodes[i].WakeHold = hold != ""
 		}
 		batches, err := s.Store.Batches("")
 		if err != nil {
@@ -264,7 +277,9 @@ func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 				"plan": map[string]string{"node": b.Plan.Node, "label": b.Plan.Label}, "step_count": len(b.Plan.Steps), "result": result,
 				"budget_s": planSeconds(b.Plan), "cancel_requested": b.Cancel, "receipt_sha256": b.ReceiptSHA, "group_id": b.GroupID})
 		}
-		respond(w, map[string]any{"nodes": nodes, "batches": summary, "tools": Tools, "version": Version, "time": UTC()})
+		deletions, err := s.Store.Deletions()
+		if err != nil { return err }
+		respond(w, map[string]any{"nodes": nodes, "batches": summary, "tools": Tools, "version": Version, "time": UTC(), "deletions": deletions})
 		return nil
 	}
 	if path == "nodes" && r.Method == "POST" {
@@ -415,13 +430,22 @@ func (s *Server) node(w http.ResponseWriter, r *http.Request, node string) error
 		// This checks only explicitly armed commands, never draft task queues.
 		b, err := s.Store.Pending(node)
 		if err == nil {
-			respond(w, map[string]any{"batch": b})
+			hold, e := s.Store.wakeHold(node)
+			if e != nil { return e }
+			respond(w, map[string]any{"batch": b, "wake_hold": hold})
 		}
 		return err
 	}
 	parts := strings.Split(path, "/")
 	if len(parts) < 2 || parts[0] != "batches" || !idRE.MatchString(parts[1]) {
 		return errors.New("unknown operation")
+	}
+	owner, e := s.Store.deletedNode(parts[1])
+	if e != nil { return e }
+	if owner != "" {
+		if owner != node { return errors.New("batch belongs to another node") }
+		if len(parts) == 2 && r.Method == "GET" { respond(w, Batch{ID:parts[1], Plan:Plan{Node:node}, State:"deleted"}); return nil }
+		return errors.New("batch was permanently deleted by operator")
 	}
 	b, err := s.Store.Batch(parts[1])
 	if err != nil {
@@ -449,6 +473,9 @@ func (s *Server) node(w http.ResponseWriter, r *http.Request, node string) error
 		if err = decodeBounded(r, &in, 2<<20); err != nil {
 			return err
 		}
+		s.Store.mu.Lock()
+		defer s.Store.mu.Unlock()
+		if owner, e := s.Store.deletedNode(b.ID); e != nil { return e } else if owner != "" { return errors.New("batch was permanently deleted") }
 		if err = s.live.Put(b, in); err != nil {
 			return err
 		}
@@ -538,6 +565,7 @@ func planSeconds(p Plan) int {
 	return total
 }
 func (s *Server) receipt(w http.ResponseWriter, b Batch) error {
+	if owner, err := s.Store.deletedNode(b.ID); err != nil { return err } else if owner != "" { return errors.New("batch was permanently deleted") }
 	if b.State != "delivered" || b.ReceiptSHA == "" {
 		return errors.New("delivery receipt is not available")
 	}
@@ -586,6 +614,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request, b Batch, name st
 	lock, _ := s.uploads.LoadOrStore(b.Plan.Node, new(sync.Mutex))
 	lock.(*sync.Mutex).Lock()
 	defer lock.(*sync.Mutex).Unlock()
+	if owner, err := s.Store.deletedNode(b.ID); err != nil { return err } else if owner != "" { return errors.New("batch was permanently deleted") }
 	dir, err := s.batchDir(b)
 	if err != nil {
 		return err
@@ -707,6 +736,7 @@ func HashFile(path string) (Artifact, error) {
 	return Artifact{SHA256: hex.EncodeToString(h.Sum(nil)), Bytes: n}, nil
 }
 func (s *Server) download(w http.ResponseWriter, r *http.Request, b Batch, name string, operator bool) error {
+	if owner, err := s.Store.deletedNode(b.ID); err != nil { return err } else if owner != "" { return errors.New("batch was permanently deleted") }
 	expected, ok := b.Artifacts[name]
 	if !ok || !ValidName(name) {
 		return errors.New("unknown artifact")
@@ -755,6 +785,7 @@ func (s *Server) commit(w http.ResponseWriter, r *http.Request, b Batch) error {
 	lock, _ := s.uploads.LoadOrStore(b.Plan.Node, new(sync.Mutex))
 	lock.(*sync.Mutex).Lock()
 	defer lock.(*sync.Mutex).Unlock()
+	if owner, err := s.Store.deletedNode(b.ID); err != nil { return err } else if owner != "" { return errors.New("batch was permanently deleted") }
 	dir, err := s.batchDir(b)
 	if err != nil {
 		return err

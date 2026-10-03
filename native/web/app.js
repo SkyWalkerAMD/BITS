@@ -2,6 +2,7 @@
 const $ = (id) => document.getElementById(id);
 const activeStates = ["waiting_boot", "armed", "running", "finishing"];
 const labels = {
+  deleting: "正在永久删除",
   waiting_boot: "开机 / 等待系统连接",
   draft: "待开始",
   armed: "等待节点接受",
@@ -459,6 +460,7 @@ const nodeStateLabels = {
   idle: "空闲",
   wakeable: "已关机 · 可唤醒",
   awaiting_agent: "已开机 · 等待系统",
+  waking: "正在唤醒 · 等待系统",
   offline: "状态待确认",
   disabled: "已禁用",
 };
@@ -478,6 +480,7 @@ function latestBatch(node) {
 function nodeKind(n) {
   const b = activeBatch(n.id);
   if (n.disabled) return "disabled";
+  if (isWaking(n) && !online(n)) return "waking";
   if (!online(n))
     return powerFresh(n) && n.power.state === "off"
       ? "wakeable"
@@ -657,7 +660,7 @@ function nodeCard(n) {
         )
       : kind === "attention"
         ? badge("needs_attention")
-        : ["wakeable", "awaiting_agent"].includes(kind)
+        : ["wakeable", "awaiting_agent", "waking"].includes(kind)
           ? el("span", nodeStateLabels[kind], "badge reachability " + kind)
           : badge(
               kind === "idle" ? "completed" : "offline",
@@ -681,6 +684,8 @@ function nodeCard(n) {
         "strong",
         b?.state === "needs_attention"
           ? "测试需要人工处理"
+          : kind === "waking"
+            ? "已提交唤醒，等待节点系统连接"
           : kind === "wakeable"
             ? "管理口可达，机器已关机"
             : kind === "awaiting_agent"
@@ -727,8 +732,9 @@ function nodeCard(n) {
             ? "系统最后联系 " + ago(n.last_seen)
             : "系统尚未连接";
   card.append(el("small", nodePowerText(n), "node-power-note"));
+  if (wakeNote(n)) card.append(el("small", wakeNote(n), "node-power-note"));
   foot.append(el("span", info));
-  if (online(n) || m?.sample || (b && activeStates.includes(b.state)))
+  if (!n.disabled)
     foot.append(
       button(
         "实时监控 ↗",
@@ -745,6 +751,8 @@ function nodeCard(n) {
       "node-" + n.id,
     ),
   );
+  const wake = wakeButton(n);
+  if (wake) foot.append(wake);
   card.append(foot);
   return card;
 }
@@ -925,6 +933,9 @@ function renderNodeDetail() {
   ];
   if (n.bmc_profile)
     items.push(el("p", "接入时选择的 BMC 模板：" + n.bmc_profile, "muted"));
+  const wake = wakeButton(n);
+  if (wake) items.push(wake);
+  if (wakeNote(n)) items.push(el("p", wakeNote(n), "muted"));
   for (const b of list.slice(0, 8)) {
     const row = el("div", undefined, "file-row");
     row.append(
@@ -956,6 +967,7 @@ function openNodeMonitor(id) {
 }
 function operationButtons(b) {
   const ops = el("div", undefined, "actions");
+  if (canDelete(b)) ops.append(button("永久删除", () => confirmDelete([b.id]), "danger", "delete-" + b.id));
   if (b.group_id) ops.append(link("返回任务组", "#group/" + b.group_id));
   if (b.state === "draft" && !b.group_id)
     ops.append(
@@ -1027,12 +1039,14 @@ function renderBatches() {
   );
   $("batch-count").textContent =
     items.length + " 个符合条件的批次 · 每页 " + size + " 个";
+  renderDeleteToolbar("batches", items.slice(batchPage * size, (batchPage + 1) * size));
   replace(
     $("batch-list"),
     ...items.slice(batchPage * size, (batchPage + 1) * size).map((b) => {
       const tr = el("tr"),
         title = el("td");
       title.append(
+        deleteCheckbox(b, "batches"),
         el("strong", b.plan.label),
         el(
           "small",
@@ -1056,6 +1070,7 @@ function renderBatches() {
       }
       const td = el("td");
       td.append(button("详情 →", () => openBatch(b.id), "", "details-" + b.id));
+      if (canDelete(b)) td.append(button("删除", () => confirmDelete([b.id]), "danger", "delete-" + b.id));
       if (b.group_id) td.append(link("任务组", "#group/" + b.group_id));
       if (b.state === "draft" && !b.group_id)
         td.append(
@@ -1104,17 +1119,19 @@ function renderReports() {
   );
   $("report-count").textContent =
     items.length + " 份已交付报告 · 每页 " + size + " 份";
+  renderDeleteToolbar("reports", items.slice(reportPage * size, (reportPage + 1) * size));
   replace(
     $("report-list"),
     ...items.slice(reportPage * size, (reportPage + 1) * size).map((b) => {
       const d = el("article", undefined, "report-card"),
         head = el("div", undefined, "report-top"),
         ops = el("div", undefined, "actions");
-      head.append(icon("reports"), badge("delivered"));
+      head.append(deleteCheckbox(b, "reports"), badge("delivered"));
       ops.append(
         fileLink(b, "report.html", "查看 HTML ↗"),
         fileLink(b, "monitor.xlsx", "Excel ↓"),
         button("全部文件", () => openBatch(b.id), "quiet", "report-" + b.id),
+        button("删除", () => confirmDelete([b.id]), "danger", "delete-" + b.id),
       );
       d.append(
         head,
@@ -1445,7 +1462,9 @@ function renderMonitor() {
     status = !connectionFresh()
       ? "连接中断 · 保留最后读数"
       : node && !online(node)
-        ? nodeKind(node) === "wakeable"
+        ? isWaking(node)
+          ? "正在唤醒 · 等待系统连接"
+          : nodeKind(node) === "wakeable"
           ? "已关机 · 最后读数"
           : "系统未连接 · 最后读数"
         : !byNode &&
@@ -1488,6 +1507,9 @@ function renderMonitor() {
   );
   const action = el("div", undefined, "monitor-hero-actions");
   action.append(state);
+  const wake = wakeButton(node);
+  if (wake) action.append(wake);
+  if (wakeNote(node)) title.append(el("p", wakeNote(node), "monitor-subtitle"));
   if (b)
     action.append(
       button("批次进度与报告 ↗", () => openBatch(b.id), "", "monitor-batch"),
@@ -2426,9 +2448,9 @@ $("confirm-form").onsubmit = async (e) => {
   if (formStates.has($("confirm-form"))) return;
   formBusy($("confirm-form"), true);
   try {
-    await nextConfirm($("confirm-reason").value.trim());
+    const message = await nextConfirm($("confirm-reason").value.trim());
     $("confirm-dialog").close();
-    notice("操作已保存，正在同步节点状态。");
+    notice(typeof message === "string" ? message : "操作已保存，正在同步节点状态。");
     lastDetail = 0;
     lastOverview = 0;
     await sync(true);

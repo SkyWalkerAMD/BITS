@@ -1,10 +1,11 @@
-"""Upgrade actual alpha.7 RPM/DEB packages in an isolated Linux systemd fixture."""
+"""Upgrade actual 0.4.0 RPM/DEB packages in an isolated Linux systemd fixture."""
 import hashlib
 import importlib.util
 import json
 import os
 from pathlib import Path
 import ssl
+import sqlite3
 import subprocess
 import sys
 import time
@@ -14,7 +15,7 @@ os.umask(0o077)
 spec = importlib.util.spec_from_file_location("acceptance", "/src/native/ci/acceptance.py")
 a = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(a)
-OLD, NEW = "0.4.0-alpha.7", "0.4.0"
+OLD, NEW = "0.4.0", "0.4.1"
 ROLES = ("center", "node")
 
 
@@ -103,6 +104,11 @@ def main():
     restored = a.api("batches/" + first["id"])
     assert restored["state"] == "delivered" and restored["receipt_sha256"] == old_batch["receipt_sha256"]
     assert hashes(evidence) == old_files
+    backup = Path("/var/lib/bits/center/center.sqlite.before-node-operations-v3")
+    assert backup.is_file() and backup.stat().st_mode & 0o777 == 0o600
+    with sqlite3.connect(str(backup)) as previous:
+        assert previous.execute("SELECT value FROM metadata WHERE key='schema'").fetchone()[0] == "3"
+    assert a.api("dispatch/wakes") == []
     a.wait_monitor()
     assert len(a.api("overview")["batches"]) == 1, "Monitoring must not create a batch"
     second = a.new_batch("UPGRADE-AFTER", [("stress", 4)])
@@ -110,11 +116,18 @@ def main():
     a.wait_batch(second["id"], "delivered")
     a.wait_monitor()
     assert hashes(evidence) == old_files, "New monitoring or execution changed sealed evidence"
+    a.api("deletions", {"request_id": "123456789abcdef0123456789abcdef0", "batches": [second["id"]]})
+    for unused in range(40):
+        if all(b["id"] != second["id"] for b in a.api("overview")["batches"]):
+            break
+        time.sleep(.5)
+    assert not (Path("/var/lib/bits/center/artifacts") / second["id"]).exists()
+    assert hashes(evidence) == old_files, "Deletion touched an unselected old report"
     result = {"status": "passed", "from": OLD, "to": NEW, "format": kind,
         "checks": ["active-service upgrade refused", "real package-manager upgrade",
                    "services remain stopped; enablement preserved", "node identity and TLS credentials preserved",
                    "BMC template credentials and enrollment selection preserved", "sealed report and receipt hashes unchanged",
-                   "idle monitoring after upgrade", "explicit new batch delivered", "monitoring resumes without a new batch"],
+                   "schema 3 backup and schema 4 operations migration", "idle monitoring after upgrade", "explicit new batch delivered", "monitoring resumes without a new batch", "permanent deletion preserves unselected old evidence"],
         "hardware_readings": "synthetic; no physical BMC or sensor validation"}
     Path("/results/upgrade.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result))

@@ -7,6 +7,7 @@
     <title>BITS · 压测工作台</title>
     <link rel="stylesheet" href="/style.css" />
     <script src="/dispatch.js" defer></script>
+    <script src="/operations.js" defer></script>
     <script src="/app.js" defer></script>
   </head>
   <body>
@@ -226,6 +227,7 @@
             >
           </div>
           <p id="batch-count" class="list-meta"></p>
+          <div id="batches-delete-toolbar" class="operation-toolbar"></div>
           <div
             class="table-wrap"
             tabindex="0"
@@ -247,6 +249,7 @@
             </table>
           </div>
           <div id="batch-pagination" class="pagination"></div>
+          <div id="batches-deletion-history" aria-live="polite"></div>
           <p class="list-meta">保留所有进行中批次，并展示最近 500 个批次。</p>
         </section>
         <section id="view-monitor" hidden>
@@ -269,8 +272,10 @@
             ><span class="muted">仅展示已核验交付的批次</span>
           </div>
           <p id="report-count" class="list-meta"></p>
+          <div id="reports-delete-toolbar" class="operation-toolbar"></div>
           <div id="report-list" class="report-grid"></div>
           <div id="report-pagination" class="pagination"></div>
+          <div id="reports-deletion-history" aria-live="polite"></div>
         </section>
         <section id="view-dispatch" hidden>
           <div class="dispatch-intro">
@@ -302,7 +307,11 @@
               placeholder="搜索节点或管理地址"
               aria-label="搜索分发节点"
           /></label>
+          <div id="wake-toolbar" class="operation-toolbar"></div>
           <div id="dispatch-nodes" class="dispatch-fleet"></div>
+          <h2 class="section-title">唤醒记录</h2>
+          <div id="wake-history"></div>
+          <div id="wake-pagination" class="pagination"></div>
         </section>
         <section id="view-group" hidden><div id="group-body"></div></section>
         <section id="view-guide" hidden>

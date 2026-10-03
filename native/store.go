@@ -41,7 +41,7 @@ func OpenStore(dir string) (*Store, error) {
 	}
 	if tables > 0 {
 		var version string
-		if err = db.QueryRow("SELECT value FROM metadata WHERE key='schema'").Scan(&version); err != nil || (version != "1" && version != "2" && version != "3") {
+		if err = db.QueryRow("SELECT value FROM metadata WHERE key='schema'").Scan(&version); err != nil || (version != "1" && version != "2" && version != "3" && version != "4") {
 			db.Close()
 			return nil, errors.New("unsupported existing database; no schema changes were made")
 		}
@@ -62,7 +62,7 @@ func OpenStore(dir string) (*Store, error) {
 	}
 	var schema string
 	err = db.QueryRow("SELECT value FROM metadata WHERE key='schema'").Scan(&schema)
-	if err != nil || (schema != "1" && schema != "2" && schema != "3") {
+	if err != nil || (schema != "1" && schema != "2" && schema != "3" && schema != "4") {
 		db.Close()
 		return nil, errors.New("unsupported database schema; retain database and use its matching binary")
 	}
@@ -75,6 +75,10 @@ func OpenStore(dir string) (*Store, error) {
 		return nil, err
 	}
 	if err = migrateBMCEnrollment(db, dbpath); err != nil {
+		db.Close()
+		return nil, err
+	}
+	if err = migrateNodeOperations(db, dbpath); err != nil {
 		db.Close()
 		return nil, err
 	}
@@ -219,6 +223,7 @@ func (s *Store) Mutate(id, kind string, fn func(*Batch) error) (Batch, error) {
 	if err != nil {
 		return b, err
 	}
+	if b.State == "deleting" { return b, errors.New("该批次正在永久删除") }
 	before, _ := json.Marshal(b)
 	if err = fn(&b); err != nil {
 		return b, err
@@ -235,6 +240,12 @@ func (s *Store) Mutate(id, kind string, fn func(*Batch) error) (Batch, error) {
 		return b, err
 	}
 	defer tx.Rollback()
+	if kind == "start_authorized" {
+		busy, e := activeWake(tx, b.Plan.Node)
+		if e != nil { return b, e }
+		if busy { return b, errors.New("节点正在手动唤醒，请等待系统连接后开始压测") }
+		if _, err = tx.Exec("DELETE FROM wake_holds WHERE node=?", b.Plan.Node); err != nil { return b, err }
+	}
 	_, err = tx.Exec("UPDATE batches SET state=?,body=? WHERE id=?", b.State, string(body), id)
 	if err == nil {
 		err = event(tx, id, kind, b.State)

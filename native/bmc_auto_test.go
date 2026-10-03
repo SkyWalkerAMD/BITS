@@ -544,6 +544,7 @@ func TestBMCEnrollmentMigrationAndDurableSelection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	dropNodeOperations(t, s)
 	for _, q := range []string{"DROP TABLE node_bmc_profiles", "UPDATE metadata SET value='2' WHERE key='schema'"} {
 		if _, err = s.db.Exec(q); err != nil {
 			t.Fatal(err)

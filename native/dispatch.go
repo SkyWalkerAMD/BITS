@@ -17,7 +17,7 @@ func migrateDispatch(db *sql.DB, path string) error {
 	if err := db.QueryRow("SELECT value FROM metadata WHERE key='schema'").Scan(&schema); err != nil {
 		return err
 	}
-	if schema == "2" || schema == "3" {
+	if schema == "2" || schema == "3" || schema == "4" {
 		return nil
 	}
 	var count int
@@ -110,6 +110,7 @@ type Availability struct {
 	AgentOnline bool        `json:"agent_online"`
 	Power       PowerStatus `json:"power"`
 	Active      string      `json:"active_batch,omitempty"`
+	Waking      bool        `json:"waking,omitempty"`
 	Reason      string      `json:"reason"`
 }
 
@@ -174,7 +175,11 @@ func (s *Store) Availability(power map[string]PowerStatus) ([]Availability, erro
 	}
 	out := []Availability{}
 	for _, n := range nodes {
-		out = append(out, availability(n, active[n.ID], power[n.ID]))
+		a := availability(n, active[n.ID], power[n.ID])
+		var count int
+		if err = s.db.QueryRow("SELECT count(*) FROM wake_members WHERE node=? AND state IN ('pending','command_requested','waiting_agent')", n.ID).Scan(&count); err != nil { return nil, err }
+		if count > 0 { a.Waking = true; a.CanSelect = false; a.State = "waking"; a.Reason = "正在手动唤醒，等待系统连接" }
+		out = append(out, a)
 	}
 	return out, nil
 }
@@ -188,7 +193,11 @@ func txAvailability(tx *sql.Tx, node string, power map[string]PowerStatus) (Avai
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return Availability{}, err
 	}
-	return availability(n, active, power[node]), nil
+	a := availability(n, active, power[node])
+	busy, err := activeWake(tx, node)
+	if err != nil { return a, err }
+	if busy { a.Waking = true; a.CanSelect = false; a.State = "waking"; a.Reason = "正在手动唤醒，等待系统连接" }
+	return a, nil
 }
 func validateGroup(p *GroupPlan) error {
 	if !idRE.MatchString(p.RequestID) || len(p.Nodes) < 1 || len(p.Nodes) > 200 {
@@ -386,6 +395,7 @@ func (s *Store) GroupAction(id, kind string, in GroupAction, power map[string]Po
 			if !a.AgentOnline && !in.Wake {
 				return DispatchOperation{}, errors.New("包含系统未连接的节点，请明确确认开机/等待连接")
 			}
+			if _, err = tx.Exec("DELETE FROM wake_holds WHERE node=?", b.Plan.Node); err != nil { return DispatchOperation{}, err }
 			b.Attempt = Random(16)
 			if a.AgentOnline {
 				b.State = "armed"

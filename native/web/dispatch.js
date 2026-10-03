@@ -6,6 +6,8 @@ const dispatchState = {
   group: null,
   id: null,
   operations: [],
+  wakes: [],
+  wakeOffset: 0,
   offset: 0,
   step: 0,
   selectedNodes: new Set(),
@@ -25,6 +27,7 @@ const reachabilityLabels = {
   unreachable: "不可达 · 待检查",
   busy: "已有任务",
   disabled: "已禁用",
+  waking: "正在唤醒 · 等待系统",
 };
 function requestID() {
   return crypto.randomUUID().replaceAll("-", "");
@@ -39,7 +42,7 @@ function dispatchRoute(id) {
 }
 async function syncDispatch() {
   const id = dispatchState.id;
-  const [fleet, groups, templates, group, operations, discoveries] =
+  const [fleet, groups, templates, group, operations, discoveries, wakes] =
     await Promise.all([
       api("dispatch/nodes"),
       api("dispatch/groups?offset=" + dispatchState.offset),
@@ -47,11 +50,13 @@ async function syncDispatch() {
       id ? api("dispatch/groups/" + id) : null,
       id ? api("dispatch/groups/" + id + "/operations") : null,
       api("dispatch/bmc-discoveries"),
+      api("dispatch/wakes?offset=" + dispatchState.wakeOffset),
     ]);
   dispatchState.nodes = fleet.nodes;
   dispatchState.discoveries = discoveries;
   dispatchState.groups = groups;
   dispatchState.templates = templates;
+  dispatchState.wakes = wakes;
   if (id === dispatchState.id && group) {
     if (!dispatchState.group) {
       dispatchState.selectedBatches = new Set(
@@ -140,13 +145,15 @@ function renderDispatch() {
     next,
   );
   const nodes = filteredDispatchNodes($("dispatch-search").value);
+  renderWakeToolbar();
+  renderWakeHistory();
   replace(
     $("dispatch-nodes"),
     ...nodes.map((n) => {
       const row = el("article", undefined, "dispatch-node"),
         identity = el("div"),
         status = el("div");
-      identity.append(el("strong", n.node), el("small", powerText(n.power)));
+      identity.append(wakeCheckbox(n), el("small", powerText(n.power)));
       const found = dispatchState.discoveries[n.node];
       if (found?.profile)
         identity.append(el("small", "接入模板：" + found.profile));
@@ -169,8 +176,10 @@ function renderDispatch() {
         "",
         "bmc-" + n.node,
       );
-      configure.disabled = Boolean(n.active_batch);
+      configure.disabled = Boolean(n.active_batch || n.waking);
       const actions = el("div", undefined, "dispatch-actions");
+      const wake = wakeButton(snapshot.nodes.find(v => v.id === n.node));
+      if (wake) actions.append(wake);
       actions.append(configure);
       if (
         !n.active_batch &&

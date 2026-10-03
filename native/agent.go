@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-const WorkerRoot = "/opt/bits/native/0.4.0/worker"
+const WorkerRoot = "/opt/bits/native/0.4.1/worker"
 
 type LocalRun struct {
 	Batch        Batch               "json:\"batch\""
@@ -31,6 +31,7 @@ type Agent struct {
 	Client         *Client
 	Data           string
 	idleSince      time.Time
+	wakeHold       string
 	lastLive       time.Time
 	livePhase      string
 	monitorEnabled bool
@@ -55,6 +56,12 @@ func NewAgent(cfg NodeConfig, data string) (*Agent, error) {
 		return nil, err
 	}
 	a := &Agent{Config: cfg, Client: client, Data: data}
+	var hold struct { ID string `json:"id"` }
+	if _, e := os.Lstat(filepath.Join(data, "wake-hold.json")); e == nil {
+		if e = ReadJSON(filepath.Join(data, "wake-hold.json"), &hold); e != nil { return nil, e }
+		if hold.ID != "" && !idRE.MatchString(hold.ID) { return nil, errors.New("invalid retained wake policy") }
+		a.wakeHold = hold.ID
+	} else if !os.IsNotExist(e) { return nil, e }
 	a.Worker = a.runWorker
 	a.DiscoverBMC = discoverBMC
 	return a, nil
@@ -384,7 +391,7 @@ func (a *Agent) once(ctx context.Context) error {
 			// Explicit operator closure frees the node while keeping all local
 			// evidence and the recorded failure.
 			var remote Batch
-			if e := a.Client.JSON(ctx, "GET", "/node/v1/batches/"+run.Batch.ID, "", nil, &remote); e == nil && (remote.State == "closed_incomplete" || (remote.State == "cancelled" && (run.Phase == "prepared" || run.Phase == "blocked"))) {
+			if e := a.Client.JSON(ctx, "GET", "/node/v1/batches/"+run.Batch.ID, "", nil, &remote); e == nil && (remote.State == "deleted" || remote.State == "closed_incomplete" || (remote.State == "cancelled" && (run.Phase == "prepared" || run.Phase == "blocked"))) {
 				if _, e = os.Stat(filepath.Join(dir, "execution.json")); e == nil {
 					if e = a.stopMonitor(); e != nil {
 						return e
@@ -394,7 +401,7 @@ func (a *Agent) once(ctx context.Context) error {
 					}
 				}
 				run.Phase = "done"
-				run.Batch = remote
+				if remote.State == "deleted" { run.Batch.State = "deleted" } else { run.Batch = remote }
 				if err = a.save(dir, &run); err != nil {
 					return err
 				}
@@ -405,10 +412,12 @@ func (a *Agent) once(ctx context.Context) error {
 	}
 	var pending struct {
 		Batch *Batch "json:\"batch\""
+		WakeHold string `json:"wake_hold"`
 	}
 	if err = a.Client.JSON(ctx, "GET", "/node/v1/poll", "", nil, &pending); err != nil {
 		return err
 	}
+	if err = a.applyWakeHold(pending.WakeHold); err != nil { return err }
 	if pending.Batch == nil {
 		// Discover only while idle, never competing with stress telemetry.
 		a.reportBMC(ctx)
@@ -464,7 +473,8 @@ func (a *Agent) Run(ctx context.Context, once bool) error {
 	}
 }
 func (a *Agent) shutdownIfIdle(ctx context.Context) error {
-	if a.Config.KeepOn {
+	if a.Config.KeepOn || a.wakeHold != "" {
+		a.idleSince = time.Time{}
 		return nil
 	}
 	entries, err := os.ReadDir(filepath.Join(a.Data, "runs"))
@@ -515,6 +525,14 @@ func (a *Agent) shutdownIfIdle(ctx context.Context) error {
 	// No pending evidence and no login session. Never power off due only to
 	// connectivity loss, a failed batch or time since machine boot.
 	return exec.CommandContext(ctx, "/usr/bin/systemctl", "poweroff").Run()
+}
+func (a *Agent) applyWakeHold(id string) error {
+	if id != "" && !idRE.MatchString(id) { return errors.New("invalid center wake policy") }
+	if id == a.wakeHold { return nil }
+	if err := AtomicJSON(filepath.Join(a.Data, "wake-hold.json"), map[string]string{"id": id}); err != nil { return err }
+	a.wakeHold = id
+	a.idleSince = time.Time{}
+	return nil
 }
 func readProgramManifest(root string, inventory *map[string]string) error {
 	if err := TrustedDirectory(root); err != nil {

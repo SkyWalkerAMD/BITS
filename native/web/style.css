@@ -2742,3 +2742,42 @@ dialog h2 {
   gap: 10px;
   flex-wrap: wrap;
 }
+.operation-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 18px 0;
+}
+.operation-toolbar span { color: var(--muted); }
+.operation-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  cursor: pointer;
+}
+.operation-choice input {
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  flex: 0 0 18px;
+  accent-color: #07878b;
+}
+.operation-choice span { overflow-wrap: anywhere; }
+.operation-record { margin-top: 16px; }
+.operation-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border, #dde7eb);
+}
+.operation-result > div { min-width: 0; }
+.operation-result strong, .operation-result small { display: block; overflow-wrap: anywhere; }
+.operation-result small { color: var(--muted); margin-top: 6px; }
+.node-card-foot { flex-wrap: wrap; gap: 10px; }
+#confirm-description { white-space: pre-line; overflow-wrap: anywhere; max-height: 45vh; overflow-y: auto; }
+.reachability.waking { background: #e8f0ff; color: #4973b7; }

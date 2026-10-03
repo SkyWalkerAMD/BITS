@@ -444,6 +444,12 @@ func (s *Server) RunDispatch(ctx context.Context) {
 	go func() { defer close(monitorDone); s.power.Monitor(ctx) }()
 	defer func() { <-monitorDone }()
 	for {
+		if wakes, err := s.Store.pendingWakes(); err == nil {
+			var wg sync.WaitGroup
+			for id, members := range wakes { for _, m := range members { wg.Add(1); go func(id string, m WakeMember) { defer wg.Done(); s.advanceWake(ctx, id, m) }(id, m) } }
+			wg.Wait()
+		}
+		s.completeDeletions()
 		batches, err := s.Store.bootBatches()
 		if err == nil {
 			var wg sync.WaitGroup

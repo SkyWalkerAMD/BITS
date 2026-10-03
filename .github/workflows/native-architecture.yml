@@ -31,7 +31,7 @@ jobs:
           git diff -- . > /tmp/native-format.patch
       - name: Format browser sources for review
         run: |
-          npm exec --yes --package=prettier@3.6.2 -- prettier --write native/web/app.js native/web/dispatch.js native/web/style.css native/web/index.html
+          npm exec --yes --package=prettier@3.6.2 -- prettier --write native/web/app.js native/web/dispatch.js native/web/operations.js native/web/style.css native/web/index.html
           git diff -- native/ > /tmp/native-format.patch
       - name: Check the explicit public source export
         run: |
@@ -136,17 +136,17 @@ jobs:
         with: {persist-credentials: false}
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with: {name: 'independent-packages-${{ matrix.kind }}-${{ github.run_id }}', path: native-dist}
-      - name: Download immutable alpha.7 packages and check pinned hashes
+      - name: Download immutable 0.4.0 packages and check pinned hashes
         env: {GH_TOKEN: '${{ github.token }}', KIND: '${{ matrix.kind }}'}
         run: |
           mkdir upgrade-from
-          gh release download v0.4.0-alpha.7 --repo SkyWalkerAMD/BITS --pattern "bits-*.$KIND" --dir upgrade-from
+          gh release download v0.4.0 --repo SkyWalkerAMD/BITS --pattern "bits-*.$KIND" --dir upgrade-from
           cd upgrade-from
           sha256sum --check --ignore-missing <<'HASHES'
-          49dd1d03da35a8557c9c0081414cfe822584f1a851ac264870928e8e8c293d44  bits-center-0.4.0-0.alpha.7.el8.x86_64.rpm
-          707367f021c73aa3f3571163b581b8cf68e5a7b768bb3c9ee12cea32a52085cd  bits-node-0.4.0-0.alpha.7.el8.x86_64.rpm
-          e9d1051480bd9cccb1600cc0129b9280628fa6dc117bc2f964a96d41b9fbb8e1  bits-center_0.4.0.alpha.7-1_amd64.deb
-          969cb6127dd0e45b20fbd154061c91e91cbc68f64effa9207bae31b557d5b77b  bits-node_0.4.0.alpha.7-1_amd64.deb
+          1ea079307c7c0daedadf504a4ac572104b86a21ed1ba00916d91fada794519aa  bits-center-0.4.0-1.el8.x86_64.rpm
+          771b8b6909e7f61cd898706ddd35482b21ce5bbaf49ed587b642decedddd10f2  bits-node-0.4.0-1.el8.x86_64.rpm
+          5bd7a7b57cc2f78868d3a99341146b23d822b3a94936e6fc68b7dd509eb52248  bits-center_0.4.0-1_amd64.deb
+          96569084b0b8e2304d763915d8061fcde91bc46871ecb0ede5c09778ef265bf0  bits-node_0.4.0-1_amd64.deb
           HASHES
       - name: Upgrade real packages while preserving identity, templates and sealed reports
         env: {BASE_IMAGE: '${{ matrix.image }}', KIND: '${{ matrix.kind }}'}
