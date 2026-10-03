@@ -55,7 +55,7 @@ def main():
     # Synthetic credentials, never production values; the container has no BMC.
     a.api("dispatch/bmc-profiles", {"name": "upgrade-fixture", "enabled": True,
         "networks": ["192.168.50.0/24"], "node_prefix": "BITS-", "model": "",
-        "username": "ci-upgrade", "password": "CI-UPGRADE-FIXTURE-ONLY", "cipher": 17})
+        "username": "ci-upgrade", "password": "CI-UPGRADE-ONLY", "cipher": 17})
     a.run("bits-center", "node-add", "--node", "BITS-CLOUD", "--serial", "CLOUD-UPGRADE",
           "--keep-on", "--bmc-profile", "upgrade-fixture", "--output", "/root/node.json")
     a.run("bits-node", "enroll", "--file", "/root/node.json")
