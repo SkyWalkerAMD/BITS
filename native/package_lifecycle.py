@@ -231,6 +231,8 @@ class Lifecycle:
         if pid < 2 or os.readlink(str(proc / "exe")) != self.binary:
             raise RuntimeError("cannot pin the installed node agent")
         identity = (proc / "stat").read_text().rsplit(")", 1)[1].split()[19]
+        state["legacy_process"] = {"pid": pid, "start": identity}
+        write_json(self.state_path, state)
         paused = False
         try:
             os.kill(pid, signal.SIGSTOP)
@@ -253,13 +255,18 @@ class Lifecycle:
                 os.kill(pid, signal.SIGCONT)
 
     def backup(self, state, config, data, cfg):
-        paths = [Path(config), data]
+        config_dir = Path(config).parent
+        if config_dir.exists() and (len(config_dir.parts) < 3 or config_dir.stat().st_mode & 0o077):
+            raise RuntimeError("BITS configuration directory must be private")
+        # Directory headers retain service-account ownership on full restore.
+        paths = [config_dir, data]
         if self.role == "center":
             paths += [Path("/root/.bits")]
             if cfg:
                 paths += [Path(cfg[key]) for key in ("certificate", "private_key")]
         # Include service overrides, preserving administrator deployment choices.
         paths += [Path("/etc/systemd/system") / (self.unit + ".d")]
+        paths += [Path("/etc/systemd/system") / self.unit]
         chosen = []
         for path in sorted(set(paths), key=lambda p: len(p.parts)):
             if os.path.lexists(str(path)) and not any(p == path or p in path.parents for p in chosen):
@@ -352,6 +359,14 @@ class Lifecycle:
             self.stop_node(props, data, state)
 
     def restore(self, state):
+        legacy = state.get("legacy_process")
+        if legacy:
+            proc = Path("/proc") / str(legacy["pid"])
+            try:
+                if (proc / "stat").read_text().rsplit(")", 1)[1].split()[19] == legacy["start"] and os.readlink(str(proc / "exe")) == self.binary:
+                    os.kill(legacy["pid"], signal.SIGCONT)
+            except (FileNotFoundError, ProcessLookupError):
+                pass
         self.unmask(state)
         if state["active"]:
             command("systemctl", "start", self.unit)

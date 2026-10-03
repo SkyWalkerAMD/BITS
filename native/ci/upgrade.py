@@ -140,6 +140,8 @@ def main():
         with tarfile.open(str(backups[0])) as saved:
             assert (str(config_file).lstrip("/") if role == "center" else "etc/bits/node/connection.json") in saved.getnames()
             if role == "center":
+                directory = saved.getmember(str(config_file.parent).lstrip("/"))
+                assert directory.isdir() and directory.uid == config_file.parent.stat().st_uid and directory.mode == 0o700
                 for name, digest in old_files.items():
                     content = saved.extractfile(str(evidence / name).lstrip("/")).read()
                     assert hashlib.sha256(content).hexdigest() == digest
@@ -190,15 +192,24 @@ def main():
     # A failed backup must abort before unpack and restore the previous service.
     tar = Path("/usr/bin/tar")
     tar_bytes, tar_mode = tar.read_bytes(), tar.stat().st_mode & 0o777
+    real_tar = Path("/usr/bin/tar.bits-ci-real")
+    assert not real_tar.exists()
+    real_tar.write_bytes(tar_bytes)
+    real_tar.chmod(tar_mode)
     center_package = next(p for p in packages if "bits-center" in p)
     try:
-        tar.write_text("#!/bin/sh\nexit 75\n")
+        # dpkg also uses tar to read its control archive. Fail only the BITS
+        # backup, after the maintainer script has stopped the service.
+        tar.write_text("#!/bin/sh\nfor arg in \"$@\"; do\n"
+                       " case \"$arg\" in /var/backups/bits/*/before.tar) exit 75;; esac\ndone\n"
+                       "exec /usr/bin/tar.bits-ci-real \"$@\"\n")
         failed = subprocess.run(reinstall[:-2] + [center_package], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=180)
         Path("/results/backup-failure.txt").write_bytes(failed.stdout)
         assert failed.returncode != 0 and b"command failed: tar" in failed.stdout, failed.stdout.decode(errors="replace")
     finally:
         tar.write_bytes(tar_bytes)
         tar.chmod(tar_mode)
+        real_tar.unlink()
     assert active("center") and not active("node")
     assert hashes(evidence) == old_files
     assert not Path("/var/lib/bits-package/center.json").exists()
