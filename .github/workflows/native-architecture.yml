@@ -25,7 +25,6 @@ jobs:
       - name: Verify locked dependencies and format review copy
         working-directory: native
         run: |
-          go mod tidy
           go mod download
           go mod verify
           gofmt -w .

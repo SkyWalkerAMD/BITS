@@ -76,7 +76,8 @@ for filename in ("dashboard.png", "dashboard-mobile.png", "batch-running.png", "
                  "bmc-overview.png", "bmc-nodes-mobile.png", "node-template.png", "node-template-mobile.png",
                  "hardware-idle.png", "hardware-idle-mobile.png",
                  "hardware-info.png", "hardware-info-mobile.png",
-                 "wake-confirm.png", "wake-progress.png", "wake-mobile.png", "delete-confirm.png", "delete-mobile.png"):
+                 "wake-confirm.png", "wake-progress.png", "wake-mobile.png", "delete-confirm.png", "delete-mobile.png",
+                 "system-terminal.png", "system-terminal-mobile.png"):
     shutil.copyfile(str(browser_dir / filename), str(out / filename))
 for source, target in (("docs/development/BITS-INDEPENDENT.md", "ARCHITECTURE.md"),
                        ("docs/deployment/BITS-INDEPENDENT.md", "OPERATIONS.md"),

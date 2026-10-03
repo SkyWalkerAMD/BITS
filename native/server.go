@@ -227,7 +227,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 	path := strings.TrimPrefix(r.URL.Path, "/api/v1/")
-	if strings.HasPrefix(path, "remote/") { return s.remoteAPI(w, r, strings.TrimPrefix(path,"remote/")) }
+	if strings.HasPrefix(path, "remote/") {
+		return s.remoteAPI(w, r, strings.TrimPrefix(path, "remote/"))
+	}
 	if path == "deletions" && r.Method == "POST" {
 		var in DeleteRequest
 		if err := decodeBounded(r, &in, 16384); err != nil {
@@ -247,12 +249,12 @@ func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 	if path == "logout" && r.Method == "POST" {
-		s.remote.closeOwner(remoteOwner(r), "退出登录")
 		if c, e := r.Cookie("bits_session"); e == nil {
 			s.mu.Lock()
 			delete(s.sessions, Digest([]byte(c.Value)))
 			s.mu.Unlock()
 		}
+		s.remote.closeOwner(remoteOwner(r), "退出登录")
 		http.SetCookie(w, &http.Cookie{Name: "bits_session", Value: "", Path: "/", HttpOnly: true, Secure: true, SameSite: http.SameSiteStrictMode, MaxAge: -1})
 		respond(w, map[string]bool{"ok": true})
 		return nil
@@ -420,9 +422,13 @@ func (s *Server) node(w http.ResponseWriter, r *http.Request, node string) error
 	path := strings.TrimPrefix(r.URL.Path, "/node/v1/")
 	if path == "network" && r.Method == "POST" {
 		var in NodeNetwork
-		if err := decodeBounded(r,&in,16384); err != nil { return err }
-		if err := s.Store.SaveNetwork(node,in); err != nil { return err }
-		respond(w,map[string]bool{"ok":true})
+		if err := decodeBounded(r, &in, 16384); err != nil {
+			return err
+		}
+		if err := s.Store.SaveNetwork(node, in); err != nil {
+			return err
+		}
+		respond(w, map[string]bool{"ok": true})
 		return nil
 	}
 	if path == "hardware-info" && r.Method == "POST" {

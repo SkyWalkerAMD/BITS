@@ -351,7 +351,10 @@ async function api(path, method = "GET", data) {
     throw new Error("此操作正在提交，请等待结果。");
   if (method !== "GET") inFlightActions.add(actionKey);
   const controller = new AbortController(),
-    timer = setTimeout(() => controller.abort(), path === "remote/connect" ? 30000 : 10000);
+    timer = setTimeout(
+      () => controller.abort(),
+      path === "remote/connect" ? 30000 : 10000,
+    );
   try {
     const r = await fetch("/api/v1/" + path, {
       method,
@@ -841,7 +844,13 @@ function renderNodes() {
       .filter(
         (n) =>
           (nodeFilter === "all" || nodeKind(n) === nodeFilter) &&
-          (n.id + " " + (n.network?.addresses || []).map(a => a.address).join(" ")).toLowerCase().includes(query),
+          (
+            n.id +
+            " " +
+            (n.network?.addresses || []).map((a) => a.address).join(" ")
+          )
+            .toLowerCase()
+            .includes(query),
       )
       .sort((a, b) => collator.compare(a.id, b.id)),
     count = 24;
@@ -1937,27 +1946,31 @@ function route() {
     );
   hardwareInfoRoute(infoRoute ? infoRoute[1] : null);
   remoteRoute(systemRoute ? systemRoute[1] : null);
-  page = systemRoute ? "remote" : infoRoute
-    ? "info"
-    : detail
-      ? detail[1] === "group"
-        ? "group"
-        : detail[1] === "monitor"
+  page = systemRoute
+    ? "remote"
+    : infoRoute
+      ? "info"
+      : detail
+        ? detail[1] === "group"
+          ? "group"
+          : detail[1] === "monitor"
+            ? "monitor"
+            : "detail"
+        : nodeRoute
           ? "monitor"
-          : "detail"
-      : nodeRoute
-        ? "monitor"
-        : Object.hasOwn(pageInfo, hash) &&
-            !["detail", "monitor", "group", "info", "remote"].includes(hash)
-          ? hash
-          : "overview";
-  const nextRouteKey = systemRoute ? systemRoute[0] : infoRoute
-    ? infoRoute[0]
-    : detail
-      ? detail[0]
-      : nodeRoute
-        ? nodeRoute[0]
-        : page;
+          : Object.hasOwn(pageInfo, hash) &&
+              !["detail", "monitor", "group", "info", "remote"].includes(hash)
+            ? hash
+            : "overview";
+  const nextRouteKey = systemRoute
+    ? systemRoute[0]
+    : infoRoute
+      ? infoRoute[0]
+      : detail
+        ? detail[0]
+        : nodeRoute
+          ? nodeRoute[0]
+          : page;
   if (routeKey !== nextRouteKey) {
     if (routeKey) routePositions.set(routeKey, window.scrollY);
     // Retain useful back-navigation positions without an unbounded session cache.

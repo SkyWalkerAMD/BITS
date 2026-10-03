@@ -152,7 +152,7 @@ async function remoteFiles(directory){
  try{const v=await api("remote/sessions/"+id+"/files?path="+encodeURIComponent(directory));if(id!==r.id)return;$("remote-path").value=v.path;const list=$("remote-file-list");list.replaceChildren();
   if(v.path!=="/")list.append(button("↑ 上级目录",()=>remoteFiles(v.path.slice(0,v.path.lastIndexOf("/"))||"/"),"quiet"));
   for(const f of v.entries){const row=el("div",undefined,"remote-file-row"),full=(v.path==="/"?"":v.path)+"/"+f.name;row.append(el("span",f.directory?"目录":f.symlink?"链接":"文件","muted"));
-   const open=button(f.name,()=>{if(f.directory||f.symlink)remoteFiles(full);else window.open("/api/v1/remote/sessions/"+id+"/download?path="+encodeURIComponent(full),"_blank","noopener");},"quiet");open.title=f.name;row.append(open,el("span",f.directory?"—":bytes(f.bytes)),el("small",f.mode,"muted"));list.append(row);}
+   const open=button(f.name,()=>{if(f.directory||f.symlink)remoteFiles(full);else {const a=el("a");a.href="/api/v1/remote/sessions/"+id+"/download?path="+encodeURIComponent(full);a.download=f.name;document.body.append(a);a.click();a.remove();}},"quiet");open.title=f.name;row.append(open,el("span",f.directory?"—":bytes(f.bytes)),el("small",f.mode,"muted"));list.append(row);}
   $("remote-file-status").textContent=v.truncated?"仅显示前 2000 项，可输入完整路径访问子目录。":v.entries.length+" 项";
  }catch(e){if(id===r.id)$("remote-file-status").textContent=e.message;}
 }

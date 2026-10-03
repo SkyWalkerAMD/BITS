@@ -60,7 +60,9 @@ func (a *Agent) heartbeat(ctx context.Context) {
 		cancel()
 		if time.Since(lastNetwork) >= 30*time.Second {
 			callCtx, cancel = context.WithTimeout(ctx, 3*time.Second)
-			if a.Client.JSON(callCtx, "POST", "/node/v1/network", "", collectSystemNetwork(a.Config.URL), nil) == nil { lastNetwork = time.Now() }
+			if a.Client.JSON(callCtx, "POST", "/node/v1/network", "", collectSystemNetwork(a.Config.URL), nil) == nil {
+				lastNetwork = time.Now()
+			}
 			cancel()
 		}
 		select {

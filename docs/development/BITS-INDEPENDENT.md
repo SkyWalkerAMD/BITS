@@ -94,7 +94,7 @@ alpha.5 增加任务组：1–200 台已登记节点共用计划，创建时一�
 
 节点可达性区分认证心跳（20 秒内）、BMC 电源开/关和不可达。BMC 检查不足以证明 sckocp 或工具就绪，原节点执行前检查仍是必经步骤。不可达节点不能创建新的组内批次；草稿检查后状态变化不会静默跳过。批量开始在事务内重新检查所有所选节点，全部授权或全部不授权。未选中的草稿不会自行进入执行。
 
-关机但 BMC 可达的节点，经明确开始进入 `waiting_boot` 并持有单节点名额；仅发送固定 `chassis power on`，不使用循环断电或重启。开机指令意图先持久化，收到 BMC 应答只变为等待状态，认证节点心跳恢复后才进入 armed。开机/连接期限 10 分钟，失败进入 needs_attention 且 execution=not_started；后续人工处理不会隐式重跑。中心重启发现已记录的开机意图但结果不明时先查询状态，仍关机则待处理，不盲目再发。配置文件只在中心私有目录，固定受信任的系统 ipmitool、清洁环境、密码不出现在 argv；没有远程 shell 或 sckocp 命令通道。
+关机但 BMC 可达的节点，经明确开始进入 `waiting_boot` 并持有单节点名额；仅发送固定 `chassis power on`，不使用循环断电或重启。开机指令意图先持久化，收到 BMC 应答只变为等待状态，认证节点心跳恢复后才进入 armed。开机/连接期限 10 分钟，失败进入 needs_attention 且 execution=not_started；后续人工处理不会隐式重跑。中心重启发现已记录的开机意图但结果不明时先查询状态，仍关机则待处理，不盲目再发。配置文件只在中心私有目录，固定受信任的系统 ipmitool、清洁环境、密码不出现在 argv；此 BMC 通道不执行远程 Shell 或 sckocp 命令；0.4.3 的系统终端使用独立 SSH 会话。
 
 数据库 schema 2 新增 group_members、dispatch_groups、dispatch_operations、task_templates，并把 waiting_boot 纳入唯一活动批次索引。schema 1 有已有身份/批次时先 VACUUM INTO 生成一致性备份，再事务升级。旧程序拒绝 schema 2，回退使用升级前快照，不能把旧二进制直接连接新数据库。
 

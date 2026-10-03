@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import time
 from playwright.sync_api import sync_playwright, expect
+from browser_remote import verify_remote
 
 assert os.environ.get("GITHUB_ACTIONS") == "true"
 admin = json.loads(subprocess.check_output(["docker", "exec", "bits-independent-test",
@@ -800,13 +801,14 @@ with sync_playwright() as p:
         assert all(b["id"] not in (first["id"],second["id"]) for b in remaining)
         checks.append("single report delete confirmation lists target and cancels without change; two selected reports permanently deleted through real API with center files and download access removed; cross-page batch selection and mobile confirmation")
         page.set_viewport_size({"width":1440, "height":1080})
+        verify_remote(page, context, admin, out, checks)
         page.locator("#logout").click()
         expect(page.locator("#login-dialog")).to_be_visible()
         assert not errors, errors
         checks.append("operator logout and no browser script errors")
     except BaseException:
         # Never screenshot an entered credential or connection-file contents.
-        if not any(page.locator(selector).is_visible() for selector in ("#login-dialog", "#bmc-dialog", "#bmc-profiles-dialog")):
+        if not any(page.locator(selector).is_visible() for selector in ("#login-dialog", "#bmc-dialog", "#bmc-profiles-dialog")) and not page.locator(".remote-profile-dialog").count() and not page.locator("#remote-login").is_visible():
             page.screenshot(path=str(out / "browser-failure.png"), full_page=True)
         raise
     finally:

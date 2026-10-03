@@ -83,10 +83,10 @@ func OpenStore(dir string) (*Store, error) {
 		return nil, err
 	}
 	if err = migrateSystemAccess(db, dbpath); err != nil {
-        db.Close()
-        return nil, err
-    }
-    return &Store{db: db}, nil
+		db.Close()
+		return nil, err
+	}
+	return &Store{db: db}, nil
 }
 func (s *Store) Close() error { return s.db.Close() }
 func (s *Store) AddNode(id, token string) error {
