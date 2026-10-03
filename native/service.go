@@ -17,7 +17,12 @@ func EnableService(role string) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "/usr/bin/systemctl", "enable", "--now", "bits-"+role+".service")
+	systemctl := "/usr/bin/systemctl"
+	if _, err := os.Stat(systemctl); os.IsNotExist(err) {
+		// Debian 11 also supports systems without the merged /usr layout.
+		systemctl = "/bin/systemctl"
+	}
+	cmd := exec.CommandContext(ctx, systemctl, "enable", "--now", "bits-"+role+".service")
 	cmd.Stdout, cmd.Stderr = os.Stderr, os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("configuration saved; start bits-%s.service after checking systemd: %w", role, err)
