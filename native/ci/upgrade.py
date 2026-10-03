@@ -117,6 +117,13 @@ def main():
                      "/root/.bits/admin.json")
     identities = {p: Path(p).read_bytes() for p in private_paths}
     private_profiles = json.loads((center_data / "bmc-auto.json").read_text())["profiles"]
+    ssh_profiles, ssh_private = None, {}
+    if old == "0.4.3":
+        a.api("remote/profiles", {"name": "SSH upgrade fixture", "username": "ci-system",
+                                  "password": "CI-SYSTEM-UPGRADE-ONLY", "port": 2222})
+        ssh_profiles = a.api("remote/config")
+        assert "CI-SYSTEM-UPGRADE-ONLY" not in json.dumps(ssh_profiles)
+        ssh_private = {name: (center_data / name).read_bytes() for name in ("ssh.json", "ssh-key.json")}
     print(a.run(*command))
     versions(NEW)
     assert all(active(role) for role in ROLES), "Package transaction must restore running services"
@@ -128,6 +135,11 @@ def main():
     ready()
     assert a.api("dispatch/bmc-profiles") == profiles
     assert json.loads((center_data / "bmc-auto.json").read_text())["profiles"] == private_profiles
+    if ssh_profiles is not None:
+        assert a.api("remote/config") == ssh_profiles
+        for name, value in ssh_private.items():
+            assert (center_data / name).read_bytes() == value
+            assert (center_data / name).stat().st_mode & 0o777 == 0o600
     node = next(n for n in a.api("overview")["nodes"] if n["id"] == "BITS-CLOUD")
     assert node["bmc_profile"] == "upgrade-fixture"
     restored = a.api("batches/" + first["id"])
@@ -140,6 +152,8 @@ def main():
         with tarfile.open(str(backups[0])) as saved:
             assert (str(config_file).lstrip("/") if role == "center" else "etc/bits/node/connection.json") in saved.getnames()
             if role == "center":
+                for name, value in ssh_private.items():
+                    assert saved.extractfile(str(center_data / name).lstrip("/")).read() == value
                 directory = saved.getmember(str(config_file.parent).lstrip("/"))
                 assert directory.isdir() and directory.uid == config_file.parent.stat().st_uid and directory.mode == 0o700
                 for name, digest in old_files.items():
@@ -220,6 +234,8 @@ def main():
                    "BMC template credentials and enrollment selection preserved", "sealed report and receipt hashes unchanged",
                    "idle monitoring and hardware info after upgrade", "explicit new batch delivered", "monitoring resumes without a new batch", "permanent deletion preserves unselected old evidence"],
         "hardware_readings": "synthetic; no physical BMC or sensor validation"}
+    if ssh_profiles is not None:
+        result["checks"].append("SSH template credentials and encryption key preserved byte-for-byte, private backup contains both")
     Path("/results/upgrade.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result))
 

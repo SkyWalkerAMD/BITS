@@ -61,6 +61,10 @@ def verify_remote(page, context, admin, out, checks):
         page.wait_for_timeout(400)
         expect(page.locator("#remote-fullscreen")).to_have_text("退出全屏")
         assert page.locator("#remote-terminal").bounding_box()["height"] > box["height"]
+        page.locator("#remote-show-files").click()
+        expect(page.locator("#remote-files")).to_be_visible()
+        expect(page.locator("#remote-path")).to_have_value("/home/" + login["username"])
+        page.locator("#remote-files-close").click()
         page.locator("#remote-fullscreen").click()
         expect(page.locator("#remote-fullscreen")).to_have_text("全屏")
         assert page.evaluate("remoteState.id") == first_session
@@ -130,6 +134,7 @@ def verify_remote(page, context, admin, out, checks):
         expect(page.locator('#file-queue-list [data-state="failed"]')).to_contain_text("同名文件已存在")
         actual = subprocess.check_output(["docker", "exec", "bits-independent-test", "cat", "/home/" + login["username"] + "/upload-check.txt"])
         assert actual == body
+        wait_files_idle(page)
         page.locator("#file-queue-pause").click()
         page.locator("#remote-upload").set_input_files({"name": "cancel-waiting.txt", "mimeType": "text/plain", "buffer": b"must not upload"})
         page.locator("#local-upload-selected").click()
@@ -179,6 +184,33 @@ def verify_remote(page, context, admin, out, checks):
         page.locator("#remote-path").fill("/home/" + login["username"])
         page.locator(".remote-path-form").get_by_role("button", name="进入").click()
         expect(file).to_be_visible()
+        wait_files_idle(page)
+        # Cancel a real in-flight body while Chromium throttles upload traffic.
+        cdp = context.new_cdp_session(page)
+        cdp.send("Network.enable")
+        cdp.send("Network.emulateNetworkConditions", {"offline": False, "latency": 0, "downloadThroughput": -1, "uploadThroughput": 65536})
+        page.locator("#remote-upload").set_input_files({"name": "cancel-active.bin", "mimeType": "application/octet-stream", "buffer": b"x" * (2 * 1024 * 1024)})
+        page.locator("#local-upload-selected").click()
+        active = page.locator('#file-queue-list [data-state="uploading"]').filter(has_text="cancel-active.bin")
+        expect(active).to_be_visible(timeout=10000)
+        for _ in range(50):
+            if page.evaluate("transferState.active?.progress > 0"):
+                break
+            page.wait_for_timeout(100)
+        else:
+            raise AssertionError("throttled upload did not start")
+        active.get_by_role("button", name="取消", exact=True).click()
+        cdp.send("Network.emulateNetworkConditions", {"offline": False, "latency": 0, "downloadThroughput": -1, "uploadThroughput": -1})
+        cdp.detach()
+        expect(page.locator('#file-queue-list [data-state="cancelled"]').filter(has_text="cancel-active.bin")).to_have_count(1)
+        wait_files_idle(page)
+        assert subprocess.call(["docker", "exec", "bits-independent-test", "test", "-e", "/home/" + login["username"] + "/cancel-active.bin"]) != 0
+        # Retrying a previously refused name works after that fixture file is removed.
+        subprocess.check_call(["docker", "exec", "bits-independent-test", "rm", "--", "/home/" + login["username"] + "/upload-check.txt"])
+        page.locator('#file-queue-list [data-state="failed"]').filter(has_text="upload-check.txt").get_by_role("button", name="重试", exact=True).click()
+        expect(page.locator('#file-queue-list [data-state="completed"]')).to_have_count(6, timeout=20000)
+        wait_files_idle(page)
+        assert subprocess.check_output(["docker", "exec", "bits-independent-test", "cat", "/home/" + login["username"] + "/upload-check.txt"]) == b"must not overwrite"
         page.evaluate("document.activeElement.blur(); window.scrollTo(0, 0)")
         page.wait_for_timeout(200)
         page.screenshot(path=str(out / "system-files.png"), full_page=True)
@@ -214,6 +246,6 @@ def verify_remote(page, context, admin, out, checks):
         configs = context.request.get(admin["url"] + "/api/v1/remote/config").text()
         assert login["password"] not in configs and '"secret"' not in configs
         checks.append("actual OpenSSH PTY command and multiline paste, private SSH template login, first-host fingerprint, pinned-host temporary login, wrong password, real SFTP upload/download checksum and no overwrite, navigation disconnect, responsive mobile terminal")
-        checks.append("viewport-filling terminal on laptop and mobile, persistent font controls and fullscreen preserve SSH session, dual-pane local/remote file browser, sequential multi-file and drag uploads, folder browsing, queue pause/cancel, immutable queued target directory, file window closes without ending SSH")
+        checks.append("viewport-filling terminal on laptop and mobile, font controls and fullscreen preserve SSH session, file manager works in fullscreen, dual-pane local/remote browser, sequential multi-file and drag uploads, folder browsing, queue pause, pending and in-flight cancellation, failed upload retry, immutable queued target directory, file window closes without ending SSH")
     finally:
         page.remove_listener("dialog", confirm)

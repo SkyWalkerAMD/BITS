@@ -3230,6 +3230,7 @@ dialog h2 {
   min-height: 0;
 }
 .file-entry .file-name {
+  display: block;
   text-align: left;
   border: 0;
   box-shadow: none;

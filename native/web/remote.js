@@ -117,7 +117,9 @@ function remoteChangeFont(delta) {
   const value = Math.max(12, Math.min(24, r.terminal.options.fontSize + delta));
   r.terminal.options.fontSize = value;
   $("remote-font-size").textContent = value + " px";
-  try { localStorage.setItem("bits-terminal-font", String(value)); } catch {}
+  try {
+    localStorage.setItem("bits-terminal-font", String(value));
+  } catch {}
   requestAnimationFrame(remoteFit);
 }
 async function remoteMaximize(enabled) {
@@ -141,9 +143,13 @@ document.addEventListener("fullscreenchange", () => {
   if (!document.fullscreenElement) remoteMaximize(false);
 });
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !document.fullscreenElement &&
-      $("remote-body")?.classList.contains("remote-maximized") &&
-      !$("remote-files")?.open) remoteMaximize(false);
+  if (
+    event.key === "Escape" &&
+    !document.fullscreenElement &&
+    $("remote-body")?.classList.contains("remote-maximized") &&
+    !$("remote-files")?.open
+  )
+    remoteMaximize(false);
 });
 async function loadRemoteProfiles(selected) {
   const node = remoteState.node;
@@ -277,7 +283,15 @@ function renderRemote() {
         remoteMessage("请在终端中使用 Ctrl+Shift+V 粘贴");
       }
     }),
-    button("全屏", () => remoteMaximize(!$("remote-body").classList.contains("remote-maximized")), "", "remote-fullscreen"),
+    button(
+      "全屏",
+      () =>
+        remoteMaximize(
+          !$("remote-body").classList.contains("remote-maximized"),
+        ),
+      "",
+      "remote-fullscreen",
+    ),
     button("断开连接", () => {
       remoteDisconnect();
       form.hidden = false;
@@ -289,10 +303,23 @@ function renderRemote() {
   for (const key of ["remote-show-files", "remote-fullscreen"])
     toolbar.querySelector('[data-focus-key="' + key + '"]').id = key;
   terminal.id = "remote-terminal";
-  const foot = el("div", undefined, "remote-terminal-foot"), size = el("span", "", "muted"), font = el("span", remoteFontSize() + " px");
+  const foot = el("div", undefined, "remote-terminal-foot"),
+    size = el("span", "", "muted"),
+    font = el("span", remoteFontSize() + " px");
   size.id = "remote-size";
   font.id = "remote-font-size";
-  const smaller = button("A−", () => remoteChangeFont(-1), "quiet", "remote-font-smaller"), larger = button("A+", () => remoteChangeFont(1), "quiet", "remote-font-larger");
+  const smaller = button(
+      "A−",
+      () => remoteChangeFont(-1),
+      "quiet",
+      "remote-font-smaller",
+    ),
+    larger = button(
+      "A+",
+      () => remoteChangeFont(1),
+      "quiet",
+      "remote-font-larger",
+    );
   smaller.setAttribute("aria-label", "缩小终端字号");
   larger.setAttribute("aria-label", "放大终端字号");
   foot.append(size, smaller, font, larger);
