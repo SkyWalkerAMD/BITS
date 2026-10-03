@@ -18,9 +18,7 @@ RPM 版本为 0.4.2-1.el8，DEB 为 0.4.2-1；程序显示 0.4.2。先核验 SHA
 
 使用这台中心的实际内网地址和允许网段初始化一次，成功后自动启用并启动服务：
 
-    bits-center setup --address 192.168.50.10 --network 192.168.50.0/24 --check
     bits-center setup --address 192.168.50.10 --network 192.168.50.0/24 --apply
-    systemctl enable --now bits-center.service
 
 默认仅使用 TCP 443。应用本身校验来源网段；已有主机防火墙仍需允许该网段访问 443，安装程序不会修改网卡、网关、DNS 或关闭防火墙。节点不需要开放入站端口，数据库不监听网络。不需要 Redis 6379、rsync 873 或 HTTP 80。
 
@@ -41,8 +39,6 @@ RPM 版本为 0.4.2-1.el8，DEB 为 0.4.2-1；程序显示 0.4.2。先核验 SHA
 安装节点包：`dnf install ./bits-node-0.4.2-1.el8.x86_64.rpm`；Debian / Ubuntu 使用 `apt install ./bits-node_0.4.2-1_amd64.deb`。导入一次该节点连接文件，成功后自动启用并启动服务：
 
     bits-node enroll --file /root/TEST-NODE.bits.json
-    bits-node check
-    systemctl enable --now bits-node.service
 
 服务只等待明确授权，不从待办列表自动执行压测。原 sckocp 的交互硬件查看仍使用 sckocp；BITS 不提供新的硬件交互命令或远程 sckocp 控制入口。
 

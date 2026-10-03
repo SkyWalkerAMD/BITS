@@ -95,7 +95,8 @@ def main():
     refused = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=180)
     Path("/results/busy-upgrade.txt").write_bytes(refused.stdout)
     assert refused.returncode != 0, "An unfinished batch must prevent package replacement"
-    assert b"unfinished work" in refused.stdout, refused.stdout.decode(errors="replace")
+    for role in ROLES:
+        assert ("BITS " + role + " has unfinished work").encode() in refused.stdout, refused.stdout.decode(errors="replace")
     versions(old)
     assert all(active(role) for role in ROLES)
     assert a.run("systemctl", "show", "bits-node", "-p", "MainPID", "--value") == node_pid

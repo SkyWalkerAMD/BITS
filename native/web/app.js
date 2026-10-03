@@ -2504,7 +2504,7 @@ $("node-form").onsubmit = async (e) => {
     $("enroll-example").textContent =
       "bits-node enroll --file /root/" +
       cfg.node +
-      ".bits.json\nbits-node check\nsystemctl enable --now bits-node.service";
+      ".bits.json";
     notice(
       "节点 " +
         cfg.node +

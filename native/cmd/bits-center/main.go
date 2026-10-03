@@ -68,6 +68,9 @@ func run() error {
 				return errors.New("custom configuration saved; configure the service explicitly or use --start=false")
 			}
 			e = bits.EnableService("center")
+			if e == nil {
+				v["next"] = "open " + v["url"].(string)
+			}
 		}
 		if e == nil {
 			show(v)

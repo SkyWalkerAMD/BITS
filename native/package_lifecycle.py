@@ -106,6 +106,10 @@ class Lifecycle:
         config = "/etc/bits/" + self.role + ("/config.json" if self.role == "center" else "/connection.json")
         # Honor administrator --config overrides; refuse wrappers/unknown flags.
         entry = props.get("ExecStart", "")
+        if props.get("LoadState") == "masked" and not entry:
+            overrides = Path("/etc/systemd/system") / (self.unit + ".d")
+            if overrides.exists() and any("ExecStart=" in p.read_text() for p in overrides.glob("*.conf")):
+                raise RuntimeError("masked custom service requires explicit maintenance")
         if entry:
             match = re.search(r"argv\[\]=(.*?) ;", entry)
             if not match:
@@ -125,7 +129,9 @@ class Lifecycle:
         data = Path(cfg["data"] if cfg and self.role == "center" else "/var/lib/bits/" + self.role)
         if data.exists():
             private_path(data, True)
-        if not data.is_absolute() or ".." in data.parts or len(data.parts) < 4:
+            if data.stat().st_mode & 0o077:
+                raise RuntimeError("BITS data directory must be private")
+        if not data.is_absolute() or ".." in data.parts or len(data.parts) < 3:
             raise RuntimeError("invalid BITS data directory")
         backups = Path("/var/backups/bits")
         if data == backups or data in backups.parents or backups in data.parents:
@@ -191,10 +197,13 @@ class Lifecycle:
 
     def stop_node(self, props, data, state):
         self.node_idle(data)
-        if not state["active"]:
+        if not self.running(props):
+            if data.exists():
+                with os.fdopen(os.open(str(data / "agent.lock"), os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600), "r+") as lock:
+                    fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
             self.mask_service(state)
             return
-        installed = state["from"]
+        installed = command(self.binary, "version").replace("BITS ", "")
         if installed not in ("0.4.0", "0.4.1") and "alpha" not in installed:
             gate = data / "maintenance.lock"
             with os.fdopen(os.open(str(gate), os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600), "r+") as lock:
@@ -275,7 +284,8 @@ class Lifecycle:
                    "to": self.version, "active": state["active"], "paths": [str(p) for p in chosen]})
         print("BITS " + self.role + " backup: " + str(archive), flush=True)
 
-    def prepare(self, operation="upgrade"):
+    def prepare(self):
+        operation = "upgrade"
         for old in ("/etc/bits/node/native.json", "/etc/bits/center/manifest.json",
                     "/etc/ocrun-node/native.json", "/etc/ocrun-server/manifest.json"):
             if os.path.lexists(old):
@@ -300,7 +310,16 @@ class Lifecycle:
         if previous:
             if previous["to"] != self.version or previous["operation"] != operation:
                 raise RuntimeError("unfinished package operation; retry the same package first")
-            if previous["phase"] == "prepared" and not self.running(props):
+            if previous["phase"] == "prepared":
+                if self.running(props):
+                    config, data, cfg = self.configuration(props)
+                    try:
+                        self.stop_idle(props, data, previous)
+                    except BaseException:
+                        self.unmask(previous)
+                        if previous["active"]:
+                            command("systemctl", "start", self.unit)
+                        raise
                 return
             self.recover()
             props = self.properties()
@@ -313,13 +332,7 @@ class Lifecycle:
                  "operation": operation, "phase": "preparing", "mask_owned": False}
         write_json(self.state_path, state)
         try:
-            if self.role == "center":
-                with self.center_idle(data):
-                    self.mask_service(state)
-                    if active:
-                        command("systemctl", "stop", self.unit)
-            else:
-                self.stop_node(props, data, state)
+            self.stop_idle(props, data, state)
             if self.properties().get("ActiveState") not in ("inactive", "failed"):
                 raise RuntimeError("service has not stopped")
             self.backup(state, config, data, cfg)
@@ -329,13 +342,22 @@ class Lifecycle:
             self.restore(state)
             raise
 
+    def stop_idle(self, props, data, state):
+        if self.role == "center":
+            with self.center_idle(data):
+                self.mask_service(state)
+                if self.running(props):
+                    command("systemctl", "stop", self.unit)
+        else:
+            self.stop_node(props, data, state)
+
     def restore(self, state):
         self.unmask(state)
         if state["active"]:
             command("systemctl", "start", self.unit)
         self.state_path.unlink()
 
-    def finish(self, removal=False):
+    def finish(self):
         if not self.state_path.exists():
             return
         state = read_json(self.state_path)
@@ -343,19 +365,16 @@ class Lifecycle:
             raise RuntimeError("package preparation is incomplete")
         if not state.get("offline"):
             self.unmask(state)
-        if removal:
-            command("systemctl", "disable", self.unit)
-        else:
-            if command(self.binary, "version") != "BITS " + self.version:
-                raise RuntimeError("installed binary version differs from the package")
-            if state["active"]:
-                if self.role == "node":
-                    command(self.binary, "check", "--config", state["config"])
-                command("systemctl", "start", self.unit)
-                self.ready(state)
-            elif not Path(state["config"]).exists():
-                hint = "setup --address <LAN-IP> --network <CIDR> --apply" if self.role == "center" else "enroll --file <connection.json>"
-                print("BITS installed. Configure once: bits-" + self.role + " " + hint)
+        if command(self.binary, "version") != "BITS " + self.version:
+            raise RuntimeError("installed binary version differs from the package")
+        if state["active"]:
+            if self.role == "node":
+                command(self.binary, "check", "--config", state["config"])
+            command("systemctl", "start", self.unit)
+            self.ready(state)
+        elif not Path(state["config"]).exists():
+            hint = "setup --address <LAN-IP> --network <CIDR> --apply" if self.role == "center" else "enroll --file <connection.json>"
+            print("BITS installed. Configure once: bits-" + self.role + " " + hint)
         self.state_path.unlink()
 
     def ready(self, state):
@@ -402,12 +421,8 @@ def main():
     lifecycle = Lifecycle(role, version)
     if phase == "prepare":
         lifecycle.prepare()
-    elif phase == "remove-prepare":
-        lifecycle.prepare("remove")
     elif phase == "finish":
         lifecycle.finish()
-    elif phase == "remove-finish":
-        lifecycle.finish(True)
     elif phase == "recover":
         lifecycle.recover()
     else:

@@ -305,7 +305,7 @@
               <span class="guide-number">01</span>
               <h3>准备中心</h3>
               <p>
-                安装 <code>bits-center</code>，配置地址与允许网段后启动服务。
+                安装 <code>bits-center</code>，初始化地址与允许网段后自动启动。
               </p>
               <p class="muted">允许节点访问中心 HTTPS 443 端口。</p>
             </article>
@@ -318,9 +318,7 @@
                 模板；将下载的连接文件安全传到对应节点 /root，再由 root 执行：
               </p>
               <pre id="enroll-example">
-bits-node enroll --file /root/节点名.bits.json
-bits-node check
-systemctl enable --now bits-node.service</pre
+bits-node enroll --file /root/节点名.bits.json</pre
               >
               <button id="guide-enroll">添加节点</button>
               <p class="muted">
