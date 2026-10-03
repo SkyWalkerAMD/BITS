@@ -53,7 +53,13 @@ def verify_remote(page, context, admin, out, checks):
         assert "REMOTE_SHELL_OK" in copied
         page.evaluate("text => navigator.clipboard.writeText(text)", "printf 'PASTED_VALUE\\n'\n")
         page.get_by_role("button", name="粘贴", exact=True).click()
-        page.wait_for_function("Array.from({length:remoteState.terminal.buffer.active.length},(_,i)=>remoteState.terminal.buffer.active.getLine(i).translateToString()).some(line=>line.includes(\"printf 'PASTED_VALUE\"))")
+        # CSP blocks eval-based wait_for_function; inspect the existing buffer.
+        for _ in range(40):
+            if page.evaluate("Array.from({length:remoteState.terminal.buffer.active.length},(_,i)=>remoteState.terminal.buffer.active.getLine(i).translateToString()).some(line=>line.includes(\"printf 'PASTED_VALUE\"))"):
+                break
+            page.wait_for_timeout(250)
+        else:
+            raise AssertionError("clipboard text was not pasted")
         page.locator(".xterm-helper-textarea").press("Enter")
         for _ in range(40):
             if page.evaluate("Array.from({length:remoteState.terminal.buffer.active.length},(_,i)=>remoteState.terminal.buffer.active.getLine(i).translateToString().trim()).includes('PASTED_VALUE')"):
@@ -103,8 +109,13 @@ def verify_remote(page, context, admin, out, checks):
         assert len(confirmations) == 1, "pinned host asked for trust again"
         session_id = page.evaluate("remoteState.id")
         page.goto(admin["url"] + "/#nodes")
-        request = context.request.get(admin["url"] + "/api/v1/remote/sessions/" + session_id + "/output?offset=0")
-        assert request.ok and request.json()["closed"], "navigation retained remote shell"
+        for _ in range(20):
+            request = context.request.get(admin["url"] + "/api/v1/remote/sessions/" + session_id + "/output?offset=0")
+            if request.ok and request.json()["closed"]:
+                break
+            page.wait_for_timeout(100)
+        else:
+            raise AssertionError("navigation retained remote shell")
         configs = context.request.get(admin["url"] + "/api/v1/remote/config").text()
         assert login["password"] not in configs and '"secret"' not in configs
         checks.append("actual OpenSSH PTY command and multiline paste, private SSH template login, first-host fingerprint, pinned-host temporary login, wrong password, real SFTP upload/download checksum and no overwrite, navigation disconnect, responsive mobile terminal")
