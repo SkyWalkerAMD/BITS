@@ -211,14 +211,16 @@ with sync_playwright() as p:
         expect(page.locator(".core-table tbody tr").first).to_contain_text("未提供")
         page.evaluate("window.scrollTo({top:0,behavior:'instant'})")
         page.screenshot(path=str(out / "hardware-table.png"), full_page=True)
-        page.locator(".core-table-scroll").evaluate("x => { x.scrollTop = 200; }")
-        page.locator(".core-table-scroll").focus()
+        core_scroll_before = page.locator(".core-table-scroll").evaluate(
+            "x => { x.focus({preventScroll:true}); x.scrollTop = 200; return x.scrollTop; }")
+        assert core_scroll_before >= 190, {"initial_scroll": core_scroll_before}
         page.wait_for_timeout(3500)
-        assert page.locator(".core-table-scroll").evaluate("x => x.scrollTop") >= 190
+        core_scroll_after = page.locator(".core-table-scroll").evaluate("x => x.scrollTop")
+        assert abs(core_scroll_after-core_scroll_before) <= 1, {"before":core_scroll_before,"after":core_scroll_after}
         expect(page.locator(".core-table-scroll")).to_be_focused()
         page.locator("#refresh").click()
         expect(page.locator("#refresh")).to_be_enabled(timeout=12000)
-        assert page.locator(".core-table-scroll").evaluate("x => x.scrollTop") >= 190
+        assert abs(page.locator(".core-table-scroll").evaluate("x => x.scrollTop")-core_scroll_before) <= 1
         checks.append("live core table retains its scroll position during refresh")
         checks.append("node card opens typed socket/core monitor, numeric order and detail-only arrays")
         page.get_by_role("button", name="核心矩阵", exact=True).click()

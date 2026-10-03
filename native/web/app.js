@@ -1862,7 +1862,7 @@ function renderMonitor() {
     section.append(
       el(
         "p",
-        "矩阵底部条形表示 C0 活跃比例，不代表硬件合格判定。详细表格提供 VID、C0、C6；当前 v1 接口未提供 IRQ。",
+        "条形：C0 活跃比例 · IRQ 未提供",
         "field-help core-legend",
       ),
     );

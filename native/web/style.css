@@ -2572,6 +2572,7 @@ dialog h2 {
 }
 .core-table-scroll {
   overflow: auto;
+  overflow-anchor: none;
   max-height: 640px;
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -2910,6 +2911,7 @@ dialog h2 {
 .info-memory-table {
   margin: 0;
   border: 0;
+  overflow-anchor: none;
 }
 .info-memory-table table {
   width: 100%;

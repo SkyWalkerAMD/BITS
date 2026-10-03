@@ -8,13 +8,13 @@ const hardwareInfoState = {
   composing: false,
 };
 const hardwareSectionNames = {
-  Platform: "平台",
   CPU: "处理器",
+  Platform: "平台",
   "Turbo Ratio Limits": "睿频倍率",
   Thermal: "散热",
   "Power Limits": "功耗限制",
-  "Power Supplies": "电源",
   Memory: "内存",
+  "Power Supplies": "电源",
   "Memory Timings": "内存主时序",
   Cache: "缓存",
   "Per-CCD Temperature": "CCD 温度",
@@ -328,7 +328,11 @@ function renderHardwareInfo() {
   toolbar.append(search, nav);
   const grid = el("div", undefined, "info-section-grid"),
     query = s.query.trim().toLocaleLowerCase();
-  for (const section of v.sections) {
+  const sectionOrder = Object.keys(hardwareSectionNames);
+  const sections = [...v.sections].sort(
+    (a, b) => sectionOrder.indexOf(a.name) - sectionOrder.indexOf(b.name),
+  );
+  for (const section of sections) {
     if (s.section !== "all" && s.section !== section.name) continue;
     if (
       query &&
@@ -347,7 +351,7 @@ function renderHardwareInfo() {
       "section",
       undefined,
       "panel info-section" +
-        (["CPU", "Memory"].includes(section.name) ? " info-wide" : ""),
+        (["CPU", "Memory", "Cache"].includes(section.name) ? " info-wide" : ""),
     );
     card.dataset.section = section.name;
     card.append(
