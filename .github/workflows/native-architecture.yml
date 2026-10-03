@@ -31,7 +31,7 @@ jobs:
           git diff -- . > /tmp/native-format.patch
       - name: Format browser sources for review
         run: |
-          npm exec --yes --package=prettier@3.6.2 -- prettier --write native/web/app.js native/web/dispatch.js native/web/operations.js native/web/hardware-info.js native/web/remote.js native/web/style.css native/web/index.html
+          npm exec --yes --package=prettier@3.6.2 -- prettier --write native/web/app.js native/web/dispatch.js native/web/operations.js native/web/hardware-info.js native/web/remote.js native/web/remote-files.js native/web/style.css native/web/index.html
           git diff -- native/ > /tmp/native-format.patch
       - name: Check the explicit public source export
         run: |
@@ -131,7 +131,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON(inputs.full_matrix && '[{"label":"rocky8-from040","image":"rockylinux/rockylinux:8","kind":"rpm","old":"0.4.0"},{"label":"ubuntu22-from040","image":"ubuntu:22.04","kind":"deb","old":"0.4.0"},{"label":"rocky8-from041","image":"rockylinux/rockylinux:8","kind":"rpm","old":"0.4.1"},{"label":"ubuntu22-from041","image":"ubuntu:22.04","kind":"deb","old":"0.4.1"},{"label":"rocky8-from042","image":"rockylinux/rockylinux:8","kind":"rpm","old":"0.4.2"},{"label":"ubuntu22-from042","image":"ubuntu:22.04","kind":"deb","old":"0.4.2"}]' || '[{"label":"rocky8-from042","image":"rockylinux/rockylinux:8","kind":"rpm","old":"0.4.2"},{"label":"ubuntu22-from042","image":"ubuntu:22.04","kind":"deb","old":"0.4.2"}]') }}
+        include: ${{ fromJSON(inputs.full_matrix && '[{"label":"rocky8-from040","image":"rockylinux/rockylinux:8","kind":"rpm","old":"0.4.0"},{"label":"ubuntu22-from040","image":"ubuntu:22.04","kind":"deb","old":"0.4.0"},{"label":"rocky8-from041","image":"rockylinux/rockylinux:8","kind":"rpm","old":"0.4.1"},{"label":"ubuntu22-from041","image":"ubuntu:22.04","kind":"deb","old":"0.4.1"},{"label":"rocky8-from042","image":"rockylinux/rockylinux:8","kind":"rpm","old":"0.4.2"},{"label":"ubuntu22-from042","image":"ubuntu:22.04","kind":"deb","old":"0.4.2"},{"label":"rocky8-from043","image":"rockylinux/rockylinux:8","kind":"rpm","old":"0.4.3"},{"label":"ubuntu22-from043","image":"ubuntu:22.04","kind":"deb","old":"0.4.3"}]' || '[{"label":"rocky8-from043","image":"rockylinux/rockylinux:8","kind":"rpm","old":"0.4.3"},{"label":"ubuntu22-from043","image":"ubuntu:22.04","kind":"deb","old":"0.4.3"}]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with: {persist-credentials: false}
@@ -144,6 +144,10 @@ jobs:
           gh release download "v$OLD" --repo SkyWalkerAMD/BITS --pattern "bits-*.$KIND" --dir upgrade-from
           cd upgrade-from
           sha256sum --check --ignore-missing <<'HASHES'
+          432b261fe47603fe7e9670f9948b88ffb45cc1e5b3bd6f59591d5e8846a162de  bits-center-0.4.3-1.el8.x86_64.rpm
+          8c28a31048c5bf8e0ab44cb813606ba912f6f3eb1001d71572e9c6fa0af2b52c  bits-node-0.4.3-1.el8.x86_64.rpm
+          4c2b15015a6123d85a872feac99920ec11325a51eef73518fe9825cb4213d577  bits-center_0.4.3-1_amd64.deb
+          8094f1785efe8b9ee8dbdc1c150631e5fd9e134775f40455d0ed2e8032f33466  bits-node_0.4.3-1_amd64.deb
           1ea079307c7c0daedadf504a4ac572104b86a21ed1ba00916d91fada794519aa  bits-center-0.4.0-1.el8.x86_64.rpm
           771b8b6909e7f61cd898706ddd35482b21ce5bbaf49ed587b642decedddd10f2  bits-node-0.4.0-1.el8.x86_64.rpm
           5bd7a7b57cc2f78868d3a99341146b23d822b3a94936e6fc68b7dd509eb52248  bits-center_0.4.0-1_amd64.deb

@@ -53,6 +53,7 @@ async function remoteCopy(text) {
   }
 }
 function remoteRoute(node) {
+  document.body.classList.toggle("system-page", !!node);
   if (remoteState.node === node) return;
   remoteDisconnect();
   remoteState.node = node;
@@ -62,6 +63,8 @@ function remoteRoute(node) {
 function remoteDisconnect(clearPassword = true) {
   const r = remoteState,
     id = r.id;
+  remoteCloseFiles();
+  remoteMaximize(false);
   r.id = null;
   r.epoch++;
   r.queue = "";
@@ -88,6 +91,60 @@ function remoteDisconnect(clearPassword = true) {
       keepalive: true,
     }).catch(() => {});
 }
+function remoteFontSize() {
+  try {
+    const value = Number(localStorage.getItem("bits-terminal-font"));
+    if (value >= 12 && value <= 24) return value;
+  } catch {}
+  return 16;
+}
+function remoteFit() {
+  const r = remoteState;
+  if (!r.terminal || !r.fit || !$("remote-terminal")?.clientHeight) return;
+  r.fit.fit();
+  r.size = {
+    cols: Math.max(20, Math.min(400, r.terminal.cols)),
+    rows: Math.max(5, Math.min(150, r.terminal.rows)),
+  };
+  if (r.terminal.cols !== r.size.cols || r.terminal.rows !== r.size.rows)
+    r.terminal.resize(r.size.cols, r.size.rows);
+  $("remote-size").textContent = r.size.cols + " 列 × " + r.size.rows + " 行";
+  remoteSend(r.epoch);
+}
+function remoteChangeFont(delta) {
+  const r = remoteState;
+  if (!r.terminal) return;
+  const value = Math.max(12, Math.min(24, r.terminal.options.fontSize + delta));
+  r.terminal.options.fontSize = value;
+  $("remote-font-size").textContent = value + " px";
+  try { localStorage.setItem("bits-terminal-font", String(value)); } catch {}
+  requestAnimationFrame(remoteFit);
+}
+async function remoteMaximize(enabled) {
+  const root = $("remote-body");
+  if (!root) return;
+  root.classList.toggle("remote-maximized", enabled);
+  const control = $("remote-fullscreen");
+  if (control) {
+    control.textContent = enabled ? "退出全屏" : "全屏";
+    control.setAttribute("aria-pressed", String(enabled));
+  }
+  try {
+    if (enabled && !document.fullscreenElement && root.requestFullscreen)
+      await root.requestFullscreen();
+    else if (!enabled && document.fullscreenElement === root)
+      await document.exitFullscreen();
+  } catch {}
+  requestAnimationFrame(remoteFit);
+}
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement) remoteMaximize(false);
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !document.fullscreenElement &&
+      $("remote-body")?.classList.contains("remote-maximized") &&
+      !$("remote-files")?.open) remoteMaximize(false);
+});
 async function loadRemoteProfiles(selected) {
   const node = remoteState.node;
   const result = await api("remote/config?node=" + encodeURIComponent(node));
@@ -151,7 +208,9 @@ function renderRemote() {
   r.built = r.node;
   const root = $("remote-body"),
     head = el("div", undefined, "remote-heading");
-  head.append(el("h2", r.node));
+  const back = el("a", "← 节点", "remote-back");
+  back.href = "#nodes";
+  head.append(back, el("h2", r.node));
   const note = el("p", systemIPText(n), "muted");
   note.id = "remote-ip-note";
   head.append(note);
@@ -206,6 +265,7 @@ function renderRemote() {
   label.id = "remote-connected";
   toolbar.append(
     label,
+    button("文件传输", () => remoteOpenFiles(), "primary", "remote-show-files"),
     button("复制", () => {
       remoteCopy(r.terminal?.getSelection());
     }),
@@ -217,6 +277,7 @@ function renderRemote() {
         remoteMessage("请在终端中使用 Ctrl+Shift+V 粘贴");
       }
     }),
+    button("全屏", () => remoteMaximize(!$("remote-body").classList.contains("remote-maximized")), "", "remote-fullscreen"),
     button("断开连接", () => {
       remoteDisconnect();
       form.hidden = false;
@@ -225,50 +286,19 @@ function renderRemote() {
     }),
   );
   const terminal = el("div", undefined, "remote-terminal");
+  for (const key of ["remote-show-files", "remote-fullscreen"])
+    toolbar.querySelector('[data-focus-key="' + key + '"]').id = key;
   terminal.id = "remote-terminal";
-  const files = el("section", undefined, "remote-files");
-  files.id = "remote-files";
-  const filehead = el("div", undefined, "remote-file-head");
-  filehead.append(el("h3", "文件 · SFTP"));
-  const pathform = el("form", undefined, "remote-path-form"),
-    pathinput = el("input");
-  pathinput.id = "remote-path";
-  pathinput.setAttribute("aria-label", "远程目录");
-  pathinput.placeholder = "/home/user";
-  const go = el("button", "进入");
-  go.type = "submit";
-  pathform.append(pathinput, go);
-  pathform.onsubmit = (event) => {
-    event.preventDefault();
-    remoteFiles(pathinput.value);
-  };
-  const upload = el("input");
-  upload.type = "file";
-  upload.id = "remote-upload";
-  upload.setAttribute("aria-label", "上传文件");
-  upload.onchange = () => {
-    if (upload.files[0]) remoteUpload(upload.files[0]);
-  };
-  const progress = el("progress");
-  progress.id = "remote-upload-progress";
-  progress.hidden = true;
-  progress.max = 100;
-  const status = el("p", "", "muted");
-  status.id = "remote-file-status";
-  status.setAttribute("role", "status");
-  const list = el("div", undefined, "remote-file-list");
-  list.id = "remote-file-list";
-  files.append(
-    filehead,
-    pathform,
-    upload,
-    el("small", "单文件上限 1 GiB，同名文件不覆盖。", "muted"),
-    progress,
-    status,
-    list,
-  );
-  work.append(toolbar, terminal, files);
-  root.replaceChildren(head, form, message, work);
+  const foot = el("div", undefined, "remote-terminal-foot"), size = el("span", "", "muted"), font = el("span", remoteFontSize() + " px");
+  size.id = "remote-size";
+  font.id = "remote-font-size";
+  const smaller = button("A−", () => remoteChangeFont(-1), "quiet", "remote-font-smaller"), larger = button("A+", () => remoteChangeFont(1), "quiet", "remote-font-larger");
+  smaller.setAttribute("aria-label", "缩小终端字号");
+  larger.setAttribute("aria-label", "放大终端字号");
+  foot.append(size, smaller, font, larger);
+  head.append(message);
+  work.append(toolbar, terminal, foot);
+  root.replaceChildren(head, form, work);
   form.onsubmit = remoteConnect;
   loadRemoteProfiles().catch((e) => remoteMessage(e.message, true));
 }
@@ -456,7 +486,7 @@ async function remoteConnect(event) {
     $("remote-terminal").replaceChildren();
     r.terminal = new Terminal({
       cursorBlink: true,
-      fontSize: 14,
+      fontSize: remoteFontSize(),
       fontFamily: '"Cascadia Mono", "Consolas", monospace',
       scrollback: 5000,
       theme: { background: "#112b36", foreground: "#e5eef1" },
@@ -490,21 +520,16 @@ async function remoteConnect(event) {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
         if (epoch !== r.epoch || !r.terminal) return;
-        r.fit.fit();
-        r.size = {
-          cols: Math.max(20, Math.min(400, r.terminal.cols)),
-          rows: Math.max(5, Math.min(150, r.terminal.rows)),
-        };
-        remoteSend(epoch);
+        remoteFit();
       }, 160);
     });
     r.resize.observe($("remote-terminal"));
-    r.fit.fit();
+    remoteFit();
     r.terminal.focus();
     remoteMessage("已连接");
     remotePoll(epoch);
-    $("remote-files").hidden = !result.sftp;
-    if (result.sftp) await remoteFiles("");
+    $("remote-show-files").disabled = !result.sftp;
+    if (result.sftp) remoteCreateFiles(result);
   } catch (e) {
     if (epoch === r.epoch) remoteMessage(e.message, true);
   } finally {
@@ -562,8 +587,7 @@ async function remotePoll(epoch) {
       }
       if (v.closed) {
         remoteMessage(v.reason || "已断开");
-        r.id = null;
-        $("remote-login").hidden = false;
+        remoteDisconnect();
         return;
       }
     }
@@ -575,123 +599,5 @@ async function remotePoll(epoch) {
       if (form) form.hidden = false;
     }
   }
-}
-async function remoteFiles(directory) {
-  const r = remoteState,
-    id = r.id;
-  if (!id) return;
-  try {
-    const v = await api(
-      "remote/sessions/" + id + "/files?path=" + encodeURIComponent(directory),
-    );
-    if (id !== r.id) return;
-    $("remote-path").value = v.path;
-    const list = $("remote-file-list");
-    list.replaceChildren();
-    if (v.path !== "/")
-      list.append(
-        button(
-          "↑ 上级目录",
-          () => remoteFiles(v.path.slice(0, v.path.lastIndexOf("/")) || "/"),
-          "quiet",
-        ),
-      );
-    for (const f of v.entries) {
-      const row = el("div", undefined, "remote-file-row"),
-        full = (v.path === "/" ? "" : v.path) + "/" + f.name;
-      row.append(
-        el("span", f.directory ? "目录" : f.symlink ? "链接" : "文件", "muted"),
-      );
-      const open = button(
-        f.name,
-        () => {
-          if (f.directory || f.symlink) remoteFiles(full);
-          else {
-            const a = el("a");
-            a.href =
-              "/api/v1/remote/sessions/" +
-              id +
-              "/download?path=" +
-              encodeURIComponent(full);
-            a.download = f.name;
-            document.body.append(a);
-            a.click();
-            a.remove();
-          }
-        },
-        "quiet",
-      );
-      open.title = f.name;
-      row.append(
-        open,
-        el("span", f.directory ? "—" : bytes(f.bytes)),
-        el("small", f.mode, "muted"),
-      );
-      list.append(row);
-    }
-    $("remote-file-status").textContent = v.truncated
-      ? "仅显示前 2000 项，可输入完整路径访问子目录。"
-      : v.entries.length + " 项";
-  } catch (e) {
-    if (id === r.id) {
-      $("remote-file-status").textContent = e.message;
-      $("remote-file-list").replaceChildren();
-    }
-  }
-}
-function remoteUpload(file) {
-  const r = remoteState,
-    id = r.id,
-    input = $("remote-upload"),
-    progress = $("remote-upload-progress"),
-    status = $("remote-file-status");
-  if (!id || r.upload) return;
-  if (file.size > 1073741824) {
-    status.textContent = "文件超过 1 GiB";
-    input.value = "";
-    return;
-  }
-  const directory = $("remote-path").value,
-    target = (directory === "/" ? "" : directory) + "/" + file.name;
-  const xhr = new XMLHttpRequest();
-  r.upload = xhr;
-  input.disabled = true;
-  progress.hidden = false;
-  progress.value = 0;
-  xhr.open(
-    "POST",
-    "/api/v1/remote/sessions/" +
-      id +
-      "/upload?path=" +
-      encodeURIComponent(target),
-  );
-  xhr.setRequestHeader("X-BITS-Request", "1");
-  xhr.timeout = 240000;
-  xhr.upload.onprogress = (e) => {
-    if (e.lengthComputable) progress.value = (100 * e.loaded) / e.total;
-  };
-  xhr.onload = () => {
-    let v;
-    try {
-      v = JSON.parse(xhr.responseText);
-    } catch {
-      v = { error: "上传失败" };
-    }
-    if (id !== r.id) return;
-    if (xhr.status === 200) {
-      status.textContent = "上传完成";
-      remoteFiles(directory);
-    } else status.textContent = v.error || "上传失败";
-  };
-  xhr.onerror = xhr.ontimeout = () => {
-    status.textContent = "上传中断，请检查连接";
-  };
-  xhr.onloadend = () => {
-    if (r.upload === xhr) r.upload = null;
-    input.disabled = false;
-    input.value = "";
-    progress.hidden = true;
-  };
-  xhr.send(file);
 }
 window.addEventListener("pagehide", remoteDisconnect);

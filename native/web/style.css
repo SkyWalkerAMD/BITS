@@ -2951,12 +2951,65 @@ dialog h2 {
   }
 }
 /* System terminal and file browser */
+.system-page main {
+  padding: 12px 18px;
+  max-width: none;
+}
+.system-page .page-heading,
+.system-page #view-remote > .back-button,
+.system-page main > footer,
+.system-page #back-to-top {
+  display: none;
+}
+#remote-body {
+  height: calc(100vh - var(--topbar-height) - 24px);
+  height: calc(100dvh - var(--topbar-height) - 24px);
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+#remote-body.remote-maximized,
+#remote-body:fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  height: 100vh;
+  height: 100dvh;
+  padding: 12px 18px;
+  background: var(--bg);
+}
 .monitor-system-address {
   color: #b4cfd1;
   overflow-wrap: anywhere;
 }
 .remote-heading {
-  margin: 20px 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+  min-height: 34px;
+  flex-shrink: 0;
+}
+.remote-heading h2 {
+  margin: 0;
+  font-size: 18px;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.remote-heading p {
+  margin: 0;
+  font-size: 12px;
+}
+.remote-back {
+  font-size: 12px;
+  white-space: nowrap;
+}
+.remote-work {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 .remote-login {
   display: grid;
@@ -2966,6 +3019,7 @@ dialog h2 {
   background: white;
   border: 1px solid var(--line, #dce6e9);
   border-radius: 14px;
+  overflow: auto;
 }
 .remote-login label,
 .remote-profile-dialog label {
@@ -3001,70 +3055,292 @@ dialog h2 {
   justify-content: flex-end;
 }
 .remote-message {
-  min-height: 24px;
-  margin: 14px 0;
+  margin-left: auto !important;
+  color: var(--green);
   overflow-wrap: anywhere;
 }
 .remote-toolbar {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 14px;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+.remote-toolbar button {
+  min-height: 34px;
+  padding: 6px 12px;
+  font-size: 12px;
 }
 .remote-toolbar strong {
   margin-right: auto;
   overflow-wrap: anywhere;
 }
 .remote-terminal {
-  height: 520px;
-  padding: 16px;
+  flex: 1;
+  min-height: 0;
+  padding: 12px;
   background: #112b36;
   border-radius: 12px;
   overflow: hidden;
+}
+.remote-terminal-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  flex-shrink: 0;
+  height: 32px;
+}
+.remote-terminal-foot > span:first-child {
+  margin-right: auto;
+}
+.remote-terminal-foot button {
+  padding: 2px 8px;
+  min-height: 28px;
 }
 .remote-terminal .xterm {
   height: 100%;
 }
 .remote-files {
-  margin-top: 24px;
-  padding: 24px;
-  background: white;
+  width: min(1480px, 96vw);
+  max-width: 96vw;
+  height: min(900px, 92vh);
+  height: min(900px, 92dvh);
+  max-height: 96dvh;
+  padding: 0;
+  background: #f7fafb;
   border: 1px solid #dce6e9;
-  border-radius: 12px;
+  border-radius: 14px;
 }
-.remote-path-form {
+.remote-files[open] {
   display: flex;
-  gap: 10px;
-  margin: 14px 0;
+  flex-direction: column;
 }
-.remote-path-form input {
-  flex: 1;
+.remote-files::backdrop {
+  background: #0d273575;
 }
-.remote-files > small {
-  display: block;
-  margin: 8px 0;
-}
-.remote-files progress {
-  width: 100%;
-}
-.remote-file-list {
-  max-height: 480px;
-  overflow: auto;
-}
-.remote-file-row {
-  display: grid;
-  grid-template-columns: 50px minmax(0, 1fr) 90px 110px;
+.file-window-heading {
+  display: flex;
   align-items: center;
-  gap: 12px;
-  border-top: 1px solid #edf2f4;
-  padding: 10px 0;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: white;
+  border-bottom: 1px solid var(--line);
+  gap: 16px;
 }
-.remote-file-row button {
+.file-window-heading > div {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.file-window-heading h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.file-panes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px;
+  flex: 1;
+  min-height: 200px;
+}
+.file-pane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  overflow: hidden;
+}
+.file-pane-heading,
+.file-pane-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px;
+  flex-shrink: 0;
+}
+.file-pane-heading {
+  justify-content: space-between;
+  background: #eef5f6;
+}
+.file-pane-heading h3 {
+  font-size: 14px;
+  margin: 0;
+}
+.file-pane-heading span {
+  font-size: 11px;
+}
+.file-pane-tools {
+  min-height: 52px;
+  padding-bottom: 4px;
+}
+.remote-files button {
+  min-height: 32px;
+  padding: 5px 10px;
+  font-size: 12px;
+}
+.file-path {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px 12px;
+  flex-shrink: 0;
+}
+.file-path input {
+  flex: 1;
+  min-width: 0;
+  width: 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 12px;
+}
+.file-columns,
+.file-entry {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 76px 132px;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  font-size: 12px;
+}
+.file-columns {
+  background: #f6f8fa;
+  color: var(--muted);
+  border-block: 1px solid var(--line);
+}
+.file-entry {
+  border-top: 1px solid #edf2f4;
+}
+.file-entry:hover,
+.file-selected {
+  background: #eaf6f4;
+}
+.file-entry-list {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+.file-entry .file-name {
   text-align: left;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  background: transparent;
+  font-weight: 500;
+  color: var(--ink);
+}
+.file-name::before {
+  content: "▤";
+  color: #78949f;
+  margin-right: 7px;
+}
+.file-name[data-kind="folder"]::before {
+  content: "▸";
+  color: var(--teal);
+}
+.file-bytes {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.file-modified {
+  color: var(--muted);
   overflow-wrap: anywhere;
-  white-space: normal;
-  justify-self: start;
+}
+.file-empty {
+  padding: 18px;
+  color: var(--muted);
+  text-align: center;
+  font-size: 12px;
+}
+.file-drop-hint {
+  display: none;
+  position: absolute;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  background: #edf9f3ed;
+  border: 2px dashed var(--teal);
+  color: var(--teal);
+  pointer-events: none;
+}
+.file-drag-over .file-drop-hint {
+  display: flex;
+}
+.file-window-status {
+  margin: 0;
+  padding: 2px 16px 8px;
+  font-size: 12px;
+  min-height: 28px;
+  flex-shrink: 0;
+}
+.file-queue {
+  border-top: 1px solid var(--line);
+  background: white;
+  flex-shrink: 0;
+}
+.file-queue-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: #eef5f6;
+  font-size: 12px;
+}
+.file-queue-heading strong {
+  margin-right: auto;
+}
+.file-queue-list {
+  overflow: auto;
+  height: 128px;
+}
+.file-transfer-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(50px, 1fr) minmax(0, 1fr) 60px;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+.file-transfer-row strong,
+.file-transfer-row small {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.file-transfer-row small {
+  color: var(--muted);
+}
+.file-transfer-row progress {
+  width: 100%;
+  accent-color: var(--teal);
+}
+.file-transfer-state {
+  overflow-wrap: anywhere;
+}
+.file-transfer-row[data-state="failed"] .file-transfer-state {
+  color: var(--red);
+}
+.file-transfer-row[data-state="completed"] .file-transfer-state {
+  color: var(--green);
+}
+.file-window-note {
+  padding: 6px 16px;
+  color: var(--muted);
 }
 .remote-profile-dialog {
   width: min(500px, 94vw);
@@ -3082,17 +3358,71 @@ dialog h2 {
     padding: 18px;
   }
   .remote-terminal {
-    height: 420px;
     padding: 8px;
   }
-  .remote-files {
-    padding: 16px;
+  .system-page main,
+  #remote-body.remote-maximized {
+    padding: 8px;
   }
-  .remote-file-row {
-    grid-template-columns: 40px minmax(0, 1fr) 70px;
+  #remote-body {
+    height: calc(100vh - var(--topbar-height) - 16px);
+    height: calc(100dvh - var(--topbar-height) - 16px);
+  }
+  .remote-heading {
+    gap: 6px 12px;
+  }
+  .remote-heading #remote-ip-note {
+    display: none;
+  }
+  .remote-toolbar strong {
+    flex-basis: 100%;
+    font-size: 12px;
+  }
+  .remote-toolbar {
+    gap: 6px;
+  }
+  .remote-toolbar button {
+    padding: 5px 8px;
+  }
+  .remote-files {
+    width: 98vw;
+    max-width: 98vw;
+    height: 96dvh;
+  }
+  .file-panes {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(220px, 1fr) minmax(240px, 1fr);
+    overflow: auto;
+    padding: 8px;
+  }
+  .file-columns,
+  .file-entry {
+    grid-template-columns: 20px minmax(0, 1fr) 76px;
+  }
+  .file-columns > span:last-child,
+  .file-modified {
+    display: none;
+  }
+  .file-transfer-row {
+    grid-template-columns: minmax(0, 1fr) 80px 48px;
     gap: 8px;
   }
-  .remote-file-row small {
+  .file-transfer-row progress {
     display: none;
+  }
+  .file-window-heading {
+    padding: 10px 12px;
+  }
+  .file-window-heading h2 {
+    font-size: 16px;
+  }
+  .file-window-heading > div {
+    gap: 6px;
+  }
+  .file-window-heading span {
+    font-size: 11px;
+  }
+  .file-queue-list {
+    height: 92px;
   }
 }

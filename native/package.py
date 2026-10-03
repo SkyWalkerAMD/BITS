@@ -10,7 +10,7 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.4.3"
+VERSION = "0.4.4"
 PREFIX = "/opt/bits/native/" + VERSION
 BASELINES = {
     "rpm": ("bits-node-0.3.0-1.el8.x86_64.rpm", "28c98ed53b162c9727b54d8d68e77f72b8f89326be2fcf1ee5ba01e16439da36"),

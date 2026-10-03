@@ -143,6 +143,8 @@ BITS 不承担 sckocp 授权服务职责。激活数据库、激活码、授权�
 此候选不自动迁移旧 Redis、旧中心存储或 BITS-o 生产节点。多中心、高可用、多人细分权限、企业 SSO、生产证书自动续期和大规模吞吐需后续针对性设计与验收；不以“200 个标识事务测试”冒充 200 台真实硬件并发验收。
 ## System access (0.4.3)
 
+0.4.4 adds a viewport-sized terminal and a modal dual-pane file browser. Closing the file browser preserves the SSH session and upload queue. The browser retains local File objects/selected directory handles only for this session. Remote uploads remain serialized with directory operations; each queue item captures its destination at enqueue time, and HTTP success is required before reporting completion. Browser-managed downloads are not reported as upload completions. No new remote filesystem operation or credential permission is introduced.
+
 Schema 5 adds `node_network`, with a private consistent `center.sqlite.before-system-access-v4` backup before migrating a populated schema 4 store. Authenticated nodes report bounded global-unicast interface addresses every 30 seconds; the old heartbeat remains compatible. The operator sees BMC and system addresses separately. SSH targets must match a fresh report from a currently connected, enabled node.
 
 The authenticated center proxies SSH PTYs and SFTP over the node's existing SSH service. xterm 6.0.0 and addon-fit 0.11.0 are bundled offline with MIT attribution. Scripts remain CSP self-only with no eval; inline CSS supports xterm's dynamic renderer. No SSH password, terminal input or output is written to the database or logs. Templates use AES-256-GCM with a separate private center key; this protects stored values, not a compromised center process with access to both files. Public API views never return the encrypted or plaintext password.

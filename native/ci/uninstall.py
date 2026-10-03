@@ -229,7 +229,7 @@ def main():
         assert not Path("/usr/bin/bits-" + role).exists()
         assert not Path("/var/lib/bits-uninstall").exists()
     checks.append("never-configured packages install and purge without setup or enrollment")
-    result = {"status": "passed", "version": "0.4.3", "format": kind, "checks": checks,
+    result = {"status": "passed", "version": "0.4.4", "format": kind, "checks": checks,
               "scope": "disposable Linux container; no production uninstall"}
     Path("/results/uninstall.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result))

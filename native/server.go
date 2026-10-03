@@ -211,7 +211,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		err = s.node(w, r, node)
-	} else if r.Method == "GET" && (r.URL.Path == "/" || r.URL.Path == "/app.js" || r.URL.Path == "/dispatch.js" || r.URL.Path == "/operations.js" || r.URL.Path == "/hardware-info.js" || r.URL.Path == "/style.css" || r.URL.Path == "/remote.js" || r.URL.Path == "/xterm.js" || r.URL.Path == "/xterm-fit.js" || r.URL.Path == "/xterm.css") {
+	} else if r.Method == "GET" && (r.URL.Path == "/" || r.URL.Path == "/app.js" || r.URL.Path == "/dispatch.js" || r.URL.Path == "/operations.js" || r.URL.Path == "/hardware-info.js" || r.URL.Path == "/style.css" || r.URL.Path == "/remote.js" || r.URL.Path == "/remote-files.js" || r.URL.Path == "/xterm.js" || r.URL.Path == "/xterm-fit.js" || r.URL.Path == "/xterm.css") {
 		sub, _ := fs.Sub(webFiles, "web")
 		http.FileServer(http.FS(sub)).ServeHTTP(w, r)
 		return

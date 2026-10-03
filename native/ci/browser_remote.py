@@ -5,6 +5,14 @@ import subprocess
 from playwright.sync_api import expect
 
 
+def wait_files_idle(page):
+    for _ in range(80):
+        if page.evaluate("transferState && !transferState.busy"):
+            return
+        page.wait_for_timeout(100)
+    raise AssertionError("file operations did not settle")
+
+
 def verify_remote(page, context, admin, out, checks):
     subprocess.check_call(["docker", "exec", "-e", "GITHUB_ACTIONS=true", "bits-independent-test",
                            "python3", "-I", "-B", "/src/native/ci/ssh_fixture.py"])
@@ -37,6 +45,25 @@ def verify_remote(page, context, admin, out, checks):
         expect(page.locator("#remote-work")).to_be_visible(timeout=30000)
         expect(page.locator("#remote-message")).to_have_text("已连接")
         assert len(confirmations) == 1 and "SHA256:" in confirmations[0]
+        first_session = page.evaluate("remoteState.id")
+        page.set_viewport_size({"width": 1366, "height": 768})
+        page.wait_for_timeout(400)
+        box = page.locator("#remote-terminal").bounding_box()
+        assert box["height"] > 768 * .65 and box["y"] + box["height"] <= 768, box
+        assert page.evaluate("document.documentElement.scrollHeight <= innerHeight + 2"), "terminal needs page scrolling"
+        rows_before = page.evaluate("remoteState.terminal.rows")
+        page.get_by_role("button", name="放大终端字号", exact=True).click()
+        page.wait_for_timeout(300)
+        assert page.evaluate("remoteState.terminal.options.fontSize") == 17
+        assert page.evaluate("remoteState.terminal.rows") < rows_before
+        page.get_by_role("button", name="缩小终端字号", exact=True).click()
+        page.locator("#remote-fullscreen").click()
+        page.wait_for_timeout(400)
+        expect(page.locator("#remote-fullscreen")).to_have_text("退出全屏")
+        assert page.locator("#remote-terminal").bounding_box()["height"] > box["height"]
+        page.locator("#remote-fullscreen").click()
+        expect(page.locator("#remote-fullscreen")).to_have_text("全屏")
+        assert page.evaluate("remoteState.id") == first_session
         page.locator(".xterm-helper-textarea").press_sequentially("printf 'REMOTE_SHELL_OK\\n'", delay=3)
         page.locator(".xterm-helper-textarea").press("Enter")
         for _ in range(40):
@@ -67,12 +94,29 @@ def verify_remote(page, context, admin, out, checks):
             page.wait_for_timeout(250)
         else:
             raise AssertionError("clipboard paste did not reach the shell")
+        page.set_viewport_size({"width": 1440, "height": 1080})
+        page.wait_for_timeout(300)
+        page.evaluate("document.activeElement.blur(); window.scrollTo(0, 0)")
+        page.screenshot(path=str(out / "system-terminal.png"), full_page=True)
+        page.set_viewport_size({"width": 430, "height": 932})
+        page.wait_for_timeout(300)
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), "SSH mobile overflow"
+        assert page.locator("#remote-terminal").bounding_box()["height"] > 600
+        page.screenshot(path=str(out / "system-terminal-mobile.png"), full_page=True)
+        page.set_viewport_size({"width": 1440, "height": 1080})
+        page.locator("#remote-show-files").click()
         expect(page.locator("#remote-files")).to_be_visible()
         expect(page.locator("#remote-path")).to_have_value("/home/" + login["username"])
         body = b"BITS SFTP UTF-8 \xe6\xb5\x8b\xe8\xaf\x95\n" * 1000
-        page.locator("#remote-upload").set_input_files({"name": "upload-check.txt", "mimeType": "text/plain", "buffer": body})
+        page.locator("#remote-upload").set_input_files([
+            {"name": "upload-check.txt", "mimeType": "text/plain", "buffer": body},
+            {"name": "queue-second.txt", "mimeType": "text/plain", "buffer": b"queue second file"}])
+        expect(page.locator("#local-file-list .file-entry")).to_have_count(2)
+        page.locator("#local-upload-selected").click()
         file = page.locator("#remote-file-list").get_by_role("button", name="upload-check.txt", exact=True)
-        expect(file).to_be_visible(timeout=20000)
+        expect(page.locator('#file-queue-list [data-state="completed"]')).to_have_count(2, timeout=20000)
+        wait_files_idle(page)
+        expect(file).to_be_visible()
         with page.expect_download() as downloaded:
             file.click()
         download = downloaded.value
@@ -80,10 +124,55 @@ def verify_remote(page, context, admin, out, checks):
         download.save_as(str(target))
         assert hashlib.sha256(target.read_bytes()).digest() == hashlib.sha256(body).digest()
         target.unlink()
+        page.wait_for_timeout(200)
         page.locator("#remote-upload").set_input_files({"name": "upload-check.txt", "mimeType": "text/plain", "buffer": b"must not overwrite"})
-        expect(page.locator("#remote-file-status")).to_contain_text("同名文件已存在")
+        page.locator("#local-upload-selected").click()
+        expect(page.locator('#file-queue-list [data-state="failed"]')).to_contain_text("同名文件已存在")
         actual = subprocess.check_output(["docker", "exec", "bits-independent-test", "cat", "/home/" + login["username"] + "/upload-check.txt"])
         assert actual == body
+        page.locator("#file-queue-pause").click()
+        page.locator("#remote-upload").set_input_files({"name": "cancel-waiting.txt", "mimeType": "text/plain", "buffer": b"must not upload"})
+        page.locator("#local-upload-selected").click()
+        waiting = page.locator('#file-queue-list [data-state="waiting"]')
+        expect(waiting).to_have_count(1)
+        page.locator("#remote-files-close").click()
+        assert page.evaluate("remoteState.id") == first_session
+        page.locator("#remote-show-files").click()
+        expect(waiting).to_have_count(1)
+        waiting.get_by_role("button", name="取消", exact=True).click()
+        page.locator("#file-queue-pause").click()
+        assert subprocess.call(["docker", "exec", "bits-independent-test", "test", "-e", "/home/" + login["username"] + "/cancel-waiting.txt"]) != 0
+        dropped = page.evaluate_handle("""() => {
+            const transfer = new DataTransfer();
+            transfer.items.add(new File(['dragged payload'], 'drag-upload.txt', {type: 'text/plain'}));
+            return transfer;
+        }""")
+        page.locator("#remote-drop-zone").dispatch_event("drop", {"dataTransfer": dropped})
+        expect(page.locator('#file-queue-list [data-state="completed"]')).to_have_count(3, timeout=20000)
+        wait_files_idle(page)
+        assert subprocess.check_output(["docker", "exec", "bits-independent-test", "cat", "/home/" + login["username"] + "/drag-upload.txt"]) == b"dragged payload"
+        local = out / "sftp-local" / "nested"
+        local.mkdir(parents=True)
+        (local / "nested-upload.txt").write_text("nested local file")
+        page.locator("#remote-folder-input").set_input_files(str(local.parent))
+        page.locator("#local-file-list").get_by_role("button", name="nested", exact=True).click()
+        page.locator("#local-file-list").get_by_role("checkbox", name="选择 nested-upload.txt", exact=True).check()
+        page.locator("#local-upload-selected").click()
+        expect(page.locator('#file-queue-list [data-state="completed"]')).to_have_count(4, timeout=20000)
+        wait_files_idle(page)
+        # A queued upload retains its original destination while browsing elsewhere.
+        subprocess.check_call(["docker", "exec", "bits-independent-test", "install", "-d", "-o", login["username"], "/home/" + login["username"] + "/other"])
+        page.locator("#file-queue-pause").click()
+        page.locator("#remote-upload").set_input_files({"name": "pinned-target.txt", "mimeType": "text/plain", "buffer": b"target pinned"})
+        page.locator("#local-upload-selected").click()
+        page.locator("#remote-path").fill("/home/" + login["username"] + "/other")
+        page.locator(".remote-path-form").get_by_role("button", name="进入").click()
+        expect(page.locator("#remote-file-status")).to_have_text("0 项")
+        page.locator("#file-queue-pause").click()
+        expect(page.locator('#file-queue-list [data-state="completed"]')).to_have_count(5, timeout=20000)
+        wait_files_idle(page)
+        assert subprocess.check_output(["docker", "exec", "bits-independent-test", "cat", "/home/" + login["username"] + "/pinned-target.txt"]) == b"target pinned"
+        assert subprocess.call(["docker", "exec", "bits-independent-test", "test", "-e", "/home/" + login["username"] + "/other/pinned-target.txt"]) != 0
         page.locator("#remote-path").fill("/root")
         page.locator(".remote-path-form").get_by_role("button", name="进入").click()
         expect(page.locator("#remote-file-status")).to_contain_text("无法读取目录")
@@ -92,13 +181,16 @@ def verify_remote(page, context, admin, out, checks):
         expect(file).to_be_visible()
         page.evaluate("document.activeElement.blur(); window.scrollTo(0, 0)")
         page.wait_for_timeout(200)
-        page.screenshot(path=str(out / "system-terminal.png"), full_page=True)
+        page.screenshot(path=str(out / "system-files.png"), full_page=True)
         page.set_viewport_size({"width": 430, "height": 932})
         page.wait_for_timeout(300)
         page.evaluate("window.scrollTo(0, 0)")
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), "SSH mobile overflow"
-        page.screenshot(path=str(out / "system-terminal-mobile.png"), full_page=True)
+        page.screenshot(path=str(out / "system-files-mobile.png"), full_page=True)
         page.set_viewport_size({"width": 1440, "height": 1080})
+        page.locator("#remote-files-close").click()
+        expect(page.locator("#remote-files")).not_to_be_visible()
+        assert page.evaluate("remoteState.id") == first_session, "file manager close disconnected shell"
         page.get_by_role("button", name="断开连接", exact=True).click()
         page.locator("#remote-profile").select_option("")
         page.locator("#remote-user").fill(login["username"])
@@ -122,5 +214,6 @@ def verify_remote(page, context, admin, out, checks):
         configs = context.request.get(admin["url"] + "/api/v1/remote/config").text()
         assert login["password"] not in configs and '"secret"' not in configs
         checks.append("actual OpenSSH PTY command and multiline paste, private SSH template login, first-host fingerprint, pinned-host temporary login, wrong password, real SFTP upload/download checksum and no overwrite, navigation disconnect, responsive mobile terminal")
+        checks.append("viewport-filling terminal on laptop and mobile, persistent font controls and fullscreen preserve SSH session, dual-pane local/remote file browser, sequential multi-file and drag uploads, folder browsing, queue pause/cancel, immutable queued target directory, file window closes without ending SSH")
     finally:
         page.remove_listener("dialog", confirm)

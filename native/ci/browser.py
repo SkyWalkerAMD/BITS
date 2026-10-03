@@ -700,7 +700,7 @@ with sync_playwright() as p:
             value = response.json()
             for n in value["nodes"]:
                 if n["id"] in ("LAB-002", "LAB-010"):
-                    n.update(last_seen="2020-01-01T00:00:00Z", agent_version="0.4.3", disabled=False,
+                    n.update(last_seen="2020-01-01T00:00:00Z", agent_version="0.4.4", disabled=False,
                         power={"configured":True, "address":"192.168.50.21" if n["id"] == "LAB-002" else "192.168.50.22",
                                "state":"off", "checked_at":datetime.now(timezone.utc).isoformat()})
                     if wake_records:
