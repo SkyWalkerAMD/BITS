@@ -169,7 +169,9 @@ function renderDispatch() {
         );
         status.append(el("small", found.reason));
       }
-      status.append(reachability(n), el("small", n.reason));
+      status.append(reachability(n));
+      if (["unreachable", "busy"].includes(n.state))
+        status.append(el("small", n.reason));
       const configure = button(
         n.power?.configured ? "更新 BMC" : "绑定 BMC",
         () => openBMC(n),
@@ -529,17 +531,8 @@ function renderGroup() {
       ),
     );
   }
-  if (!d.operations.length)
-    events.append(el("p", "尚未开始", "muted"));
-  replace(
-    $("group-body"),
-    head,
-    counts,
-    plan,
-    select,
-    wrapper,
-    events,
-  );
+  if (!d.operations.length) events.append(el("p", "尚未开始", "muted"));
+  replace($("group-body"), head, counts, plan, select, wrapper, events);
 }
 function openBMC(n) {
   dispatchState.bmcNode = n.node;

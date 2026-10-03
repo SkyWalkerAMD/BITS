@@ -307,9 +307,7 @@
               <p>
                 安装 <code>bits-center</code>，配置地址与允许网段后启动服务。
               </p>
-              <p class="muted">
-                允许节点访问中心 HTTPS 443 端口。
-              </p>
+              <p class="muted">允许节点访问中心 HTTPS 443 端口。</p>
             </article>
             <article class="panel guide-card">
               <span class="guide-number">02</span>
@@ -336,13 +334,9 @@ systemctl enable --now bits-node.service</pre
             <article class="panel guide-card">
               <span class="guide-number">03</span>
               <h3>创建压测</h3>
-              <p>
-                选择节点、项目和时长，保存草稿后点击“开始”。
-              </p>
+              <p>选择节点、项目和时长，保存草稿后点击“开始”。</p>
               <button id="guide-create">新建批次</button>
-              <p class="muted">
-                批量压测使用“任务分发 → 新建任务组”。
-              </p>
+              <p class="muted">批量压测使用“任务分发 → 新建任务组”。</p>
               <p>
                 唤醒需要 BMC 可达、节点服务自启动；开机后最多等待 10 分钟连接。
               </p>
@@ -361,7 +355,8 @@ systemctl enable --now bits-node.service</pre
               <span class="guide-number">05</span>
               <h3>查看报告与下载证据</h3>
               <p>
-                在“结果与报告”查看 HTML、下载 Excel 或全部文件。可勾选多份报告后永久删除。
+                在“结果与报告”查看 HTML、下载 Excel
+                或全部文件。可勾选多份报告后永久删除。
               </p>
               <p class="muted">
                 永久删除包含中心的批次记录和全部报告文件，无法恢复。
@@ -460,8 +455,7 @@ systemctl enable --now bits-node.service</pre
           ></p>
           <div id="group-node-picker" class="group-node-picker"></div>
           <p class="form-note">
-            不可达、忙碌或禁用的节点无法选择。BMC
-            可达的关机节点可在确认开始后自动开机；节点程序须已安装并设置开机启动。
+            关机节点将在确认开始后唤醒；请先设置节点服务自启动。
           </p>
         </div>
         <div data-group-panel="1" hidden>
@@ -484,9 +478,7 @@ systemctl enable --now bits-node.service</pre
         </div>
         <div data-group-panel="2" hidden>
           <div id="group-review" class="batch-review"></div>
-          <p class="form-note">
-            保存草稿后，在任务组详情确认开始。
-          </p>
+          <p class="form-note">保存草稿后，在任务组详情确认开始。</p>
         </div>
         <p id="group-error" class="error" role="alert"></p>
         <div class="dialog-actions">
@@ -511,9 +503,7 @@ systemctl enable --now bits-node.service</pre
             ×
           </button>
         </div>
-        <p class="form-note">
-          节点接入后自动匹配。修改模板不覆盖已有绑定。
-        </p>
+        <p class="form-note">节点接入后自动匹配。修改模板不覆盖已有绑定。</p>
         <label
           >选择模板<select id="bmc-profile-select">
             <option value="">新增模板</option>
@@ -577,9 +567,7 @@ systemctl enable --now bits-node.service</pre
             checked
           />启用此模板自动绑定</label
         >
-        <p class="form-note">
-          节点需先开机接入一次；匹配失败可手工绑定。
-        </p>
+        <p class="form-note">节点需先开机接入一次；匹配失败可手工绑定。</p>
         <p id="bmc-profile-error" class="error" role="alert"></p>
         <button class="primary">保存模板</button>
       </form>
@@ -626,9 +614,7 @@ systemctl enable --now bits-node.service</pre
             <option value="3">LANplus · Cipher 3（兼容设备）</option>
           </select></label
         >
-        <p class="form-note">
-          请核对管理口地址。保存后只检查状态，不会开机。
-        </p>
+        <p class="form-note">请核对管理口地址。保存后只检查状态，不会开机。</p>
         <p id="bmc-error" class="error" role="alert"></p>
         <button class="primary">保存绑定并检查状态</button>
       </form>
@@ -690,9 +676,7 @@ systemctl enable --now bits-node.service</pre
         </div>
         <div data-wizard-panel="2" hidden>
           <div id="batch-review"></div>
-          <div class="info-note">
-            保存草稿后，在批次详情点击“开始压测”。
-          </div>
+          <div class="info-note">保存草稿后，在批次详情点击“开始压测”。</div>
         </div>
         <p id="batch-error" class="error" role="alert"></p>
         <div class="dialog-actions">
@@ -766,9 +750,7 @@ systemctl enable --now bits-node.service</pre
           <button type="button" id="node-profile-reload" class="quiet">
             刷新模板列表
           </button>
-          <p class="field-help">
-            节点接入后自动绑定 BMC。
-          </p>
+          <p class="field-help">节点接入后自动绑定 BMC。</p>
         </section>
         <label class="checkbox"
           ><input id="node-keep-on" type="checkbox" />完成后保持开机</label

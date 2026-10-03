@@ -45,9 +45,13 @@ func (a *Agent) startMonitor(ctx context.Context) error {
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	infoPath:=filepath.Join(dir,"info.json")
-	if err:=CheckFileIfExists(infoPath);err!=nil { return err }
-	if err:=os.Remove(infoPath);err!=nil && !os.IsNotExist(err) { return err }
+	infoPath := filepath.Join(dir, "info.json")
+	if err := CheckFileIfExists(infoPath); err != nil {
+		return err
+	}
+	if err := os.Remove(infoPath); err != nil && !os.IsNotExist(err) {
+		return err
+	}
 	monitorCtx, cancel := context.WithCancel(ctx)
 	done := make(chan error, 1)
 	a.monitorCancel, a.monitorDone = cancel, done
@@ -55,7 +59,7 @@ func (a *Agent) startMonitor(ctx context.Context) error {
 	go func() {
 		var sent int64
 		done <- a.Worker(monitorCtx, "monitor", dir, func() {
-			a.publishHardwareInfo(monitorCtx,dir)
+			a.publishHardwareInfo(monitorCtx, dir)
 			var sample LiveSample
 			if monitorCtx.Err() != nil || ReadJSON(path, &sample) != nil || validSample(&sample) != nil || sample.Sequence <= sent {
 				return

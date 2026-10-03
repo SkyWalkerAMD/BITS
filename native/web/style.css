@@ -2808,38 +2808,143 @@ dialog h2 {
   color: #4973b7;
 }
 /* Hardware information shares the node workspace's typography and colors. */
-.info-summary {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin:22px 0;}
-.info-summary-card {display:flex;flex-direction:column;gap:12px;}
-.info-summary-card>span,.info-facts dt {color:var(--muted);font-size:13px;}
-.info-summary-card>strong {font-size:26px;}
-.info-toolbar {display:flex;flex-direction:column;gap:16px;margin:28px 0 20px;}
-.info-toolbar input {width:min(100%,360px);}
-.info-navigation {display:flex;flex-wrap:wrap;gap:8px;}
-.info-navigation button {padding:8px 14px;font-size:13px;}
-.info-navigation .selected {color:#fff;background:#087f86;border-color:#087f86;}
-.info-section-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;}
-.info-section {min-width:0;}
-.info-section h2 {font-size:18px;margin:0 0 20px;}
-.info-wide {grid-column:1/-1;}
-.info-cpus,.info-timings {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,310px),1fr));gap:20px;}
-.info-cpu h3 {font-size:20px;margin:12px 0 20px;}
-.info-facts {display:flex;flex-wrap:wrap;gap:16px 30px;margin:0;}
-.info-facts>div {min-width:90px;}
-.info-facts dd {margin:6px 0 0;font-weight:600;overflow-wrap:anywhere;}
-.info-line {display:flex;flex-wrap:wrap;gap:14px 24px;padding:15px 0;border-top:1px solid #e5edf0;}
-.info-line:first-child {border-top:0;}
-.info-cpus+.info-lines {margin-top:18px;}
-.info-value {overflow-wrap:anywhere;font-size:14px;line-height:1.7;}
-.info-memory-table {margin:0;border:0;}
-.info-memory-table table {width:100%;font-size:14px;}
-.info-memory-table th,.info-memory-table td {white-space:nowrap;padding:14px 16px;}
-.info-timing h3 {font-size:15px;margin:0 0 16px;}
-.info-timing .info-facts dd {font-size:22px;}
-@media(max-width:830px) {
- .info-summary {grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
- .info-section-grid {grid-template-columns:1fr;}
- .info-summary-card {padding:20px;}
- .info-summary-card>strong {font-size:23px;}
- .info-section {padding:22px 18px;}
- .info-hero {gap:20px;}
+.info-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin: 22px 0;
+}
+.info-summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.info-summary-card > span,
+.info-facts dt {
+  color: var(--muted);
+  font-size: 13px;
+}
+.info-summary-card > strong {
+  font-size: 26px;
+}
+.info-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 28px 0 20px;
+}
+.info-toolbar input {
+  width: min(100%, 360px);
+}
+.info-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.info-navigation button {
+  padding: 8px 14px;
+  font-size: 13px;
+}
+.info-navigation .selected {
+  color: #fff;
+  background: #087f86;
+  border-color: #087f86;
+}
+.info-section-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.info-section {
+  min-width: 0;
+}
+.info-section h2 {
+  font-size: 18px;
+  margin: 0 0 20px;
+}
+.info-wide {
+  grid-column: 1/-1;
+}
+.info-cpus,
+.info-timings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr));
+  gap: 20px;
+}
+.info-cpu h3 {
+  font-size: 20px;
+  margin: 12px 0 20px;
+}
+.info-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 30px;
+  margin: 0;
+}
+.info-facts > div {
+  min-width: 90px;
+}
+.info-facts dd {
+  margin: 6px 0 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.info-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 24px;
+  padding: 15px 0;
+  border-top: 1px solid #e5edf0;
+}
+.info-line:first-child {
+  border-top: 0;
+}
+.info-cpus + .info-lines {
+  margin-top: 18px;
+}
+.info-value {
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.info-memory-table {
+  margin: 0;
+  border: 0;
+}
+.info-memory-table table {
+  width: 100%;
+  font-size: 14px;
+}
+.info-memory-table th,
+.info-memory-table td {
+  white-space: nowrap;
+  padding: 14px 16px;
+}
+.info-timing h3 {
+  font-size: 15px;
+  margin: 0 0 16px;
+}
+.info-timing .info-facts dd {
+  font-size: 22px;
+}
+@media (max-width: 830px) {
+  .info-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .info-section-grid {
+    grid-template-columns: 1fr;
+  }
+  .info-summary-card {
+    padding: 20px;
+  }
+  .info-summary-card > strong {
+    font-size: 23px;
+  }
+  .info-section {
+    padding: 22px 18px;
+  }
+  .info-hero {
+    gap: 20px;
+  }
 }

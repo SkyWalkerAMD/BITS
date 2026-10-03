@@ -721,7 +721,12 @@ function nodeCard(n) {
       ),
     );
   foot.append(
-    button("硬件信息 ↗",()=>openHardwareInfo(n.id),"quiet","info-"+n.id),
+    button(
+      "硬件信息 ↗",
+      () => openHardwareInfo(n.id),
+      "quiet",
+      "info-" + n.id,
+    ),
     button(
       b ? "查看批次 ↗" : "节点详情 ↗",
       () => (b ? openBatch(b.id) : inspectNode(n.id)),
@@ -756,14 +761,7 @@ function renderOverview() {
         "nodes",
         "",
       ],
-      [
-        "进行中批次",
-        running,
-        null,
-        "正在执行",
-        "activity",
-        "accent",
-      ],
+      ["进行中批次", running, null, "正在执行", "activity", "accent"],
       [
         "需要处理",
         attention,
@@ -913,7 +911,9 @@ function renderNodeDetail() {
     items.push(el("p", "接入时选择的 BMC 模板：" + n.bmc_profile, "muted"));
   const wake = wakeButton(n);
   if (wake) items.push(wake);
-  items.push(button("硬件信息 ↗",()=>openHardwareInfo(n.id),"","node-info"));
+  items.push(
+    button("硬件信息 ↗", () => openHardwareInfo(n.id), "", "node-info"),
+  );
   if (wakeNote(n)) items.push(el("p", wakeNote(n), "muted"));
   for (const b of list.slice(0, 8)) {
     const row = el("div", undefined, "file-row");
@@ -1368,11 +1368,7 @@ function renderDetail() {
         " · 约 30 秒更新",
       "field-help",
     ),
-    el(
-      "p",
-      "— 未提供 · 读数有效性未验证",
-      "field-help",
-    ),
+    el("p", "— 未提供 · 读数有效性未验证", "field-help"),
   );
   layout.append(live);
   items.push(layout);
@@ -1503,7 +1499,9 @@ function renderMonitor() {
   );
   const action = el("div", undefined, "monitor-hero-actions");
   action.append(state);
-  action.append(button("硬件信息 ↗",()=>openHardwareInfo(nodeID),"","monitor-info"));
+  action.append(
+    button("硬件信息 ↗", () => openHardwareInfo(nodeID), "", "monitor-info"),
+  );
   const wake = wakeButton(node);
   if (wake) action.append(wake);
   if (wakeNote(node)) title.append(el("p", wakeNote(node), "monitor-subtitle"));
@@ -1897,14 +1895,7 @@ function renderMonitor() {
     );
     trends.append(chart);
   }
-  items.push(
-    trends,
-    el(
-      "p",
-      "— 未提供 · 读数有效性未验证",
-      "monitor-quality",
-    ),
-  );
+  items.push(trends, el("p", "— 未提供 · 读数有效性未验证", "monitor-quality"));
   replace(root, ...items);
 }
 function render() {
@@ -1938,21 +1929,31 @@ function route() {
   const hash = location.hash.slice(1),
     detail = hash.match(/^(batch|monitor|group)\/([a-f0-9]{32})$/),
     nodeRoute = hash.match(/^monitor-node\/([A-Za-z0-9][A-Za-z0-9_.-]{0,95})$/),
-    infoRoute = hash.match(/^hardware-info\/([A-Za-z0-9][A-Za-z0-9_.-]{0,95})$/);
-  hardwareInfoRoute(infoRoute?infoRoute[1]:null);
-  page = infoRoute ? "info" : detail
-    ? detail[1] === "group"
-      ? "group"
-      : detail[1] === "monitor"
+    infoRoute = hash.match(
+      /^hardware-info\/([A-Za-z0-9][A-Za-z0-9_.-]{0,95})$/,
+    );
+  hardwareInfoRoute(infoRoute ? infoRoute[1] : null);
+  page = infoRoute
+    ? "info"
+    : detail
+      ? detail[1] === "group"
+        ? "group"
+        : detail[1] === "monitor"
+          ? "monitor"
+          : "detail"
+      : nodeRoute
         ? "monitor"
-        : "detail"
-    : nodeRoute
-      ? "monitor"
-      : Object.hasOwn(pageInfo, hash) &&
-          !["detail", "monitor", "group", "info"].includes(hash)
-        ? hash
-        : "overview";
-  const nextRouteKey = infoRoute ? infoRoute[0] : detail ? detail[0] : nodeRoute ? nodeRoute[0] : page;
+        : Object.hasOwn(pageInfo, hash) &&
+            !["detail", "monitor", "group", "info"].includes(hash)
+          ? hash
+          : "overview";
+  const nextRouteKey = infoRoute
+    ? infoRoute[0]
+    : detail
+      ? detail[0]
+      : nodeRoute
+        ? nodeRoute[0]
+        : page;
   if (routeKey !== nextRouteKey) {
     if (routeKey) routePositions.set(routeKey, window.scrollY);
     // Retain useful back-navigation positions without an unbounded session cache.
@@ -2000,7 +2001,7 @@ function route() {
         ? "dispatch"
         : page === "detail"
           ? "batches"
-          : ["monitor","info"].includes(page)
+          : ["monitor", "info"].includes(page)
             ? "nodes"
             : page);
     a.classList.toggle("selected", match);
@@ -2318,14 +2319,7 @@ function renderNodeBMCProfile() {
     row.append(el("dt", name), el("dd", value));
     facts.append(row);
   }
-  replace(
-    root,
-    facts,
-    el(
-      "p",
-      "修改模板不覆盖已有绑定。",
-    ),
-  );
+  replace(root, facts, el("p", "修改模板不覆盖已有绑定。"));
 }
 async function loadNodeBMCProfiles(selected = $("node-bmc-profile").value) {
   const request = ++nodeBMCProfilesRequest;

@@ -330,9 +330,11 @@ func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	parts := strings.Split(path, "/")
-	if len(parts)==3 && parts[0]=="nodes" && parts[2]=="hardware-info" && r.Method=="GET" {
-		value,err:=s.Store.HardwareInfo(parts[1])
-		if err==nil { respond(w,value) }
+	if len(parts) == 3 && parts[0] == "nodes" && parts[2] == "hardware-info" && r.Method == "GET" {
+		value, err := s.Store.HardwareInfo(parts[1])
+		if err == nil {
+			respond(w, value)
+		}
 		return err
 	}
 	if len(parts) == 3 && parts[0] == "nodes" && parts[2] == "live" && r.Method == "GET" {
@@ -411,11 +413,15 @@ func (s *Server) operator(w http.ResponseWriter, r *http.Request) error {
 }
 func (s *Server) node(w http.ResponseWriter, r *http.Request, node string) error {
 	path := strings.TrimPrefix(r.URL.Path, "/node/v1/")
-	if path=="hardware-info" && r.Method=="POST" {
+	if path == "hardware-info" && r.Method == "POST" {
 		var in HardwareInfo
-		if err:=decodeBounded(r,&in,512<<10);err!=nil { return err }
-		if err:=s.Store.PutHardwareInfo(node,in);err!=nil { return err }
-		respond(w,map[string]bool{"ok":true})
+		if err := decodeBounded(r, &in, 512<<10); err != nil {
+			return err
+		}
+		if err := s.Store.PutHardwareInfo(node, in); err != nil {
+			return err
+		}
+		respond(w, map[string]bool{"ok": true})
 		return nil
 	}
 	if path == "monitor" && r.Method == "POST" {

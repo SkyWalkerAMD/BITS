@@ -8,7 +8,7 @@ import (
 )
 
 func (a *Agent) publishLive(ctx context.Context, dir string, run *LocalRun) {
-	a.publishHardwareInfo(ctx,dir)
+	a.publishHardwareInfo(ctx, dir)
 	now := time.Now()
 	if now.Sub(a.lastLive) < 2*time.Second && a.livePhase == run.Phase {
 		return

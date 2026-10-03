@@ -109,7 +109,7 @@ def hardware_info(envelope, details):
                   "dimms": [{"slot": d["slot"], "fields": {k: v for k, v in d["fields"].items() if k in dimm_fields}}
                             for d in data.get("dimms", [])]})
     if len(json.dumps(value, ensure_ascii=False).encode("utf-8")) > 512 << 10:
-        raise ValueError("Hardware information exceeds display limit")
+        return {"schema": value["schema"], "observed_at": value["observed_at"], "status": "unavailable"}
     return value
 
 
