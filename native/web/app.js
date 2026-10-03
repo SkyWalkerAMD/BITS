@@ -2502,9 +2502,7 @@ $("node-form").onsubmit = async (e) => {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     $("node-dialog").close();
     $("enroll-example").textContent =
-      "bits-node enroll --file /root/" +
-      cfg.node +
-      ".bits.json";
+      "bits-node enroll --file /root/" + cfg.node + ".bits.json";
     notice(
       "节点 " +
         cfg.node +
