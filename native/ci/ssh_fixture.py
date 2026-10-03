@@ -24,7 +24,7 @@ subprocess.check_call(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(
     "PermitRootLogin no", "AllowUsers " + username, "Subsystem sftp internal-sftp",
     "PrintMotd no", "LogLevel ERROR", ""]))
 subprocess.check_call(["/usr/sbin/sshd", "-f", str(root / "sshd_config")])
-fixture = Path("/root/.bits/ssh-fixture.json")
+fixture = root / "login.json"
 fixture.write_text(json.dumps({"username": username, "password": password, "port": 2222}))
 fixture.chmod(0o600)
 print("Disposable SSH service ready")

@@ -9,7 +9,7 @@ def verify_remote(page, context, admin, out, checks):
     subprocess.check_call(["docker", "exec", "-e", "GITHUB_ACTIONS=true", "bits-independent-test",
                            "python3", "-I", "-B", "/src/native/ci/ssh_fixture.py"])
     login = json.loads(subprocess.check_output(["docker", "exec", "bits-independent-test",
-                                              "cat", "/root/.bits/ssh-fixture.json"]))
+                                              "cat", "/run/bits-ssh-ci/login.json"]))
     page.goto(admin["url"] + "/#nodes")
     page.locator("#node-search").fill("")
     page.locator('#node-filters button[data-filter="all"]').click()
@@ -90,9 +90,12 @@ def verify_remote(page, context, admin, out, checks):
         page.locator("#remote-path").fill("/home/" + login["username"])
         page.locator(".remote-path-form").get_by_role("button", name="进入").click()
         expect(file).to_be_visible()
+        page.evaluate("document.activeElement.blur(); window.scrollTo(0, 0)")
+        page.wait_for_timeout(200)
         page.screenshot(path=str(out / "system-terminal.png"), full_page=True)
         page.set_viewport_size({"width": 430, "height": 932})
         page.wait_for_timeout(300)
+        page.evaluate("window.scrollTo(0, 0)")
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), "SSH mobile overflow"
         page.screenshot(path=str(out / "system-terminal-mobile.png"), full_page=True)
         page.set_viewport_size({"width": 1440, "height": 1080})
