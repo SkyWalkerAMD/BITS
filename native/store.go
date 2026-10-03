@@ -223,7 +223,9 @@ func (s *Store) Mutate(id, kind string, fn func(*Batch) error) (Batch, error) {
 	if err != nil {
 		return b, err
 	}
-	if b.State == "deleting" { return b, errors.New("该批次正在永久删除") }
+	if b.State == "deleting" {
+		return b, errors.New("该批次正在永久删除")
+	}
 	before, _ := json.Marshal(b)
 	if err = fn(&b); err != nil {
 		return b, err
@@ -242,9 +244,15 @@ func (s *Store) Mutate(id, kind string, fn func(*Batch) error) (Batch, error) {
 	defer tx.Rollback()
 	if kind == "start_authorized" {
 		busy, e := activeWake(tx, b.Plan.Node)
-		if e != nil { return b, e }
-		if busy { return b, errors.New("节点正在手动唤醒，请等待系统连接后开始压测") }
-		if _, err = tx.Exec("DELETE FROM wake_holds WHERE node=?", b.Plan.Node); err != nil { return b, err }
+		if e != nil {
+			return b, e
+		}
+		if busy {
+			return b, errors.New("节点正在手动唤醒，请等待系统连接后开始压测")
+		}
+		if _, err = tx.Exec("DELETE FROM wake_holds WHERE node=?", b.Plan.Node); err != nil {
+			return b, err
+		}
 	}
 	_, err = tx.Exec("UPDATE batches SET state=?,body=? WHERE id=?", b.State, string(body), id)
 	if err == nil {

@@ -56,12 +56,20 @@ func NewAgent(cfg NodeConfig, data string) (*Agent, error) {
 		return nil, err
 	}
 	a := &Agent{Config: cfg, Client: client, Data: data}
-	var hold struct { ID string `json:"id"` }
+	var hold struct {
+		ID string `json:"id"`
+	}
 	if _, e := os.Lstat(filepath.Join(data, "wake-hold.json")); e == nil {
-		if e = ReadJSON(filepath.Join(data, "wake-hold.json"), &hold); e != nil { return nil, e }
-		if hold.ID != "" && !idRE.MatchString(hold.ID) { return nil, errors.New("invalid retained wake policy") }
+		if e = ReadJSON(filepath.Join(data, "wake-hold.json"), &hold); e != nil {
+			return nil, e
+		}
+		if hold.ID != "" && !idRE.MatchString(hold.ID) {
+			return nil, errors.New("invalid retained wake policy")
+		}
 		a.wakeHold = hold.ID
-	} else if !os.IsNotExist(e) { return nil, e }
+	} else if !os.IsNotExist(e) {
+		return nil, e
+	}
 	a.Worker = a.runWorker
 	a.DiscoverBMC = discoverBMC
 	return a, nil
@@ -401,7 +409,11 @@ func (a *Agent) once(ctx context.Context) error {
 					}
 				}
 				run.Phase = "done"
-				if remote.State == "deleted" { run.Batch.State = "deleted" } else { run.Batch = remote }
+				if remote.State == "deleted" {
+					run.Batch.State = "deleted"
+				} else {
+					run.Batch = remote
+				}
 				if err = a.save(dir, &run); err != nil {
 					return err
 				}
@@ -411,13 +423,15 @@ func (a *Agent) once(ctx context.Context) error {
 		}
 	}
 	var pending struct {
-		Batch *Batch "json:\"batch\""
+		Batch    *Batch "json:\"batch\""
 		WakeHold string `json:"wake_hold"`
 	}
 	if err = a.Client.JSON(ctx, "GET", "/node/v1/poll", "", nil, &pending); err != nil {
 		return err
 	}
-	if err = a.applyWakeHold(pending.WakeHold); err != nil { return err }
+	if err = a.applyWakeHold(pending.WakeHold); err != nil {
+		return err
+	}
 	if pending.Batch == nil {
 		// Discover only while idle, never competing with stress telemetry.
 		a.reportBMC(ctx)
@@ -527,9 +541,15 @@ func (a *Agent) shutdownIfIdle(ctx context.Context) error {
 	return exec.CommandContext(ctx, "/usr/bin/systemctl", "poweroff").Run()
 }
 func (a *Agent) applyWakeHold(id string) error {
-	if id != "" && !idRE.MatchString(id) { return errors.New("invalid center wake policy") }
-	if id == a.wakeHold { return nil }
-	if err := AtomicJSON(filepath.Join(a.Data, "wake-hold.json"), map[string]string{"id": id}); err != nil { return err }
+	if id != "" && !idRE.MatchString(id) {
+		return errors.New("invalid center wake policy")
+	}
+	if id == a.wakeHold {
+		return nil
+	}
+	if err := AtomicJSON(filepath.Join(a.Data, "wake-hold.json"), map[string]string{"id": id}); err != nil {
+		return err
+	}
 	a.wakeHold = id
 	a.idleSince = time.Time{}
 	return nil

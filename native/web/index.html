@@ -197,6 +197,7 @@
               ><button data-filter="idle">空闲</button
               ><button data-filter="attention">待处理</button
               ><button data-filter="wakeable">已关机</button
+              ><button data-filter="waking">唤醒中</button
               ><button data-filter="awaiting_agent">等待系统</button
               ><button data-filter="offline">状态待确认</button>
             </div>
@@ -671,7 +672,7 @@ systemctl enable --now bits-node.service</pre
           </select></label
         >
         <p class="form-note">
-          请先核对节点与管理口的对应关系，使用具备电源控制权限的专用账户。凭据仅保存在中心，保存后只查询状态；仅任务组明确开始时允许开机，不提供重启或关机操作。
+          请先核对节点与管理口的对应关系，使用具备电源控制权限的专用账户。凭据仅保存在中心，保存后只查询状态；确认手动唤醒或开始任务组时才会开机。
         </p>
         <p id="bmc-error" class="error" role="alert"></p>
         <button class="primary">保存绑定并检查状态</button>

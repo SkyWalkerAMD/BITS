@@ -178,7 +178,7 @@ function renderDispatch() {
       );
       configure.disabled = Boolean(n.active_batch || n.waking);
       const actions = el("div", undefined, "dispatch-actions");
-      const wake = wakeButton(snapshot.nodes.find(v => v.id === n.node));
+      const wake = wakeButton(snapshot.nodes.find((v) => v.id === n.node));
       if (wake) actions.append(wake);
       actions.append(configure);
       if (

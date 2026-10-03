@@ -12,17 +12,28 @@ func (s *Server) dispatchAPI(w http.ResponseWriter, r *http.Request, path string
 	case "wakes":
 		if r.Method == "POST" {
 			var in WakeRequest
-			if err := decodeBounded(r, &in, 32768); err != nil { return err }
+			if err := decodeBounded(r, &in, 32768); err != nil {
+				return err
+			}
 			v, err := s.Store.CreateWake(in, s.power.Snapshot())
-			if err == nil { respond(w, v) }
+			if err == nil {
+				respond(w, v)
+			}
 			return err
 		}
 		if r.Method == "GET" {
 			offset := 0
 			var err error
-			if value := r.URL.Query().Get("offset"); value != "" { offset, err = strconv.Atoi(value); if err != nil { return errors.New("invalid offset") } }
+			if value := r.URL.Query().Get("offset"); value != "" {
+				offset, err = strconv.Atoi(value)
+				if err != nil {
+					return errors.New("invalid offset")
+				}
+			}
 			v, err := s.Store.WakeOperations(offset)
-			if err == nil { respond(w, v) }
+			if err == nil {
+				respond(w, v)
+			}
 			return err
 		}
 	case "bmc-profiles":
@@ -110,8 +121,12 @@ func (s *Server) dispatchAPI(w http.ResponseWriter, r *http.Request, path string
 		if count != 0 {
 			return errors.New("节点仍有未完成批次，BMC 绑定保持原样")
 		}
-		if err := s.Store.db.QueryRow("SELECT count(*) FROM wake_members WHERE node=? AND state IN ('pending','command_requested','waiting_agent')", in.Node).Scan(&count); err != nil { return err }
-		if count != 0 { return errors.New("节点正在手动唤醒，请等待本次操作结束后修改 BMC") }
+		if err := s.Store.db.QueryRow("SELECT count(*) FROM wake_members WHERE node=? AND state IN ('pending','command_requested','waiting_agent')", in.Node).Scan(&count); err != nil {
+			return err
+		}
+		if count != 0 {
+			return errors.New("节点正在手动唤醒，请等待本次操作结束后修改 BMC")
+		}
 		if err := s.power.Bind(BMCBinding{Node: in.Node, Address: in.Address, Username: in.Username, Password: in.Password, Cipher: in.Cipher}); err != nil {
 			return err
 		}

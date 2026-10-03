@@ -686,19 +686,19 @@ function nodeCard(n) {
           ? "测试需要人工处理"
           : kind === "waking"
             ? "已提交唤醒，等待节点系统连接"
-          : kind === "wakeable"
-            ? "管理口可达，机器已关机"
-            : kind === "awaiting_agent"
-              ? "电源已开启，等待节点程序连接"
-              : kind === "offline"
-                ? n.power?.configured
-                  ? "系统与管理口状态待确认"
-                  : "系统未连接，尚未绑定 BMC"
-                : kind === "disabled"
-                  ? "此节点已禁用"
-                  : last?.state === "delivered"
-                    ? "上一批已完成交付"
-                    : "准备好下一次测试",
+            : kind === "wakeable"
+              ? "管理口可达，机器已关机"
+              : kind === "awaiting_agent"
+                ? "电源已开启，等待节点程序连接"
+                : kind === "offline"
+                  ? n.power?.configured
+                    ? "系统与管理口状态待确认"
+                    : "系统未连接，尚未绑定 BMC"
+                  : kind === "disabled"
+                    ? "此节点已禁用"
+                    : last?.state === "delivered"
+                      ? "上一批已完成交付"
+                      : "准备好下一次测试",
       ),
       el(
         "span",
@@ -967,7 +967,15 @@ function openNodeMonitor(id) {
 }
 function operationButtons(b) {
   const ops = el("div", undefined, "actions");
-  if (canDelete(b)) ops.append(button("永久删除", () => confirmDelete([b.id]), "danger", "delete-" + b.id));
+  if (canDelete(b))
+    ops.append(
+      button(
+        "永久删除",
+        () => confirmDelete([b.id]),
+        "danger",
+        "delete-" + b.id,
+      ),
+    );
   if (b.group_id) ops.append(link("返回任务组", "#group/" + b.group_id));
   if (b.state === "draft" && !b.group_id)
     ops.append(
@@ -1039,7 +1047,10 @@ function renderBatches() {
   );
   $("batch-count").textContent =
     items.length + " 个符合条件的批次 · 每页 " + size + " 个";
-  renderDeleteToolbar("batches", items.slice(batchPage * size, (batchPage + 1) * size));
+  renderDeleteToolbar(
+    "batches",
+    items.slice(batchPage * size, (batchPage + 1) * size),
+  );
   replace(
     $("batch-list"),
     ...items.slice(batchPage * size, (batchPage + 1) * size).map((b) => {
@@ -1070,7 +1081,15 @@ function renderBatches() {
       }
       const td = el("td");
       td.append(button("详情 →", () => openBatch(b.id), "", "details-" + b.id));
-      if (canDelete(b)) td.append(button("删除", () => confirmDelete([b.id]), "danger", "delete-" + b.id));
+      if (canDelete(b))
+        td.append(
+          button(
+            "删除",
+            () => confirmDelete([b.id]),
+            "danger",
+            "delete-" + b.id,
+          ),
+        );
       if (b.group_id) td.append(link("任务组", "#group/" + b.group_id));
       if (b.state === "draft" && !b.group_id)
         td.append(
@@ -1119,7 +1138,10 @@ function renderReports() {
   );
   $("report-count").textContent =
     items.length + " 份已交付报告 · 每页 " + size + " 份";
-  renderDeleteToolbar("reports", items.slice(reportPage * size, (reportPage + 1) * size));
+  renderDeleteToolbar(
+    "reports",
+    items.slice(reportPage * size, (reportPage + 1) * size),
+  );
   replace(
     $("report-list"),
     ...items.slice(reportPage * size, (reportPage + 1) * size).map((b) => {
@@ -1465,8 +1487,8 @@ function renderMonitor() {
         ? isWaking(node)
           ? "正在唤醒 · 等待系统连接"
           : nodeKind(node) === "wakeable"
-          ? "已关机 · 最后读数"
-          : "系统未连接 · 最后读数"
+            ? "已关机 · 最后读数"
+            : "系统未连接 · 最后读数"
         : !byNode &&
             (!activeStates.includes(b.state) ||
               ["finalizing", "delivering"].includes(f?.phase))
@@ -2450,7 +2472,9 @@ $("confirm-form").onsubmit = async (e) => {
   try {
     const message = await nextConfirm($("confirm-reason").value.trim());
     $("confirm-dialog").close();
-    notice(typeof message === "string" ? message : "操作已保存，正在同步节点状态。");
+    notice(
+      typeof message === "string" ? message : "操作已保存，正在同步节点状态。",
+    );
     lastDetail = 0;
     lastOverview = 0;
     await sync(true);
