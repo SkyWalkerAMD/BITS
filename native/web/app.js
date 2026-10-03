@@ -1860,11 +1860,7 @@ function renderMonitor() {
       section.append(nav);
     }
     section.append(
-      el(
-        "p",
-        "条形：C0 活跃比例 · IRQ 未提供",
-        "field-help core-legend",
-      ),
+      el("p", "条形：C0 活跃比例 · IRQ 未提供", "field-help core-legend"),
     );
     items.push(section);
   }
