@@ -21,9 +21,12 @@ import (
 func show(v any) { b, _ := json.MarshalIndent(v, "", "  "); fmt.Println(string(b)) }
 func run() error {
 	if len(os.Args) < 2 {
-		return errors.New("use bits-center setup | serve | network | status | node-add | batch-add | start | cancel | dispatch-nodes | group-add | group-start | group-cancel | bmc-import")
+		return errors.New("use bits-center setup | serve | network | status | node-add | batch-add | start | cancel | dispatch-nodes | group-add | group-start | group-cancel | bmc-import | uninstall")
 	}
 	action := os.Args[1]
+	if action == "uninstall" {
+		return bits.Uninstall("center", os.Args[2:])
+	}
 	if action == "version" || action == "--version" {
 		fmt.Println("BITS " + bits.Version)
 		return nil

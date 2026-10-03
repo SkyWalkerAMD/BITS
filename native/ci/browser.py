@@ -586,7 +586,8 @@ with sync_playwright() as p:
                                   ("off-newer","已关机 · 可唤醒"),("heartbeat-newer","空闲")):
             page.locator("#refresh").click()
             expect(page.locator("#node-list .badge")).to_have_text(label, timeout=15000)
-        page.unroute("**/api/v1/overview", fleet_power_states)
+        # Polling may have a fetch in flight when the last fixture assertion ends.
+        page.unroute_all(behavior="wait")
         page.locator("#refresh").click()
         checks.append("overview, node cards, details and mobile filters share BMC power state; stale/future state rejected and newer heartbeat wins")
         # Credential template is saved via the real center API, without a
@@ -698,7 +699,7 @@ with sync_playwright() as p:
             value = response.json()
             for n in value["nodes"]:
                 if n["id"] in ("LAB-002", "LAB-010"):
-                    n.update(last_seen="2020-01-01T00:00:00Z", agent_version="0.4.2", disabled=False,
+                    n.update(last_seen="2020-01-01T00:00:00Z", agent_version="0.4.3", disabled=False,
                         power={"configured":True, "address":"192.168.50.21" if n["id"] == "LAB-002" else "192.168.50.22",
                                "state":"off", "checked_at":datetime.now(timezone.utc).isoformat()})
                     if wake_records:

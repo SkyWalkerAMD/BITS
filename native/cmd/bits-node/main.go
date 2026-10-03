@@ -16,9 +16,12 @@ import (
 
 func run() error {
 	if len(os.Args) < 2 {
-		return errors.New("use bits-node enroll | agent | check | status")
+		return errors.New("use bits-node enroll | agent | check | status | uninstall")
 	}
 	action := os.Args[1]
+	if action == "uninstall" {
+		return bits.Uninstall("node", os.Args[2:])
+	}
 	if action == "version" || action == "--version" {
 		fmt.Println("BITS " + bits.Version)
 		return nil

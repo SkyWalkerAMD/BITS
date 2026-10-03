@@ -110,6 +110,9 @@ jobs:
           sudo apt-get install -y fonts-noto-cjk
           python3 -m playwright install --with-deps chromium
           python3 native/ci/browser.py
+      - name: Confirmed purge, failure recovery and role isolation
+        run: |
+          docker exec -e GITHUB_ACTIONS=true bits-independent-test python3 -I -B /src/native/ci/uninstall.py 2>&1 | tee .independent-results/uninstall-test.txt
       - name: Capture diagnostics
         if: always()
         run: |
@@ -127,7 +130,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON(inputs.full_matrix && '[{"label":"rocky8-from040","image":"rockylinux/rockylinux:8","kind":"rpm","old":"0.4.0"},{"label":"ubuntu22-from040","image":"ubuntu:22.04","kind":"deb","old":"0.4.0"},{"label":"rocky8-from041","image":"rockylinux/rockylinux:8","kind":"rpm","old":"0.4.1"},{"label":"ubuntu22-from041","image":"ubuntu:22.04","kind":"deb","old":"0.4.1"}]' || '[{"label":"rocky8-from040","image":"rockylinux/rockylinux:8","kind":"rpm","old":"0.4.0"},{"label":"ubuntu22-from040","image":"ubuntu:22.04","kind":"deb","old":"0.4.0"}]') }}
+        include: ${{ fromJSON(inputs.full_matrix && '[{"label":"rocky8-from040","image":"rockylinux/rockylinux:8","kind":"rpm","old":"0.4.0"},{"label":"ubuntu22-from040","image":"ubuntu:22.04","kind":"deb","old":"0.4.0"},{"label":"rocky8-from041","image":"rockylinux/rockylinux:8","kind":"rpm","old":"0.4.1"},{"label":"ubuntu22-from041","image":"ubuntu:22.04","kind":"deb","old":"0.4.1"},{"label":"rocky8-from042","image":"rockylinux/rockylinux:8","kind":"rpm","old":"0.4.2"},{"label":"ubuntu22-from042","image":"ubuntu:22.04","kind":"deb","old":"0.4.2"}]' || '[{"label":"rocky8-from042","image":"rockylinux/rockylinux:8","kind":"rpm","old":"0.4.2"},{"label":"ubuntu22-from042","image":"ubuntu:22.04","kind":"deb","old":"0.4.2"}]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with: {persist-credentials: false}
@@ -148,6 +151,10 @@ jobs:
           a5db701ecd8c0e35173967453ef98727c59de9d98037e503a608a6a6114e3da8  bits-node-0.4.1-1.el8.x86_64.rpm
           3e1f57291c14bd4b4570111bf671e11d41c7ebc18e36eb891af7282b0f39b95f  bits-center_0.4.1-1_amd64.deb
           9f39d68f9c81f05d0c3fae8d1c691c481efee00a4ad589d9d87f3705e9bf5e22  bits-node_0.4.1-1_amd64.deb
+          a24b9334da9e3789b8825f6276784b02f06e7a83e2ff6ae1dd6db6b1db4627a6  bits-center-0.4.2-1.el8.x86_64.rpm
+          9f94e266f684ae507c70b18cf6ccfce4e5f6b6aacd19bd5987e6b7c8412a392a  bits-node-0.4.2-1.el8.x86_64.rpm
+          db020d37c96aa10a095738d7c0bd0b9047ab2a5d6ba650c59d6573e0c1572ec3  bits-center_0.4.2-1_amd64.deb
+          d686c671af42dac723f99abfbe5c86e8f891dacf17e6325f33595c48048a0326  bits-node_0.4.2-1_amd64.deb
           HASHES
       - name: Upgrade real packages while preserving identity, templates and sealed reports
         env: {BASE_IMAGE: '${{ matrix.image }}', KIND: '${{ matrix.kind }}', OLD: '${{ matrix.old }}'}

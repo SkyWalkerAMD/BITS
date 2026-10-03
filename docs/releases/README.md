@@ -6,6 +6,7 @@
 
 | 交付 | 版本 / 源码 | 云端证据 |
 | --- | --- | --- |
+| BITS 通用完整卸载 | [0.4.3](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.4.3)；[更新说明](0.4.3.md)；[源码包](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.3/bits-source-0.4.3.tar.gz) | [VERIFICATION.json](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.3/VERIFICATION.json)：同次构建、12 系统安装与完整卸载、升级恢复及浏览器检查 |
 | BITS 通用包管理器安装升级 | [0.4.2](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.4.2)；[更新说明](0.4.2.md)；[源码包](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.2/bits-source-0.4.2.tar.gz) | [VERIFICATION.json](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.2/VERIFICATION.json)：12 系统、0.4.0 / 0.4.1 RPM/DEB 自动升级及故障恢复 |
 | BITS 硬件信息、单台/批量唤醒与报告删除 | [0.4.1](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.4.1)；[更新说明](0.4.1.md) | [VERIFICATION.json](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.1/VERIFICATION.json)：同次源码、安装包、12 系统与浏览器验证 |
 | BITS 0.4 正式版：在线持续监控、BMC 模板与统一状态 | [0.4.0](https://github.com/SkyWalkerAMD/BITS/releases/tag/v0.4.0)；[更新说明](0.4.0.md)；[安装与升级](../deployment/BITS-INDEPENDENT.md) | 同次构建的 [VERIFICATION.json](https://github.com/SkyWalkerAMD/BITS/releases/download/v0.4.0/VERIFICATION.json) 记录 12 个 Linux 环境、alpha.7 RPM/DEB 实包升级、协议竞态与桌面/手机浏览器验收，以及对应源码提交 |

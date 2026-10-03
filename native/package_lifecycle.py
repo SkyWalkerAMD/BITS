@@ -78,17 +78,19 @@ def write_json(path, value):
 
 
 class Lifecycle:
-    def __init__(self, role, version):
+    def __init__(self, role, version, read_only=False):
         self.role, self.version = role, version
         self.unit = "bits-" + role + ".service"
         self.binary = "/usr/bin/bits-" + role
         self.root = Path("/var/lib/bits-package")
+        self.state_path = self.root / (role + ".json")
+        self.mask = Path("/run/systemd/system") / self.unit
+        if read_only:
+            return
         self.root.mkdir(mode=0o700, exist_ok=True)
         private_path(self.root, True)
         if self.root.stat().st_uid != 0 or self.root.stat().st_mode & 0o077:
             raise RuntimeError("package state directory must be root-only")
-        self.state_path = self.root / (role + ".json")
-        self.mask = Path("/run/systemd/system") / self.unit
         lock = self.root / (role + ".lock")
         self.lock = os.open(str(lock), os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
         fcntl.flock(self.lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -293,6 +295,8 @@ class Lifecycle:
 
     def prepare(self):
         operation = "upgrade"
+        if (Path("/var/lib/bits-uninstall") / self.role / "plan.json").exists():
+            raise RuntimeError("unfinished BITS purge; use its saved resume.py before reinstalling")
         for old in ("/etc/bits/node/native.json", "/etc/bits/center/manifest.json",
                     "/etc/ocrun-node/native.json", "/etc/ocrun-server/manifest.json"):
             if os.path.lexists(old):

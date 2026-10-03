@@ -29,7 +29,7 @@ import streaming
 import suite
 import workload
 
-VERSION = "0.4.2"
+VERSION = "0.4.3"
 # 128 explicitly identified steps plus the initial preparing sample.
 report_sheet.MAX_GROUPS = 129
 STOP = False

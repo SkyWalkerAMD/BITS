@@ -17,7 +17,7 @@ os.umask(0o077)
 spec = importlib.util.spec_from_file_location("acceptance", "/src/native/ci/acceptance.py")
 a = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(a)
-NEW = "0.4.2"
+NEW = "0.4.3"
 ROLES = ("center", "node")
 
 
