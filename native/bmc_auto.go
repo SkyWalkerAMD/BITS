@@ -61,9 +61,9 @@ var autoReasons = map[string]string{
 	"stale": "管理口发现记录已过期，等待节点重新上报", "ready": "等待自动核对管理口身份",
 	"checking": "正在核对 BMC 身份与电源状态", "failed": "自动核对未通过；检查管理网络、凭据、Cipher 与 GUID 后再重试",
 	"bound": "已自动绑定并核对 BMC 身份", "interrupted": "上次核对未完成，请检查后重试",
-	"conflict": "管理口地址或 BMC 身份被多个节点上报，请手工核对对应关系",
+	"conflict":            "管理口地址或 BMC 身份被多个节点上报，请手工核对对应关系",
 	"profile_unavailable": "所选模板已停用或不存在，请检查模板设置；不会改用其他模板",
-	"profile_mismatch": "所选模板与管理网段、节点名前缀或主板型号不符，请检查模板条件",
+	"profile_mismatch":    "所选模板与管理网段、节点名前缀或主板型号不符，请检查模板条件",
 }
 
 // Schema 3 makes the enrollment choice durable in the same transaction as the

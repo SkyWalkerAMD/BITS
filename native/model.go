@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const Version = "0.4.0-alpha.7"
+const Version = "0.4.0"
 
 var nameRE = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$")
 var idRE = regexp.MustCompile("^[0-9a-f]{32}$")
@@ -62,12 +62,12 @@ type Batch struct {
 	GroupID    string              `json:"group_id,omitempty"`
 }
 type Node struct {
-	ID       string       "json:\"id\""
-	LastSeen string       "json:\"last_seen,omitempty\""
-	Agent    string       "json:\"agent_version,omitempty\""
-	Disabled bool         "json:\"disabled\""
-	Power    *PowerStatus `json:"power,omitempty"`
-	BMCProfile string     `json:"bmc_profile,omitempty"`
+	ID         string       "json:\"id\""
+	LastSeen   string       "json:\"last_seen,omitempty\""
+	Agent      string       "json:\"agent_version,omitempty\""
+	Disabled   bool         "json:\"disabled\""
+	Power      *PowerStatus `json:"power,omitempty"`
+	BMCProfile string       `json:"bmc_profile,omitempty"`
 }
 type Event struct {
 	At     string "json:\"at\""

@@ -4,7 +4,7 @@
 
 | 范围 | 目录 |
 | --- | --- |
-| 独立架构预览 0.4 | `native/`：中心、出站节点代理、网页和本地工作进程；验收夹具 `native/ci/` |
+| 独立架构 0.4 | `native/`：中心、出站节点代理、网页和本地工作进程；验收夹具 `native/ci/` |
 | 完整系统 | `distribution/`、`bits_core/center/` |
 | 旧系统增强 | `legacy_plugin/`、`bits_core/results/` |
 | 节点与结果 | `bits_core/batch/`、`bits_core/reporting/`、`bits_core/workloads/` |

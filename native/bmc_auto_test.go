@@ -349,39 +349,79 @@ func TestNodeEnrollmentTemplateSelectionIsAtomicAndPrivate(t *testing.T) {
 	s, admin, node := testServer(t)
 	ctx := context.Background()
 	s.Config.Cert = filepath.Join(s.Config.Data, "public-fixture.crt")
-	if err := os.WriteFile(s.Config.Cert, []byte("PUBLIC-CERT-FIXTURE"), 0600); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(s.Config.Cert, []byte("PUBLIC-CERT-FIXTURE"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	p := autoProfileFixture()
-	if err := s.autoBMC.profile(p); err != nil { t.Fatal(err) }
+	if err := s.autoBMC.profile(p); err != nil {
+		t.Fatal(err)
+	}
 	in := map[string]any{"id": "N2", "serial": "ASSET-2", "bmc_profile": p.Name}
 	var cfg map[string]any
-	if err := node.JSON(ctx, "POST", "/api/v1/nodes", "", in, &cfg); err == nil { t.Fatal("node enrolled a peer") }
-	if err := admin.JSON(ctx, "POST", "/api/v1/nodes", "", in, &cfg); err != nil { t.Fatal(err) }
-	if len(cfg) != 6 || cfg["node"] != "N2" || !s.Store.AuthNode("N2", cfg["token"].(string)) { t.Fatal("enrollment schema or identity changed") }
+	if err := node.JSON(ctx, "POST", "/api/v1/nodes", "", in, &cfg); err == nil {
+		t.Fatal("node enrolled a peer")
+	}
+	if err := admin.JSON(ctx, "POST", "/api/v1/nodes", "", in, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg) != 6 || cfg["node"] != "N2" || !s.Store.AuthNode("N2", cfg["token"].(string)) {
+		t.Fatal("enrollment schema or identity changed")
+	}
 	raw, _ := json.Marshal(cfg)
-	if strings.Contains(string(raw), p.Password) || strings.Contains(string(raw), p.Username) || strings.Contains(string(raw), "bmc_") { t.Fatal("center BMC configuration escaped into connection file") }
-	if choice, err := s.Store.nodeBMCProfile("N2"); err != nil || choice != p.Name { t.Fatal("selection not stored with enrollment", err) }
+	if strings.Contains(string(raw), p.Password) || strings.Contains(string(raw), p.Username) || strings.Contains(string(raw), "bmc_") {
+		t.Fatal("center BMC configuration escaped into connection file")
+	}
+	if choice, err := s.Store.nodeBMCProfile("N2"); err != nil || choice != p.Name {
+		t.Fatal("selection not stored with enrollment", err)
+	}
 	var discoveries map[string]AutoBMCView
-	if err := admin.JSON(ctx, "GET", "/api/v1/dispatch/bmc-discoveries", "", nil, &discoveries); err != nil { t.Fatal(err) }
-	if discoveries["N2"].Profile != p.Name || discoveries["N2"].State != "waiting" { t.Fatal("pending selection not visible") }
+	if err := admin.JSON(ctx, "GET", "/api/v1/dispatch/bmc-discoveries", "", nil, &discoveries); err != nil {
+		t.Fatal(err)
+	}
+	if discoveries["N2"].Profile != p.Name || discoveries["N2"].State != "waiting" {
+		t.Fatal("pending selection not visible")
+	}
 	in["bmc_profile"] = ""
-	if err := admin.JSON(ctx, "POST", "/api/v1/nodes", "", in, &cfg); err == nil { t.Fatal("duplicate enrollment accepted") }
-	if choice, _ := s.Store.nodeBMCProfile("N2"); choice != p.Name { t.Fatal("duplicate enrollment overwrote selection") }
+	if err := admin.JSON(ctx, "POST", "/api/v1/nodes", "", in, &cfg); err == nil {
+		t.Fatal("duplicate enrollment accepted")
+	}
+	if choice, _ := s.Store.nodeBMCProfile("N2"); choice != p.Name {
+		t.Fatal("duplicate enrollment overwrote selection")
+	}
 	for _, kind := range []string{"missing", "disabled", "prefix"} {
 		t.Run(kind, func(t *testing.T) {
 			bad := autoProfileFixture()
 			bad.Name = "rejected-" + kind
-			if kind == "disabled" { bad.Enabled = false }
-			if kind == "prefix" { bad.NodePrefix = "OTHER-" }
-			if kind != "missing" { if err := s.autoBMC.profile(bad); err != nil { t.Fatal(err) } }
+			if kind == "disabled" {
+				bad.Enabled = false
+			}
+			if kind == "prefix" {
+				bad.NodePrefix = "OTHER-"
+			}
+			if kind != "missing" {
+				if err := s.autoBMC.profile(bad); err != nil {
+					t.Fatal(err)
+				}
+			}
 			id := "N-" + kind
-			if err := admin.JSON(ctx, "POST", "/api/v1/nodes", "", map[string]any{"id": id, "serial": "ASSET", "bmc_profile": bad.Name}, new(any)); err == nil { t.Fatal("invalid selection created node") }
-			if _, err := s.Store.nodeBMCProfile(id); err == nil { t.Fatal("failed registration left node") }
+			if err := admin.JSON(ctx, "POST", "/api/v1/nodes", "", map[string]any{"id": id, "serial": "ASSET", "bmc_profile": bad.Name}, new(any)); err == nil {
+				t.Fatal("invalid selection created node")
+			}
+			if _, err := s.Store.nodeBMCProfile(id); err == nil {
+				t.Fatal("failed registration left node")
+			}
 		})
 	}
 	// Inject a selection write failure after the node INSERT. Both must roll back.
-	if _, err := s.Store.db.Exec("CREATE TRIGGER fail_profile BEFORE INSERT ON node_bmc_profiles BEGIN SELECT RAISE(ABORT,'fixture'); END"); err != nil { t.Fatal(err) }
-	if err := s.addNodeWithBMCProfile("N3", Random(32), p.Name); err == nil { t.Fatal("selection write unexpectedly passed") }
-	if _, err := s.Store.nodeBMCProfile("N3"); err == nil { t.Fatal("selection failure left orphan identity") }
+	if _, err := s.Store.db.Exec("CREATE TRIGGER fail_profile BEFORE INSERT ON node_bmc_profiles BEGIN SELECT RAISE(ABORT,'fixture'); END"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.addNodeWithBMCProfile("N3", Random(32), p.Name); err == nil {
+		t.Fatal("selection write unexpectedly passed")
+	}
+	if _, err := s.Store.nodeBMCProfile("N3"); err == nil {
+		t.Fatal("selection failure left orphan identity")
+	}
 }
 
 func TestSelectedBMCProfileNeverFallsBackOrBypassesScope(t *testing.T) {
@@ -391,25 +431,47 @@ func TestSelectedBMCProfileNeverFallsBackOrBypassesScope(t *testing.T) {
 			f := &autoPowerFixture{guid: autoGUID}
 			s.power.driver = f
 			fallback := autoProfileFixture()
-			if err := s.autoBMC.profile(fallback); err != nil { t.Fatal(err) }
-			p := autoProfileFixture(); p.Name = "selected"
-			if err := s.autoBMC.profile(p); err != nil { t.Fatal(err) }
-			if err := s.addNodeWithBMCProfile("N2", Random(32), p.Name); err != nil { t.Fatal(err) }
+			if err := s.autoBMC.profile(fallback); err != nil {
+				t.Fatal(err)
+			}
+			p := autoProfileFixture()
+			p.Name = "selected"
+			if err := s.autoBMC.profile(p); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.addNodeWithBMCProfile("N2", Random(32), p.Name); err != nil {
+				t.Fatal(err)
+			}
 			d := autoDiscoveryFixture()
 			switch kind {
-			case "disabled": p.Enabled = false
-			case "network": p.Networks = []string{"192.168.41.0/24"}
-			case "model": p.Model = "OTHER-BOARD"
-			case "prefix": p.NodePrefix = "OTHER-"
-			case "two-addresses": d.Candidates = append(d.Candidates, BMCCandidate{Address: "192.168.40.22", MAC: "02:00:00:00:00:02", Channel: 8})
+			case "disabled":
+				p.Enabled = false
+			case "network":
+				p.Networks = []string{"192.168.41.0/24"}
+			case "model":
+				p.Model = "OTHER-BOARD"
+			case "prefix":
+				p.NodePrefix = "OTHER-"
+			case "two-addresses":
+				d.Candidates = append(d.Candidates, BMCCandidate{Address: "192.168.40.22", MAC: "02:00:00:00:00:02", Channel: 8})
 			}
-			if err := s.autoBMC.profile(p); err != nil { t.Fatal(err) }
-			if kind == "missing" { delete(s.autoBMC.data.Profiles, p.Name) }
-			if err := s.autoBMC.discovery("N2", d); err != nil { t.Fatal(err) }
+			if err := s.autoBMC.profile(p); err != nil {
+				t.Fatal(err)
+			}
+			if kind == "missing" {
+				delete(s.autoBMC.data.Profiles, p.Name)
+			}
+			if err := s.autoBMC.discovery("N2", d); err != nil {
+				t.Fatal(err)
+			}
 			s.autoBindBMC(context.Background(), "N2")
-			if f.identityCalls != 0 || f.onCalls != 0 || s.power.Snapshot()["N2"].Configured { t.Fatal("selected scope bypassed or alternate credential attempted") }
+			if f.identityCalls != 0 || f.onCalls != 0 || s.power.Snapshot()["N2"].Configured {
+				t.Fatal("selected scope bypassed or alternate credential attempted")
+			}
 			v := s.autoBMC.view("N2", p.Name)
-			if v.State == "ready" || v.Profile != p.Name || v.Reason == "" { t.Fatal("selection failure not explained") }
+			if v.State == "ready" || v.Profile != p.Name || v.Reason == "" {
+				t.Fatal("selection failure not explained")
+			}
 		})
 	}
 }
@@ -417,53 +479,115 @@ func TestSelectedBMCProfileNeverFallsBackOrBypassesScope(t *testing.T) {
 func TestSelectedBMCProfileResolvesOverlapAndKeepsExistingBinding(t *testing.T) {
 	s, _, _ := testServer(t)
 	p := autoProfileFixture()
-	if err := s.autoBMC.profile(p); err != nil { t.Fatal(err) }
-	other := p; other.Name = "second"; other.Password = "OTHER-FIXTURE"
-	if err := s.autoBMC.profile(other); err != nil { t.Fatal(err) }
-	if err := s.addNodeWithBMCProfile("N2", Random(32), p.Name); err != nil { t.Fatal(err) }
-	if err := s.autoBMC.discovery("N2", autoDiscoveryFixture()); err != nil { t.Fatal(err) }
+	if err := s.autoBMC.profile(p); err != nil {
+		t.Fatal(err)
+	}
+	other := p
+	other.Name = "second"
+	other.Password = "OTHER-FIXTURE"
+	if err := s.autoBMC.profile(other); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.addNodeWithBMCProfile("N2", Random(32), p.Name); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.autoBMC.discovery("N2", autoDiscoveryFixture()); err != nil {
+		t.Fatal(err)
+	}
 	r := NewServer(s.Store, s.Config)
-	if err := r.LoadPower(); err != nil { t.Fatal(err) }
-	f := &autoPowerFixture{guid: autoGUID}; r.power.driver = f
+	if err := r.LoadPower(); err != nil {
+		t.Fatal(err)
+	}
+	f := &autoPowerFixture{guid: autoGUID}
+	r.power.driver = f
 	r.autoBindBMC(context.Background(), "N2")
 	b := r.power.bindings["N2"]
-	if b.Profile != p.Name || b.Password != p.Password || f.identityCalls != 1 || f.onCalls != 0 { t.Fatal("explicit template was not used after restart") }
+	if b.Profile != p.Name || b.Password != p.Password || f.identityCalls != 1 || f.onCalls != 0 {
+		t.Fatal("explicit template was not used after restart")
+	}
 	p.Password = "NEXT-FIXTURE-SECRET"
-	if err := r.autoBMC.profile(p); err != nil { t.Fatal(err) }
+	if err := r.autoBMC.profile(p); err != nil {
+		t.Fatal(err)
+	}
 	r.autoBindBMC(context.Background(), "N2")
-	if r.power.bindings["N2"].Password != b.Password || f.identityCalls != 1 { t.Fatal("template edit changed existing binding") }
-	if err := r.addNodeWithBMCProfile("N3", Random(32), p.Name); err != nil { t.Fatal(err) }
-	d := autoDiscoveryFixture(); d.GUID = "22345678-1234-5678-9abc-0123456789ab"; d.Candidates[0].Address = "192.168.40.23"
+	if r.power.bindings["N2"].Password != b.Password || f.identityCalls != 1 {
+		t.Fatal("template edit changed existing binding")
+	}
+	if err := r.addNodeWithBMCProfile("N3", Random(32), p.Name); err != nil {
+		t.Fatal(err)
+	}
+	d := autoDiscoveryFixture()
+	d.GUID = "22345678-1234-5678-9abc-0123456789ab"
+	d.Candidates[0].Address = "192.168.40.23"
 	f.guid = d.GUID
-	if err := r.autoBMC.discovery("N3", d); err != nil { t.Fatal(err) }
+	if err := r.autoBMC.discovery("N3", d); err != nil {
+		t.Fatal(err)
+	}
 	r.autoBindBMC(context.Background(), "N3")
-	if r.power.bindings["N3"].Password != p.Password || f.identityCalls != 2 || f.onCalls != 0 { t.Fatal("new binding did not use updated template") }
+	if r.power.bindings["N3"].Password != p.Password || f.identityCalls != 2 || f.onCalls != 0 {
+		t.Fatal("new binding did not use updated template")
+	}
 }
 
 func TestBMCEnrollmentMigrationAndDurableSelection(t *testing.T) {
-	dir := t.TempDir(); os.Chmod(dir, 0700)
+	dir := t.TempDir()
+	os.Chmod(dir, 0700)
 	s, err := OpenStore(dir)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	token := Random(32)
-	if err = s.AddNode("N1", token); err != nil { t.Fatal(err) }
-	b, err := s.Create(testPlan("N1")); if err != nil { t.Fatal(err) }
+	if err = s.AddNode("N1", token); err != nil {
+		t.Fatal(err)
+	}
+	b, err := s.Create(testPlan("N1"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, q := range []string{"DROP TABLE node_bmc_profiles", "UPDATE metadata SET value='2' WHERE key='schema'"} {
-		if _, err = s.db.Exec(q); err != nil { t.Fatal(err) }
+		if _, err = s.db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
 	}
 	s.Close()
-	s, err = OpenStore(dir); if err != nil { t.Fatal(err) }
+	s, err = OpenStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 	backup := filepath.Join(dir, "center.sqlite.before-bmc-enrollment-v2")
-	if info, err := os.Stat(backup); err != nil || info.Mode().Perm() != 0600 { t.Fatal("private migration backup missing", err) }
-	before, err := sql.Open("sqlite", backup + "?mode=ro"); if err != nil { t.Fatal(err) }
+	if info, err := os.Stat(backup); err != nil || info.Mode().Perm() != 0600 {
+		t.Fatal("private migration backup missing", err)
+	}
+	before, err := sql.Open("sqlite", backup+"?mode=ro")
+	if err != nil {
+		t.Fatal(err)
+	}
 	var schema string
 	err = before.QueryRow("SELECT value FROM metadata WHERE key='schema'").Scan(&schema)
 	before.Close()
-	if err != nil || schema != "2" { t.Fatal("backup is not pre-migration schema", err) }
-	if err = s.addNodeWithProfile("N2", Random(32), "chosen"); err != nil { t.Fatal(err) }
+	if err != nil || schema != "2" {
+		t.Fatal("backup is not pre-migration schema", err)
+	}
+	if err = s.addNodeWithProfile("N2", Random(32), "chosen"); err != nil {
+		t.Fatal(err)
+	}
 	s.Close()
-	s, err = OpenStore(dir); if err != nil { t.Fatal(err) }; defer s.Close()
-	if !s.AuthNode("N1", token) { t.Fatal("upgrade lost original node") }
-	if old, err := s.Batch(b.ID); err != nil || old.State != "draft" { t.Fatal("upgrade lost original batch", err) }
-	if choice, err := s.nodeBMCProfile("N2"); err != nil || choice != "chosen" { t.Fatal("choice lost after reopening database", err) }
-	nodes, err := s.Nodes(); if err != nil || len(nodes) != 2 || nodes[1].BMCProfile != "chosen" { t.Fatal("overview selection absent", err) }
+	s, err = OpenStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if !s.AuthNode("N1", token) {
+		t.Fatal("upgrade lost original node")
+	}
+	if old, err := s.Batch(b.ID); err != nil || old.State != "draft" {
+		t.Fatal("upgrade lost original batch", err)
+	}
+	if choice, err := s.nodeBMCProfile("N2"); err != nil || choice != "chosen" {
+		t.Fatal("choice lost after reopening database", err)
+	}
+	nodes, err := s.Nodes()
+	if err != nil || len(nodes) != 2 || nodes[1].BMCProfile != "chosen" {
+		t.Fatal("overview selection absent", err)
+	}
 }

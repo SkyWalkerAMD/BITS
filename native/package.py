@@ -10,7 +10,7 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.4.0-alpha.7"
+VERSION = "0.4.0"
 PREFIX = "/opt/bits/native/" + VERSION
 BASELINES = {
     "rpm": ("bits-node-0.3.0-1.el8.x86_64.rpm", "28c98ed53b162c9727b54d8d68e77f72b8f89326be2fcf1ee5ba01e16439da36"),
@@ -118,7 +118,7 @@ def package(role, kind, binaries, baseline, output):
             stage_worker(stage, baseline, kind)
         put(stage / "usr/lib/systemd/system" / ("bits-" + role + ".service"), service(role))
         copy(ROOT / "docs/development/BITS-INDEPENDENT.md", stage / "usr/share/doc" / ("bits-" + role) / "ARCHITECTURE.md")
-        copy(ROOT / "docs/deployment/BITS-INDEPENDENT-PREVIEW.md", stage / "usr/share/doc" / ("bits-" + role) / "OPERATIONS.md")
+        copy(ROOT / "docs/deployment/BITS-INDEPENDENT.md", stage / "usr/share/doc" / ("bits-" + role) / "OPERATIONS.md")
         shutil.copytree(str(binaries / "licenses"), str(stage / "usr/share/doc" / ("bits-" + role) / "go-licenses"))
         put(stage / PREFIX.lstrip("/") / (role + "-BUILD.json"), json.dumps({
             "version": VERSION, "role": role, "source_commit": os.environ["GITHUB_SHA"],
@@ -138,17 +138,17 @@ def package(role, kind, binaries, baseline, output):
                 requirements += ", passwd"
             else:
                 requirements += ", python3 (>= 3.6), libnuma1, libgmp10, libatomic1, libstdc++6, perl"
-            put(control / "control", "Package: " + name + "\nVersion: 0.4.0~alpha.7-1\nArchitecture: amd64\n"
+            put(control / "control", "Package: " + name + "\nVersion: 0.4.0-1\nArchitecture: amd64\n"
                 "Maintainer: BITS project\nSection: admin\nPriority: optional\nDepends: " + requirements +
                 "\nConflicts: ocrun-node, ocrun-center, bits-o-node, bits-o-control, bits-o-workloads, ocrun-workloads\n"
-                "Description: Independent BITS " + role + " architecture preview\n Explicit setup; no task or service starts during installation.\n")
+                "Description: BITS " + role + " for test execution and hardware monitoring\n Explicit setup; no task or service starts during installation.\n")
             put(control / "preinst", pre, 0o755)
             put(control / "prerm", pre, 0o755)
             put(control / "postinst", post, 0o755)
             put(control / "md5sums", "".join(hashlib.md5(p.read_bytes()).hexdigest() + "  " + p.relative_to(stage).as_posix() + "\n"
                 for p in sorted(stage.rglob("*")) if p.is_file() and control not in p.parents))
             subprocess.run(["dpkg-deb", "-Zxz", "--uniform-compression", "--root-owner-group", "--build", str(stage),
-                            str(output / (name + "_0.4.0.alpha.7-1_amd64.deb"))], check=True)
+                            str(output / (name + "_0.4.0-1_amd64.deb"))], check=True)
         else:
             spec = work / "package.spec"
             requirements = "systemd, ca-certificates, coreutils, ipmitool"
@@ -156,13 +156,13 @@ def package(role, kind, binaries, baseline, output):
                 requirements += ", shadow-utils"
             else:
                 requirements += ", python3 >= 3.6, numactl-libs, gmp, libatomic, libstdc++, perl"
-            spec.write_text("Name: " + name + "\nVersion: 0.4.0\nRelease: 0.alpha.7.el8\n"
-                "Summary: Independent BITS " + role + " architecture preview\n"
+            spec.write_text("Name: " + name + "\nVersion: 0.4.0\nRelease: 1.el8\n"
+                "Summary: BITS " + role + " for test execution and hardware monitoring\n"
                 "License: GPLv2+ and GPLv3+ and BSD and GIMPS and LicenseRef-Intel-Limited-Tools\n"
                 "BuildArch: x86_64\nRequires: " + requirements +
                 "\nConflicts: ocrun-node, ocrun-center, bits-o-node, bits-o-control, bits-o-workloads, ocrun-workloads\n"
                 "%global debug_package %{nil}\n%global __os_install_post %{nil}\n"
-                "%description\nIndependent architecture preview; explicit setup, no installation-time execution.\n"
+                "%description\nTest execution and hardware monitoring; explicit setup, no installation-time execution.\n"
                 "%install\nmkdir -p %{buildroot}\ncp -a " + str(stage) + "/. %{buildroot}/\n"
                 "%pre\n" + pre.split("\n", 1)[1] + "\n%preun\n" + pre.split("\n", 1)[1] +
                 "\n%post\n" + post.split("\n", 1)[1] +

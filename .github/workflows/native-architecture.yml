@@ -35,6 +35,9 @@ jobs:
           git diff -- native/ > /tmp/native-format.patch
       - name: Check the explicit public source export
         run: |
+          python3 ci/repository_layout.py
+          cp .layout-results/layout.json /tmp/native-layout.json
+          python3 -m unittest distribution.test_source_export
           python3 - <<'PY'
           import os
           from distribution.source_export import export_sources
@@ -59,6 +62,7 @@ jobs:
           path: |
             /tmp/native-format.patch
             /tmp/native-tests.txt
+            /tmp/native-layout.json
             native/go.mod
             native/go.sum
           retention-days: 14
@@ -116,9 +120,50 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with: {name: 'independent-test-${{ matrix.label }}-${{ github.run_id }}', path: .independent-results/, include-hidden-files: true, retention-days: 30}
-  preview:
+  upgrade:
     if: inputs.full_matrix
-    needs: [protocol, packages, linux]
+    needs: packages
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {label: rocky8, image: 'rockylinux/rockylinux:8', kind: rpm}
+          - {label: ubuntu22, image: 'ubuntu:22.04', kind: deb}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: {name: 'independent-packages-${{ matrix.kind }}-${{ github.run_id }}', path: native-dist}
+      - name: Download immutable alpha.7 packages and check pinned hashes
+        env: {GH_TOKEN: '${{ github.token }}', KIND: '${{ matrix.kind }}'}
+        run: |
+          mkdir upgrade-from
+          gh release download v0.4.0-alpha.7 --repo SkyWalkerAMD/BITS --pattern "bits-*.$KIND" --dir upgrade-from
+          cd upgrade-from
+          sha256sum --check --ignore-missing <<'HASHES'
+          49dd1d03da35a8557c9c0081414cfe822584f1a851ac264870928e8e8c293d44  bits-center-0.4.0-0.alpha.7.el8.x86_64.rpm
+          707367f021c73aa3f3571163b581b8cf68e5a7b768bb3c9ee12cea32a52085cd  bits-node-0.4.0-0.alpha.7.el8.x86_64.rpm
+          e9d1051480bd9cccb1600cc0129b9280628fa6dc117bc2f964a96d41b9fbb8e1  bits-center_0.4.0.alpha.7-1_amd64.deb
+          969cb6127dd0e45b20fbd154061c91e91cbc68f64effa9207bae31b557d5b77b  bits-node_0.4.0.alpha.7-1_amd64.deb
+          HASHES
+      - name: Upgrade real packages while preserving identity, templates and sealed reports
+        env: {BASE_IMAGE: '${{ matrix.image }}', KIND: '${{ matrix.kind }}'}
+        run: bash native/ci/upgrade.sh
+      - name: Capture upgrade diagnostics
+        if: always()
+        run: |
+          mkdir -p .independent-upgrade-results
+          docker logs bits-independent-upgrade > .independent-upgrade-results/boot.txt 2>&1 || true
+          docker rm -f bits-independent-upgrade || true
+          sudo chown -R "$(id -u):$(id -g)" .independent-upgrade-results
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with: {name: 'independent-upgrade-${{ matrix.label }}-${{ github.run_id }}', path: .independent-upgrade-results/, include-hidden-files: true, retention-days: 30}
+  release:
+    if: inputs.full_matrix
+    needs: [protocol, packages, linux, upgrade]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -127,7 +172,11 @@ jobs:
         with: {pattern: 'independent-packages-*-${{ github.run_id }}', path: native-evidence}
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with: {pattern: 'independent-test-*-${{ github.run_id }}', path: native-evidence}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: {pattern: 'independent-upgrade-*-${{ github.run_id }}', path: native-evidence}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: {name: 'native-core-${{ github.run_id }}', path: native-evidence/core}
       - name: Assemble reviewed source and same-run packages with evidence
         run: python3 native/ci/release.py
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with: {name: 'bits-independent-preview-${{ github.run_id }}', path: native-release/, retention-days: 30}
+        with: {name: 'bits-independent-release-${{ github.run_id }}', path: native-release/, retention-days: 30}

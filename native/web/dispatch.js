@@ -148,7 +148,8 @@ function renderDispatch() {
         status = el("div");
       identity.append(el("strong", n.node), el("small", powerText(n.power)));
       const found = dispatchState.discoveries[n.node];
-      if (found?.profile) identity.append(el("small", "接入模板：" + found.profile));
+      if (found?.profile)
+        identity.append(el("small", "接入模板：" + found.profile));
       if (!n.power?.configured && found) {
         identity.append(
           el(
@@ -547,29 +548,29 @@ function openBMC(n) {
   $("bmc-dialog").showModal();
 }
 async function openBMCProfiles(forEnrollment = false) {
-    try {
-      dispatchState.profiles = await api("dispatch/bmc-profiles");
-      replace(
-        $("bmc-profile-select"),
-        ...[{ name: "" }, ...dispatchState.profiles].map((p) => {
-          const option = el(
-            "option",
-            p.name
-              ? p.name + (p.enabled ? " · 已启用" : " · 已停用")
-              : "新增模板",
-          );
-          option.value = p.name;
-          return option;
-        }),
-      );
-      $("bmc-profiles-form").reset();
-      dispatchState.profileForEnrollment = forEnrollment;
-      fillBMCProfile();
-      $("bmc-profiles-dialog").showModal();
-    } catch (err) {
-      if (forEnrollment) $("node-profile-error").textContent = err.message;
-      else notice(err.message, true);
-    }
+  try {
+    dispatchState.profiles = await api("dispatch/bmc-profiles");
+    replace(
+      $("bmc-profile-select"),
+      ...[{ name: "" }, ...dispatchState.profiles].map((p) => {
+        const option = el(
+          "option",
+          p.name
+            ? p.name + (p.enabled ? " · 已启用" : " · 已停用")
+            : "新增模板",
+        );
+        option.value = p.name;
+        return option;
+      }),
+    );
+    $("bmc-profiles-form").reset();
+    dispatchState.profileForEnrollment = forEnrollment;
+    fillBMCProfile();
+    $("bmc-profiles-dialog").showModal();
+  } catch (err) {
+    if (forEnrollment) $("node-profile-error").textContent = err.message;
+    else notice(err.message, true);
+  }
 }
 function initializeDispatch() {
   $("bmc-profiles-open").onclick = () => openBMCProfiles();

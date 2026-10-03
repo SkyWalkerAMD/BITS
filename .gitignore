@@ -16,6 +16,10 @@ native-input/
 native-dist/
 native-bin/
 .independent-results/
+.independent-upgrade-results/
+upgrade-from/
+native-evidence/
+native-release/
 system-dist/
 control-dist/
 control-release-input/

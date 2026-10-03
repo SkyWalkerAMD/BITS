@@ -1893,7 +1893,7 @@ function render() {
     ? "新建任务组"
     : "新建批次";
   $("version").textContent =
-    "BITS " + (snapshot.version || "") + " · 独立架构预览";
+    "BITS " + (snapshot.version || "") + " · 测试控制中心";
   $("nav-node-count").textContent = snapshot.nodes.length;
   connection();
   if (page === "overview") renderOverview();

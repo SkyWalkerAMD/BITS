@@ -1466,13 +1466,35 @@ main {
   gap: 8px;
   margin-bottom: 14px;
 }
-.node-profile-heading h3 { margin: 0; font-size: 14px; }
-.node-profile-summary { font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
-.node-profile-summary p { margin: 10px 0; color: var(--muted); }
-.node-profile-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 14px 0; }
-.node-profile-facts dt { color: var(--muted); font-size: 11px; }
-.node-profile-facts dd { margin: 2px 0 0; }
-.node-profile-section .error:empty { display: none; }
+.node-profile-heading h3 {
+  margin: 0;
+  font-size: 14px;
+}
+.node-profile-summary {
+  font-size: 12px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.node-profile-summary p {
+  margin: 10px 0;
+  color: var(--muted);
+}
+.node-profile-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0;
+}
+.node-profile-facts dt {
+  color: var(--muted);
+  font-size: 11px;
+}
+.node-profile-facts dd {
+  margin: 2px 0 0;
+}
+.node-profile-section .error:empty {
+  display: none;
+}
 .info-note {
   background: #eff7f5;
   color: #46766d;
