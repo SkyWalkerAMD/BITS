@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-const WorkerRoot = "/opt/bits/native/0.4.1/worker"
+const WorkerRoot = "/opt/bits/native/0.4.2/worker"
 
 type LocalRun struct {
 	Batch        Batch               "json:\"batch\""
@@ -462,6 +462,11 @@ func (a *Agent) Run(ctx context.Context, once bool) error {
 		return err
 	}
 	defer lock.Close()
+	gate, err := maintenanceGate(a.Data)
+	if err != nil {
+		return err
+	}
+	defer gate.Close()
 	a.monitorEnabled = !once
 	defer func() { a.stopMonitor(); a.monitorEnabled = false }()
 	heartbeatCtx, stopHeartbeat := context.WithCancel(ctx)
@@ -469,7 +474,24 @@ func (a *Agent) Run(ctx context.Context, once bool) error {
 	go func() { defer close(heartbeatDone); a.heartbeat(heartbeatCtx) }()
 	defer func() { stopHeartbeat(); <-heartbeatDone }()
 	for {
+		if err = syscall.Flock(int(gate.Fd()), syscall.LOCK_SH|syscall.LOCK_NB); err != nil {
+			if !errors.Is(err, syscall.EWOULDBLOCK) {
+				return err
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(100 * time.Millisecond):
+				continue
+			}
+		}
 		err = a.once(ctx)
+		if !once && err == nil {
+			if shutdownErr := a.shutdownIfIdle(ctx); shutdownErr != nil {
+				fmt.Fprintln(os.Stderr, "BITS shutdown:", shutdownErr)
+			}
+		}
+		syscall.Flock(int(gate.Fd()), syscall.LOCK_UN)
 		if once {
 			return err
 		}
@@ -478,8 +500,6 @@ func (a *Agent) Run(ctx context.Context, once bool) error {
 			fmt.Fprintln(os.Stderr, "BITS:", err)
 			a.idleSince = time.Time{}
 			pause = 30 * time.Second
-		} else if err = a.shutdownIfIdle(ctx); err != nil {
-			fmt.Fprintln(os.Stderr, "BITS shutdown:", err)
 		}
 		select {
 		case <-ctx.Done():

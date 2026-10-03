@@ -121,35 +121,36 @@ jobs:
         if: always()
         with: {name: 'independent-test-${{ matrix.label }}-${{ github.run_id }}', path: .independent-results/, include-hidden-files: true, retention-days: 30}
   upgrade:
-    if: inputs.full_matrix
     needs: packages
     runs-on: ubuntu-22.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - {label: rocky8, image: 'rockylinux/rockylinux:8', kind: rpm}
-          - {label: ubuntu22, image: 'ubuntu:22.04', kind: deb}
+        include: ${{ fromJSON(inputs.full_matrix && '[{"label":"rocky8-from040","image":"rockylinux/rockylinux:8","kind":"rpm","old":"0.4.0"},{"label":"ubuntu22-from040","image":"ubuntu:22.04","kind":"deb","old":"0.4.0"},{"label":"rocky8-from041","image":"rockylinux/rockylinux:8","kind":"rpm","old":"0.4.1"},{"label":"ubuntu22-from041","image":"ubuntu:22.04","kind":"deb","old":"0.4.1"}]' || '[{"label":"rocky8-from040","image":"rockylinux/rockylinux:8","kind":"rpm","old":"0.4.0"},{"label":"ubuntu22-from040","image":"ubuntu:22.04","kind":"deb","old":"0.4.0"}]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with: {persist-credentials: false}
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with: {name: 'independent-packages-${{ matrix.kind }}-${{ github.run_id }}', path: native-dist}
-      - name: Download immutable 0.4.0 packages and check pinned hashes
-        env: {GH_TOKEN: '${{ github.token }}', KIND: '${{ matrix.kind }}'}
+      - name: Download immutable baseline packages and check pinned hashes
+        env: {GH_TOKEN: '${{ github.token }}', KIND: '${{ matrix.kind }}', OLD: '${{ matrix.old }}'}
         run: |
           mkdir upgrade-from
-          gh release download v0.4.0 --repo SkyWalkerAMD/BITS --pattern "bits-*.$KIND" --dir upgrade-from
+          gh release download "v$OLD" --repo SkyWalkerAMD/BITS --pattern "bits-*.$KIND" --dir upgrade-from
           cd upgrade-from
           sha256sum --check --ignore-missing <<'HASHES'
           1ea079307c7c0daedadf504a4ac572104b86a21ed1ba00916d91fada794519aa  bits-center-0.4.0-1.el8.x86_64.rpm
           771b8b6909e7f61cd898706ddd35482b21ce5bbaf49ed587b642decedddd10f2  bits-node-0.4.0-1.el8.x86_64.rpm
           5bd7a7b57cc2f78868d3a99341146b23d822b3a94936e6fc68b7dd509eb52248  bits-center_0.4.0-1_amd64.deb
           96569084b0b8e2304d763915d8061fcde91bc46871ecb0ede5c09778ef265bf0  bits-node_0.4.0-1_amd64.deb
+          e43ee067d65f7203e11b002842ca97c2eb0a730a591f920e8c2bc0b2a3737e99  bits-center-0.4.1-1.el8.x86_64.rpm
+          a5db701ecd8c0e35173967453ef98727c59de9d98037e503a608a6a6114e3da8  bits-node-0.4.1-1.el8.x86_64.rpm
+          3e1f57291c14bd4b4570111bf671e11d41c7ebc18e36eb891af7282b0f39b95f  bits-center_0.4.1-1_amd64.deb
+          9f39d68f9c81f05d0c3fae8d1c691c481efee00a4ad589d9d87f3705e9bf5e22  bits-node_0.4.1-1_amd64.deb
           HASHES
       - name: Upgrade real packages while preserving identity, templates and sealed reports
-        env: {BASE_IMAGE: '${{ matrix.image }}', KIND: '${{ matrix.kind }}'}
+        env: {BASE_IMAGE: '${{ matrix.image }}', KIND: '${{ matrix.kind }}', OLD: '${{ matrix.old }}'}
         run: bash native/ci/upgrade.sh
       - name: Capture upgrade diagnostics
         if: always()

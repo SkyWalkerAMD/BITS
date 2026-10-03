@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from distribution.source_export import export_sources
 
-version = "0.4.1"
+version = "0.4.2"
 run = os.environ["GITHUB_RUN_ID"]
 commit = os.environ["GITHUB_SHA"]
 inputs = Path("native-evidence")
@@ -50,16 +50,17 @@ browser = json.loads((browser_dir / "browser.json").read_text())
 if browser["status"] != "passed":
     raise ValueError("Browser interaction acceptance is incomplete")
 upgrades = {}
-for label, kind in (("rocky8", "rpm"), ("ubuntu22", "deb")):
+for label, kind, old in (("rocky8-from040", "rpm", "0.4.0"), ("ubuntu22-from040", "deb", "0.4.0"),
+                         ("rocky8-from041", "rpm", "0.4.1"), ("ubuntu22-from041", "deb", "0.4.1")):
     evidence = inputs / ("independent-upgrade-" + label + "-" + run)
     summary = json.loads((evidence / "upgrade.json").read_text())
-    if (summary["status"], summary["from"], summary["to"], summary["format"]) != ("passed", "0.4.0", version, kind):
+    if (summary["status"], summary["from"], summary["to"], summary["format"]) != ("passed", old, version, kind):
         raise ValueError("Package upgrade verification failed: " + label)
     summary["image"] = (evidence / "image.txt").read_text().strip()
     upgrades[label] = summary
 for kind in ("rpm", "deb"):
     packages = sorted((inputs / ("independent-packages-" + kind + "-" + run)).glob("*." + kind))
-    expected = {"bits-" + role + ("-0.4.1-1.el8.x86_64.rpm" if kind == "rpm" else "_0.4.1-1_amd64.deb") for role in ("center", "node")}
+    expected = {"bits-" + role + ("-0.4.2-1.el8.x86_64.rpm" if kind == "rpm" else "_0.4.2-1_amd64.deb") for role in ("center", "node")}
     if {p.name for p in packages} != expected:
         raise ValueError("Exactly one center and one node package are required per format")
     for source in packages:
@@ -75,7 +76,7 @@ for filename in ("dashboard.png", "dashboard-mobile.png", "batch-running.png", "
     shutil.copyfile(str(browser_dir / filename), str(out / filename))
 for source, target in (("docs/development/BITS-INDEPENDENT.md", "ARCHITECTURE.md"),
                        ("docs/deployment/BITS-INDEPENDENT.md", "OPERATIONS.md"),
-                       ("docs/releases/0.4.1.md", "RELEASE-NOTES.md")):
+                       ("docs/releases/0.4.2.md", "RELEASE-NOTES.md")):
     shutil.copyfile(str(ROOT / source), str(out / target))
 sources = export_sources(out / ("bits-source-" + version + ".tar.gz"), commit)
 verification = {

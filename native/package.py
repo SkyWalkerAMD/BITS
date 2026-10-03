@@ -10,7 +10,7 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.4.1"
+VERSION = "0.4.2"
 PREFIX = "/opt/bits/native/" + VERSION
 BASELINES = {
     "rpm": ("bits-node-0.3.0-1.el8.x86_64.rpm", "28c98ed53b162c9727b54d8d68e77f72b8f89326be2fcf1ee5ba01e16439da36"),
@@ -107,6 +107,14 @@ def guard(role):
             " if [ -e \"$old\" ]; then echo 'Earlier deployment retained; use a fresh server/node or explicit migration.' >&2; exit 1; fi\ndone\n")
 
 
+def lifecycle(role, phase):
+    # Embedded because new package files do not exist during preinst/%pre.
+    source = (ROOT / "native/package_lifecycle.py").read_text().replace("\r\n", "\n")
+    return ("#!/bin/sh\nset -eu\numask 077\nPATH=/usr/sbin:/usr/bin:/sbin:/bin\nexport PATH\n"
+            "/usr/bin/python3 -I -B - " + role + " " + VERSION + " " + phase + " <<'BITS_PACKAGE_PY'\n" +
+            source + "\nBITS_PACKAGE_PY\n")
+
+
 def package(role, kind, binaries, baseline, output):
     with tempfile.TemporaryDirectory(prefix="bits-native-package-") as temporary:
         work = Path(temporary)
@@ -126,7 +134,9 @@ def package(role, kind, binaries, baseline, output):
             "legacy_protocols_installed": False, "sckocp_activation_management": False,
             "tool_baseline": {"file": baseline.name, "sha256": sha(baseline)} if role == "node" else None,
             "files": inventory(stage)}, indent=2))
-        pre = guard(role)
+        pre = lifecycle(role, "prepare")
+        finish = lifecycle(role, "finish")
+        recover = lifecycle(role, "recover")
         post = ("#!/bin/sh\nset -eu\n" +
                 ("getent group bits >/dev/null || groupadd --system bits\ngetent passwd bits >/dev/null || useradd --system --gid bits --home-dir /var/lib/bits/center --shell /usr/sbin/nologin bits\n" if role == "center" else "") +
                 "systemctl daemon-reload >/dev/null 2>&1 || true\n")
@@ -138,17 +148,25 @@ def package(role, kind, binaries, baseline, output):
                 requirements += ", passwd"
             else:
                 requirements += ", python3 (>= 3.6), libnuma1, libgmp10, libatomic1, libstdc++6, perl"
-            put(control / "control", "Package: " + name + "\nVersion: 0.4.1-1\nArchitecture: amd64\n"
+            put(control / "control", "Package: " + name + "\nVersion: " + VERSION + "-1\nArchitecture: amd64\n"
                 "Maintainer: BITS project\nSection: admin\nPriority: optional\nDepends: " + requirements +
+                "\nPre-Depends: python3 (>= 3.6), systemd, tar" +
                 "\nConflicts: ocrun-node, ocrun-center, bits-o-node, bits-o-control, bits-o-workloads, ocrun-workloads\n"
-                "Description: BITS " + role + " for test execution and hardware monitoring\n Explicit setup; no task or service starts during installation.\n")
+                "Description: BITS " + role + " for test execution and hardware monitoring\n One-time setup; automatic idle service maintenance on package upgrades.\n")
             put(control / "preinst", pre, 0o755)
-            put(control / "prerm", pre, 0o755)
-            put(control / "postinst", post, 0o755)
+            # Immutable <=0.4.1 prerm refuses active services. dpkg invokes the
+            # new prerm's failed-upgrade fallback before the new preinst.
+            put(control / "prerm", "#!/bin/sh\nset -eu\ncase \"$1\" in\n"
+                "upgrade) exit 0;;\nfailed-upgrade)\n" + pre.split("\n", 1)[1] +
+                ";;\n*)\n" + guard(role).split("\n", 1)[1] + ";;\nesac\n", 0o755)
+            put(control / "postinst", "#!/bin/sh\nset -eu\nif [ \"$1\" = configure ]; then\n" +
+                post.split("\n", 1)[1] + finish.split("\n", 1)[1] + "\nfi\n", 0o755)
+            put(control / "postrm", "#!/bin/sh\nset -eu\ncase \"$1\" in\nabort-upgrade|abort-install)\n" +
+                recover.split("\n", 1)[1] + ";;\n*) systemctl daemon-reload >/dev/null 2>&1 || true;;\nesac\n", 0o755)
             put(control / "md5sums", "".join(hashlib.md5(p.read_bytes()).hexdigest() + "  " + p.relative_to(stage).as_posix() + "\n"
                 for p in sorted(stage.rglob("*")) if p.is_file() and control not in p.parents))
             subprocess.run(["dpkg-deb", "-Zxz", "--uniform-compression", "--root-owner-group", "--build", str(stage),
-                            str(output / (name + "_0.4.1-1_amd64.deb"))], check=True)
+                            str(output / (name + "_" + VERSION + "-1_amd64.deb"))], check=True)
         else:
             spec = work / "package.spec"
             requirements = "systemd, ca-certificates, coreutils, ipmitool"
@@ -156,16 +174,20 @@ def package(role, kind, binaries, baseline, output):
                 requirements += ", shadow-utils"
             else:
                 requirements += ", python3 >= 3.6, numactl-libs, gmp, libatomic, libstdc++, perl"
-            spec.write_text("Name: " + name + "\nVersion: 0.4.1\nRelease: 1.el8\n"
+            spec.write_text("Name: " + name + "\nVersion: " + VERSION + "\nRelease: 1.el8\n"
                 "Summary: BITS " + role + " for test execution and hardware monitoring\n"
                 "License: GPLv2+ and GPLv3+ and BSD and GIMPS and LicenseRef-Intel-Limited-Tools\n"
                 "BuildArch: x86_64\nRequires: " + requirements +
+                "\nRequires(pre,post,posttrans): python3 >= 3.6, systemd, tar\nRequires(preun): systemd" +
                 "\nConflicts: ocrun-node, ocrun-center, bits-o-node, bits-o-control, bits-o-workloads, ocrun-workloads\n"
                 "%global debug_package %{nil}\n%global __os_install_post %{nil}\n"
-                "%description\nTest execution and hardware monitoring; explicit setup, no installation-time execution.\n"
+                "%description\nTest execution and hardware monitoring; automatic idle service maintenance.\n"
                 "%install\nmkdir -p %{buildroot}\ncp -a " + str(stage) + "/. %{buildroot}/\n"
-                "%pre\n" + pre.split("\n", 1)[1] + "\n%preun\n" + pre.split("\n", 1)[1] +
+                "%pre\n" + pre.split("\n", 1)[1].replace("%", "%%") +
+                "\n%preun\nif [ \"$1\" -eq 0 ]; then\n" + guard(role).split("\n", 1)[1] + "\nfi\n" +
                 "\n%post\n" + post.split("\n", 1)[1] +
+                "\n%postun\nsystemctl daemon-reload >/dev/null 2>&1 || true\n" +
+                "\n%posttrans\n" + finish.split("\n", 1)[1].replace("%", "%%") +
                 "\n%files\n%defattr(-,root,root,-)\n/usr/bin/bits-" + role +
                 "\n/usr/lib/systemd/system/bits-" + role + ".service\n/usr/share/doc/bits-" + role +
                 "\n" + PREFIX + "\n" + ("/opt/bits/workloads/0.1.0\n" if role == "node" else ""), encoding="utf-8")

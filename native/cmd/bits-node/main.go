@@ -27,6 +27,7 @@ func run() error {
 	config := f.String("config", "/etc/bits/node/connection.json", "private node connection")
 	enrollment := f.String("file", "", "enrollment file exported from center")
 	once := f.Bool("once", false, "process pending explicit command or recovery once")
+	startService := f.Bool("start", true, "enable and start the installed service after enrollment")
 	if err := f.Parse(os.Args[2:]); err != nil {
 		return err
 	}
@@ -61,7 +62,15 @@ func run() error {
 		if err = bits.AtomicJSON(*config, cfg); err != nil {
 			return err
 		}
-		fmt.Println("Enrolled. Install/activate original sckocp separately, then: systemctl enable --now bits-node.service")
+		if *startService {
+			if *config != "/etc/bits/node/connection.json" {
+				return errors.New("custom configuration saved; configure the service explicitly or use --start=false")
+			}
+			if err = bits.EnableService("node"); err != nil {
+				return err
+			}
+		}
+		fmt.Println("Enrolled. Original sckocp installation and activation remain separate.")
 		return nil
 	}
 	cfg, err := bits.LoadNodeConfig(*config)

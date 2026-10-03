@@ -4,6 +4,16 @@
 
 用户确认的业务方式：网页为主、保留命令行；单个中心约 10–200 台节点；管理员创建批次后明确点击开始；节点完成后保持空闲，只有收到下一次明确授权才执行。节点常驻连接不等于自动领取待办任务。
 
+## 0.4.2：包管理器维护
+
+RPM `%pre` 与 DEB `preinst` 内嵌同一 Python 3.6+ 维护实现，通过前置依赖保证解包前可用。先验证未完成工作，再阻止新任务进入、停服并制作私有完整快照。中心用 SQLite `BEGIN IMMEDIATE` 保护检查到停服的窗口；节点在 poll / 执行 / 空闲关机整个循环持有共享 `maintenance.lock`，安装器持有排他锁后停服。既有任务和未知状态拒绝维护。
+
+不可变的旧节点没有维护锁：仅暂停已验证身份的 systemd 主进程，检查持久执行意图；有未完成工作立即恢复主进程，工作进程不被暂停。确认空闲后，在 systemd 停止事务中终止暂停的旧主进程并等待监控子进程清理，避免恢复旧 poll 后抢到新任务。0.4.2 及之后使用正常的协作停服。
+
+RPM 恢复放在 `%posttrans`，保证不可变旧包的 `%preun` 看到服务已停止。DEB 为旧 `prerm` 的运行中拒绝提供 `failed-upgrade` 回退，再由幂等 `preinst` 接续。脚本顺序依据 [RPM 文档](https://rpm.org/docs/4.20.x/manual/triggers.html) 与 [Debian Policy](https://www.debian.org/doc/debian-policy/ch-maintainerscripts.html)。服务的运行状态与启用状态分开处理；runtime mask 只在本包创建时解除，外部 mask 保留。
+
+备份位于 `/var/backups/bits/{role}/`，事务状态位于 root 私有的 `/var/lib/bits-package/`，均不进入角色数据目录。备份失败在解包前恢复服务；解包或启动失败保留维护状态，重装同版本继续。没有配置的镜像安装可在 systemd 尚未启动时执行；首次 setup / enroll 成功后才启用服务。配置身份、网络和原生授权不由安装器猜测。
+
 ## 0.4.1：硬件信息、独立唤醒与永久删除
 
 独立 `POST /node/v1/hardware-info` 由节点凭据限定归属；操作员通过 `GET /api/v1/nodes/{node}/hardware-info` 查看。worker 从现有授权 `info` 结果投影固定章节、CPU 和 DIMM 数据，不新增命令。512 KiB 请求上限、章节/行/字段白名单与 Primary 时序校验在中心再次执行。schema 4 的 `node_hardware_info` 仅保存最新成功快照和最近尝试状态，重启保留；失败不刷新成功快照的时间，重复上报不刷新接收时间。UI 独立标明离线、过期或采集失败。

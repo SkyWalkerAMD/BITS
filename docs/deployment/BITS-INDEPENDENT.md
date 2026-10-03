@@ -1,6 +1,6 @@
-# BITS 0.4.1 安装、升级与网页操作
+# BITS 0.4.2 安装、升级与网页操作
 
-版本 0.4.1 正式版。新部署与 0.4.0 升级使用本手册；BITS-o、OCRUN 与 0.3.0 使用不同协议，不套用本版原地升级。安装器不会启动服务或压测，验证范围随 Release 的 VERIFICATION.json 提供。
+版本 0.4.2。所有控制端和节点共用以下流程，与主机名、IP 地址无关。RPM / DEB 自动处理正常升级；首次安装后仅需初始化中心或导入节点连接文件。BITS-o、OCRUN 与 0.3.0 使用不同协议，不套用本版原地升级。
 
 ## 需要安装什么
 
@@ -8,15 +8,15 @@
 
 中心安装 bits-center 的 RPM 或 DEB；节点安装 bits-node 的 RPM 或 DEB，节点包包含固定版本工具及本地采集/报告适配器。节点仍单独安装原版 sckocp，并在 BITS 以外按原流程完成授权。BITS 不保存激活码，不连接或管理激活数据库。
 
-RPM 版本为 0.4.1-1.el8，DEB 为 0.4.1-1；程序显示 0.4.1。先核验 SHA256SUMS，再用系统包管理器安装对应格式；现有安装按下文升级，保留配置、连接身份及数据。
+RPM 版本为 0.4.2-1.el8，DEB 为 0.4.2-1；程序显示 0.4.2。先核验 SHA256SUMS，再用系统包管理器安装对应格式；现有安装按下文升级，保留配置、连接身份及数据。
 
 ## 新中心，root
 
-查看已配置的网络地址：
+先安装中心包：`dnf install ./bits-center-0.4.2-1.el8.x86_64.rpm`；Debian / Ubuntu 使用 `apt install ./bits-center_0.4.2-1_amd64.deb`。然后查看本机地址：
 
     bits-center network
 
-选定现有内网地址和允许网段，先看计划，再创建配置：
+使用这台中心的实际内网地址和允许网段初始化一次，成功后自动启用并启动服务：
 
     bits-center setup --address 192.168.50.10 --network 192.168.50.0/24 --check
     bits-center setup --address 192.168.50.10 --network 192.168.50.0/24 --apply
@@ -38,7 +38,7 @@ RPM 版本为 0.4.1-1.el8，DEB 为 0.4.1-1；程序显示 0.4.1。先核验 SHA
 
 ## 新节点，root
 
-安装 bits-node 包后：
+安装节点包：`dnf install ./bits-node-0.4.2-1.el8.x86_64.rpm`；Debian / Ubuntu 使用 `apt install ./bits-node_0.4.2-1_amd64.deb`。导入一次该节点连接文件，成功后自动启用并启动服务：
 
     bits-node enroll --file /root/TEST-NODE.bits.json
     bits-node check
@@ -182,52 +182,26 @@ CLI 保留相同入口：`bits-center dispatch-nodes` 查看可达性；`bits-ce
 
 页面下方显示清理进度；中心中断后继续未完成清理，失败时可检查中心日志再点击“重试清理”。删除后下载链接失效，空任务组一同移除。中心仅保留必要的 ID、归属与删除进度，阻止节点迟到上传将证据重新建立；本操作不提供介质安全擦除。
 
-## 0.4.0 升级至 0.4.1
+## 通用 RPM / DEB 升级
 
-先完成所有运行、等待授权、报告上传及待处理批次，确认没有未完成工作。中心与节点分别停止对应服务后，备份各自的 `/etc/bits`、`/var/lib/bits` 和管理员私有连接材料；备份保存到只有管理员可读的独立目录。中心快照应包括数据库及同目录 WAL/SHM、BMC 配置、模板和全部证据，不能只复制主数据库。软件更新保留这些目录，不重新执行 `setup`、`node-add` 或 `enroll`。
+已安装 0.4.0 或 0.4.1 时，在对应机器上以 root 执行一条命令：
 
-在中心机器的安装包目录，以 root 执行：
+| 角色 | RPM | Debian / Ubuntu |
+| --- | --- | --- |
+| 控制端 | `dnf upgrade ./bits-center-0.4.2-1.el8.x86_64.rpm` | `apt install ./bits-center_0.4.2-1_amd64.deb` |
+| 节点 | `dnf upgrade ./bits-node-0.4.2-1.el8.x86_64.rpm` | `apt install ./bits-node_0.4.2-1_amd64.deb` |
 
-```bash
-(
-set -eu
-systemctl stop bits-center.service
-# 完成上述私有备份后，再安装已核验的包。
-dnf upgrade ./bits-center-0.4.1-1.el8.x86_64.rpm
-systemctl daemon-reload
-bits-center version
-systemctl start bits-center.service
-systemctl is-active bits-center.service
-bits_ready=no
-for bits_try in $(seq 1 30); do
-  if timeout 5s bits-center status; then bits_ready=yes; break; fi
-  sleep 2
-done
-[ "$bits_ready" = yes ]
-)
-```
+RPM 也可统一使用 `dnf install ./包名.rpm`：未安装时安装，版本较旧时升级。下载包所在目录可以任意选择。这里使用本地包；没有配置 BITS 软件源时不能省略文件路径。
 
-在每台节点的安装包目录，以 root 执行：
+包内自动检查未完成工作、停服、创建私有完整备份、替换软件并恢复原本运行的服务。运行、授权等待、唤醒、报告上传、待处理批次或未完成清理会阻止升级；处理完成后重新执行同一命令即可。不会为了升级取消压测。原本停止的服务保持停止，开机启动设置保留。中心会等待 HTTPS 就绪，节点检查配置、工作进程文件和服务状态；节点是否已连接中心仍以网页显示为准。
 
-```bash
-(
-set -eu
-systemctl stop bits-node.service
-# 完成上述私有备份后，再安装已核验的包。
-dnf upgrade ./bits-node-0.4.1-1.el8.x86_64.rpm
-systemctl daemon-reload
-bits-node version
-bits-node check
-systemctl start bits-node.service
-systemctl is-active bits-node.service
-)
-```
+配置、TLS 身份、BMC 凭据模板和报告继续使用，不需要重新 `setup` 或 `enroll`。备份为 `/var/backups/bits/center/时间编号/before.tar` 或 `/var/backups/bits/node/时间编号/before.tar`，包含该角色配置、实际数据目录及中心管理员连接文件；中心同时包含数据库、WAL/SHM、BMC 配置和全部证据。目录 0700、文件 0600。保留每次备份，由管理员按保留策略清理；数据较多时需预留相应空间。
 
-Debian / Ubuntu 将对应 `dnf upgrade` 行替换为 `apt install ./bits-center_0.4.1-1_amd64.deb` 或 `apt install ./bits-node_0.4.1-1_amd64.deb`，其余步骤相同。任一步失败就停止该角色的后续步骤并保留现场。服务仍在运行时安装器会拒绝升级；这是保护行为，不能跳过脚本强装。
+备份或升级前检查失败会保留旧包、恢复原服务并报错。文件解包或新服务启动失败时，保留备份和维护记录，检查包管理器输出及 `journalctl -u bits-center` / `journalctl -u bits-node`；修复原因后重新安装同一版本（RPM 使用 `dnf reinstall ./包名.rpm`，DEB 使用 `apt install --reinstall ./包名.deb`）。不跳过安装脚本，不直接降级打开新数据库。
 
-程序均应显示 `BITS 0.4.1`。中心从 schema 3 事务升级至 schema 4；有已登记节点时生成 `center.sqlite.before-node-operations-v3`（0600）一致性备份。已有同名备份则停止迁移并保留现场检查。现有身份、证书、BMC 配置和报告继续使用。旧中心拒绝新库，回退需恢复升级前完整快照及旧包，不能只覆盖主库。自动数据库备份不代替上述完整备份。云端验证覆盖 Rocky 8 RPM、Ubuntu 22 DEB 的真实 0.4.0 包升级、旧报告哈希、新批次交付和选择性删除。
+首次初始化与节点导入默认启动服务。制作镜像或使用自定义服务时可加 `--start=false`；常规升级识别服务的 `--config` 参数和中心配置中的实际数据目录。自定义 shell 包装器或无法识别的启动参数会明确报错，保留现场。未配置的新系统支持离线镜像安装，已配置系统的自动维护要求 systemd 正常运行。
 
-浏览器 Ctrl+F5 后，在空闲节点打开“实时监控”：应显示日常读数且时间持续更新，批次列表不会新增任务。再核对旧报告可下载、BMC 状态和模板选择保留。自动唤醒仍需节点服务已启用开机启动，以及到中心的路由重启后仍有效；升级包不修改网络配置。
+从 0.4.0 升级时，中心仍执行 schema 3 到 4 的事务迁移。旧版本拒绝新库，回退需恢复升级前完整快照及对应旧包。本版验证覆盖 0.4.0 / 0.4.1 的 RPM / DEB 实包升级、重复安装、服务状态保留、忙时拒绝和备份故障恢复。
 
 ## alpha.5 / alpha.6 的历史数据库升级
 
@@ -253,7 +227,7 @@ Debian / Ubuntu 将对应 `dnf upgrade` 行替换为 `apt install ./bits-center_
 
 ## 停用、保留证据与回退
 
-本版验证 0.4.0 包升级；更早 alpha 版本建议先使用 0.4.0 的既有升级流程。不提供 0.3 / OCRUN 原系统原地迁移、统一身份登录、高可用、节点登记凭据网页轮换或定期自动数据库备份。BMC 模板可在网页编辑，但不会修改设备账户或覆盖已有绑定。节点登记凭据与 sckocp 权限独立。首次配置中断时保留生成文件供检查，确认状态后再恢复。
+本版验证 0.4.0 / 0.4.1 包升级；更早 alpha 版本建议先使用 0.4.0 的既有升级流程。不提供 0.3 / OCRUN 原系统原地迁移、统一身份登录、高可用、节点登记凭据网页轮换或定期自动数据库备份。BMC 模板可在网页编辑，但不会修改设备账户或覆盖已有绑定。节点登记凭据与 sckocp 权限独立。首次配置中断时保留生成文件供检查，确认状态后再恢复。
 
 先取消当前批次并确认已结束，再停止对应服务。未确认的进程残留不能通过强制卸载绕过。
 

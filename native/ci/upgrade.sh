@@ -19,5 +19,5 @@ for attempt in $(seq 1 60); do
 done
 docker exec bits-independent-upgrade test -d /run/systemd/system
 address=$(docker inspect bits-independent-upgrade --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
-docker exec -e GITHUB_ACTIONS=true bits-independent-upgrade python3 -I -B /src/native/ci/upgrade.py "$address" "$KIND" \
+docker exec -e GITHUB_ACTIONS=true bits-independent-upgrade python3 -I -B /src/native/ci/upgrade.py "$address" "$KIND" "$OLD" \
     2>&1 | tee .independent-upgrade-results/test.txt

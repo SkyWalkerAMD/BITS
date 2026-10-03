@@ -43,6 +43,7 @@ func run() error {
 	port := f.Int("port", 443, "HTTPS port")
 	check := f.Bool("check", false, "read-only deployment plan")
 	apply := f.Bool("apply", false, "create deployment")
+	startService := f.Bool("start", true, "enable and start the installed service after setup")
 	node := f.String("node", "", "node hostname")
 	serial := f.String("serial", "", "stable asset serial")
 	keepOn := f.Bool("keep-on", false, "keep accepted node powered on after delivery")
@@ -62,6 +63,12 @@ func run() error {
 			return errors.New("choose exactly one of --check or --apply")
 		}
 		v, e := bits.InitializeCenter(filepath.Dir(*config), "/var/lib/bits/center", *address, *network, *port, *apply)
+		if e == nil && *apply && *startService {
+			if *config != "/etc/bits/center/config.json" {
+				return errors.New("custom configuration saved; configure the service explicitly or use --start=false")
+			}
+			e = bits.EnableService("center")
+		}
 		if e == nil {
 			show(v)
 		}
